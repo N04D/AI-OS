@@ -1,25 +1,37 @@
 import json
 import time
 import urllib.request
-import re # Added for regex operations
+import re
+import subprocess # Added for git command
+import sys # Added for sys.exit
 
-def get_repo_identity_from_template(git_remote_template):
+def get_repo_identity_from_remote_url():
     """
-    Derives owner and repo from the git_remote_template.
-    Expected format: ssh://git@localhost:2222/{owner}/{repo}.git
+    Derives owner and repo from the actual git remote URL.
+    Expected format: ssh://git@localhost:2222/Don/dev.git or git@github.com:owner/repo.git
     """
-    match = re.search(r'{owner}/(?P<repo>.+)\.git', git_remote_template)
+    try:
+        result = subprocess.run(
+            ["git", "config", "--get", "remote.origin.url"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        url = result.stdout.strip()
+    except subprocess.CalledProcessError:
+        raise ValueError("Could not get git remote.origin.url. Is this a git repository?")
+
+    # Handle ssh://git@localhost:2222/Don/dev.git
+    match = re.search(r'ssh://git@(?:[^:]+)(?::\d+)?/(?P<owner>[^/]+)/(?P<repo>.+)\.git', url)
     if match:
-        # Assuming owner is always "Don" for now based on the template structure,
-        # but the template implies it could be dynamic if {owner} is replaced.
-        # For this context, we will extract "Don" from the provided example
-        # and parse the repo name.
-        owner_match = re.search(r'/(?P<owner>[^/]+)/{repo}', git_remote_template)
-        owner = owner_match.group('owner') if owner_match else "unknown_owner" # Fallback
+        return match.group('owner'), match.group('repo')
+    
+    # Handle git@github.com:owner/repo.git
+    match = re.search(r'git@(?:[^:]+):(?P<owner>[^/]+)/(?P<repo>.+)\.git', url)
+    if match:
+        return match.group('owner'), match.group('repo')
         
-        return owner, match.group('repo')
-    else:
-        raise ValueError(f"Could not parse owner and repo from git_remote_template: {git_remote_template}")
+    raise ValueError(f"Unsupported git remote URL format: {url}")
 
 def get_open_issues(api_base, owner, repo):
     """Fetches open issues from the Gitea API."""
@@ -30,14 +42,39 @@ def get_open_issues(api_base, owner, repo):
                 data = json.loads(response.read().decode())
                 return data
     except Exception as e:
-        print(f"Error fetching issues: {e}")
+        # print(f"Error fetching issues from {api_url}: {e}") # Removed for cleaner output
+        pass # The main loop will handle the 'no issues found'
     return []
+
+def add_label_to_issue(api_base, owner, repo, issue_number, label):
+    """Adds a label to a Gitea issue."""
+    url = f"{api_base}/repos/{owner}/{repo}/issues/{issue_number}/labels"
+    headers = {"Content-Type": "application/json"}
+    data = json.dumps([label]).encode('utf-8')
+    req = urllib.request.Request(url, data=data, headers=headers, method='POST')
+    try:
+        with urllib.request.urlopen(req, timeout=5) as response:
+            if response.status in [200, 201]:
+                print(f"Successfully added label '{label}' to issue #{issue_number}")
+                return True
+            else:
+                print(f"Failed to add label '{label}' to issue #{issue_number}. Status: {response.status}")
+                return False
+    except Exception as e:
+        print(f"Error adding label '{label}' to issue #{issue_number}: {e}")
+        return False
 
 def select_task(issues):
     """Deterministically selects the issue with the lowest number."""
     if not issues:
         return None
-    return min(issues, key=lambda i: i['number'])
+    
+    # Filter out issues that are already "in-progress"
+    available_issues = [issue for issue in issues if "in-progress" not in [lbl['name'] for lbl in issue.get('labels', [])]]
+    if not available_issues:
+        return None
+
+    return min(available_issues, key=lambda i: i['number'])
 
 def main():
     """Main supervisor loop."""
@@ -48,15 +85,14 @@ def main():
             env = json.load(f)
             
         api_base = env.get("api_base")
-        git_remote_template = env.get("git_remote_template")
 
-        if not api_base or not git_remote_template:
-            print("Error: Missing api_base or git_remote_template in environment.json. Sleeping.")
+        if not api_base:
+            print("Error: Missing api_base in environment.json. Sleeping.")
             time.sleep(60)
             continue
             
         try:
-            owner, repo = get_repo_identity_from_template(git_remote_template)
+            owner, repo = get_repo_identity_from_remote_url()
         except ValueError as e:
             print(f"Error: {e}. Sleeping.")
             time.sleep(60)
@@ -66,10 +102,19 @@ def main():
         
         if issues:
             task = select_task(issues)
-            print(f"Current task: #{task['number']} - {task['title']}")
+            if task:
+                print(f"Selected task: #{task['number']} - {task['title']}")
+                # Attempt to claim the issue
+                if add_label_to_issue(api_base, owner, repo, task['number'], "in-progress"):
+                    print(f"CLAIMED issue #{task['number']}")
+                    sys.exit(0) # Stop execution after successful claim
+                else:
+                    print(f"Failed to claim issue #{task['number']}. Retrying in next loop.")
+            else:
+                print("All open issues are already in-progress. Sleeping for 60 seconds.")
         else:
             print("No open issues found. Sleeping for 60 seconds.")
-            time.sleep(60)
+        time.sleep(60) # Sleep even if claiming failed or all issues are in-progress
 
 if __name__ == "__main__":
     main()
