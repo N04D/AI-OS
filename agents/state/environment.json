@@ -1,0 +1,7 @@
+{
+  "host_type": "gitea-local",
+  "git_remote_template": "ssh://git@localhost:2222/{owner}/{repo}.git",
+  "api_base": "http://localhost:3000/api/v1",
+  "network_scope": "local",
+  "execution_mode": "local-autonomous"
+}
