@@ -1,6 +1,7 @@
 import subprocess
 import json
 import urllib.request
+import re
 
 def run(cmd):
     subprocess.run(cmd, check=True)
@@ -25,7 +26,7 @@ def commit(message):
 def push(branch):
     run(["git", "push", "-u", "origin", branch])
 
-def get_repo_owner_and_name():
+def get_repo_info():
     result = subprocess.run(
         ["git", "config", "--get", "remote.origin.url"],
         capture_output=True,
@@ -33,14 +34,34 @@ def get_repo_owner_and_name():
         check=True
     )
     url = result.stdout.strip()
-    # git@github.com:owner/repo.git
-    owner, repo = url.split(":")[-1].split("/")
-    repo = repo.replace(".git", "")
-    return owner, repo
+    
+    # Handle ssh://git@localhost:2222/Don/dev.git
+    match = re.search(r'ssh://git@(?P<host>[^:]+):(?P<port>\d+)/(?P<owner>[^/]+)/(?P<repo>.+)\.git', url)
+    if match:
+        info = match.groupdict()
+        return info['host'], info['port'], info['owner'], info['repo']
+    
+    # Handle git@github.com:owner/repo.git
+    match = re.search(r'git@(?P<host>[^:]+):(?P<owner>[^/]+)/(?P<repo>.+)\.git', url)
+    if match:
+        info = match.groupdict()
+        info['port'] = '80' # Default port for http
+        return info['host'], info['port'], info['owner'], info['repo']
+        
+    raise ValueError(f"Unsupported git remote URL format: {url}")
+
 
 def get_open_issues():
-    owner, repo = get_repo_owner_and_name()
-    url = f"https://api.github.com/repos/{owner}/{repo}/issues"
-    with urllib.request.urlopen(url) as response:
-        data = json.loads(response.read().decode())
-        return [{"number": i["number"], "title": i["title"]} for i in data]
+    host, port, owner, repo = get_repo_info()
+
+    # Assuming Gitea API is hosted on http
+    api_url = f"http://{host}:{port}/api/v1/repos/{owner}/{repo}/issues"
+    
+    try:
+        with urllib.request.urlopen(api_url) as response:
+            data = json.loads(response.read().decode())
+            return [{"number": i["number"], "title": i["title"]} for i in data]
+    except urllib.error.URLError as e:
+        print(f"Error fetching issues from Gitea API: {e}")
+        print(f"Attempted to connect to: {api_url}")
+        return []
