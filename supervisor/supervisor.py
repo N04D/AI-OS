@@ -4,6 +4,10 @@ import urllib.request
 import re
 import subprocess # Added for git command
 import sys # Added for sys.exit
+try:
+    from governance_enforcement import GovernanceEnforcer, GovernanceViolation
+except ImportError:
+    from supervisor.governance_enforcement import GovernanceEnforcer, GovernanceViolation
 
 def get_repo_identity_from_remote_url():
     """
@@ -79,6 +83,19 @@ def select_task(issues):
 def main():
     """Main supervisor loop."""
     env_file = "agents/state/environment.json"
+    enforcer = GovernanceEnforcer(
+        governance_path="docs/governance.md",
+        environment_path=env_file,
+    )
+    try:
+        context_info = enforcer.load_context()
+        print(
+            "Governance context loaded "
+            f"(hash={context_info['governance_hash'][:12]}...)."
+        )
+    except GovernanceViolation:
+        print(enforcer.compliance_report_block())
+        sys.exit(1)
     
     while True:
         with open(env_file, "r") as f:
@@ -103,10 +120,28 @@ def main():
         if issues:
             task = select_task(issues)
             if task:
+                instruction_text = task.get("title", "")
+                if task.get("body"):
+                    instruction_text = f"{instruction_text}\n\n{task['body']}"
+
+                try:
+                    enforcer.validate_pre_computation(
+                        instruction_text=instruction_text,
+                        intended_outcome=f"Claim issue #{task['number']} as in-progress",
+                    )
+                except GovernanceViolation:
+                    print(
+                        f"Rejected task #{task['number']} due to governance enforcement."
+                    )
+                    print(enforcer.compliance_report_block())
+                    time.sleep(60)
+                    continue
+
                 print(f"Selected task: #{task['number']} - {task['title']}")
                 # Attempt to claim the issue
                 if add_label_to_issue(api_base, owner, repo, task['number'], "in-progress"):
                     print(f"CLAIMED issue #{task['number']}")
+                    print(enforcer.compliance_report_block())
                     sys.exit(0) # Stop execution after successful claim
                 else:
                     print(f"Failed to claim issue #{task['number']}. Retrying in next loop.")
@@ -114,6 +149,7 @@ def main():
                 print("All open issues are already in-progress. Sleeping for 60 seconds.")
         else:
             print("No open issues found. Sleeping for 60 seconds.")
+        print(enforcer.compliance_report_block())
         time.sleep(60) # Sleep even if claiming failed or all issues are in-progress
 
 if __name__ == "__main__":

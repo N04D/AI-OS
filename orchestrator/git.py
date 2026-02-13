@@ -14,6 +14,15 @@ def get_diff():
     )
     return result.stdout
 
+def get_changed_files():
+    result = subprocess.run(
+        ["git", "diff", "--name-only", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
 def create_branch(task_id):
     branch = f"feature/task-{task_id}"
     run(["git", "checkout", "-b", branch])
