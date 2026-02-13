@@ -25,6 +25,18 @@ PHASE_MILESTONE_NAMES = [
 ]
 FINAL_PHASE_NAME = "Phase 5 — End-to-End Governed Autonomy"
 AUTONOMY_SLEEP_SECONDS = 60
+RECURSIVE_CLASSES = [
+    "type:refactor-deterministic",
+    "type:governance-hardening",
+    "type:observability",
+    "type:performance-bounded",
+]
+RECURSIVE_SCOPE_BY_CLASS = {
+    "type:refactor-deterministic": "supervisor/",
+    "type:governance-hardening": "docs/",
+    "type:observability": "orchestrator/",
+    "type:performance-bounded": "executor/",
+}
 
 def get_repo_identity_from_remote_url():
     """
@@ -278,7 +290,10 @@ def _highest_auto_task_counter(issues):
     max_counter = 0
     for issue in issues:
         title = issue.get("title", "")
-        m = re.match(r"^auto: governed improvement task (\d+)$", title)
+        m = re.match(
+            r"^auto: (?:governed improvement task|recursive improvement) (\d+)$",
+            title,
+        )
         if not m:
             continue
         value = int(m.group(1))
@@ -327,6 +342,78 @@ def create_self_generated_governed_task(api_base, owner, repo, final_phase_id, h
         print(f"Failed to create autonomous task. Status={status}. Body={raw}")
         return None, counter
     return created, counter
+
+def _last_recursive_issue_number(issues):
+    last = None
+    for issue in issues:
+        labels = _issue_label_names(issue)
+        title = issue.get("title", "")
+        if "recursive" not in labels:
+            continue
+        if not re.match(r"^auto: recursive improvement \d+$", title):
+            continue
+        n = issue.get("number")
+        if isinstance(n, int) and (last is None or n > last):
+            last = n
+    return last
+
+def _has_successful_autonomous_cycle(issues):
+    for issue in issues:
+        labels = _issue_label_names(issue)
+        if issue.get("state") == "closed" and "auto-generated" in labels:
+            return True
+    return False
+
+def _recursive_cooldown_ok(issues):
+    last_recursive = _last_recursive_issue_number(issues)
+    if last_recursive is None:
+        return True
+    for issue in issues:
+        number = issue.get("number")
+        if not isinstance(number, int) or number <= last_recursive:
+            continue
+        labels = _issue_label_names(issue)
+        if issue.get("state") == "closed" and "auto-generated" in labels and "recursive" not in labels:
+            return True
+    return False
+
+def create_recursive_improvement_task(api_base, owner, repo, final_phase_id, headers):
+    all_issues = get_all_issues(api_base, owner, repo, headers=headers)
+    counter = _highest_auto_task_counter(all_issues) + 1
+    improvement_class = RECURSIVE_CLASSES[(counter - 1) % len(RECURSIVE_CLASSES)]
+    target_scope = RECURSIVE_SCOPE_BY_CLASS[improvement_class]
+    title = f"auto: recursive improvement {counter}"
+
+    label_ids = []
+    for label_name in ["type:build", "governed", "deterministic", "auto-generated", "recursive", improvement_class]:
+        label_id = ensure_repo_label(api_base, owner, repo, label_name, headers)
+        if label_id is None:
+            return None, counter, improvement_class
+        label_ids.append(label_id)
+
+    body = (
+        "Origin: recursive autonomous supervisor\n"
+        f"Improvement Class: {improvement_class}\n"
+        f"Target Scope: {target_scope}\n"
+        "Deterministic Rationale: reproducible system benefit\n"
+        "Expected Outcome: verifiable change\n"
+        "Governance: commit-policy + phase-gate required\n"
+        "Safety: must not weaken governance or determinism"
+    )
+    create_payload = {
+        "title": title,
+        "body": body,
+        "labels": label_ids,
+        "milestone": final_phase_id,
+    }
+    issue_url = f"{api_base}/repos/{owner}/{repo}/issues"
+    status, created, raw = _api_json_request(
+        "POST", issue_url, payload=create_payload, headers=headers
+    )
+    if status not in (200, 201) or not isinstance(created, dict):
+        print(f"Failed to create recursive task. Status={status}. Body={raw}")
+        return None, counter, improvement_class
+    return created, counter, improvement_class
 
 def _parse_iso8601(ts):
     if not ts or not isinstance(ts, str):
@@ -674,6 +761,12 @@ def main():
         "requires_commit": False,
         "commit_created": False,
     }
+    prior_cycle = {
+        "governance_violation": False,
+        "environment_failed": False,
+        "recursive_rollback": False,
+        "commit_determinism_mismatch": False,
+    }
     
     while True:
         with open(env_file, "r") as f:
@@ -702,11 +795,13 @@ def main():
             auth_headers=headers,
         )
         if not env_validation["environment_valid"]:
+            prior_cycle["environment_failed"] = True
             print(json.dumps(env_validation, sort_keys=True))
             print("Environment validation failed; aborting cycle before task claiming.")
             print(enforcer.compliance_report_block())
             time.sleep(60)
             continue
+        prior_cycle["environment_failed"] = False
 
         issues = get_open_issues(api_base, owner, repo, headers=headers)
         release_stale_in_progress_claims(
@@ -723,8 +818,41 @@ def main():
             if not any_open_build:
                 final_phase = phase_lookup.get(FINAL_PHASE_NAME)
                 if final_phase:
+                    all_issues = get_all_issues(api_base, owner, repo, headers=headers)
+                    if prior_cycle["governance_violation"]:
+                        print("RECURSION_BLOCKED reason=prior_violation")
+                        print(enforcer.compliance_report_block())
+                        time.sleep(AUTONOMY_SLEEP_SECONDS)
+                        continue
+                    if prior_cycle["environment_failed"]:
+                        print("RECURSION_BLOCKED reason=environment_validation_failed")
+                        print(enforcer.compliance_report_block())
+                        time.sleep(AUTONOMY_SLEEP_SECONDS)
+                        continue
+                    if prior_cycle["recursive_rollback"]:
+                        print("RECURSION_BLOCKED reason=recursive_rollback")
+                        print(enforcer.compliance_report_block())
+                        time.sleep(AUTONOMY_SLEEP_SECONDS)
+                        continue
+                    if prior_cycle["commit_determinism_mismatch"]:
+                        print("RECURSION_BLOCKED reason=commit_determinism_mismatch")
+                        print(enforcer.compliance_report_block())
+                        time.sleep(AUTONOMY_SLEEP_SECONDS)
+                        continue
+                    if not _has_successful_autonomous_cycle(all_issues):
+                        print("RECURSION_BLOCKED reason=no_successful_autonomous_cycle")
+                        print(enforcer.compliance_report_block())
+                        time.sleep(AUTONOMY_SLEEP_SECONDS)
+                        continue
+                    if not _recursive_cooldown_ok(all_issues):
+                        print("RECURSION_BLOCKED reason=cooldown")
+                        print(enforcer.compliance_report_block())
+                        time.sleep(AUTONOMY_SLEEP_SECONDS)
+                        continue
+
+                    print("RECURSIVE_AUTONOMY_ENABLED")
                     print(f'AUTONOMY_MODE_ACTIVE phase="{FINAL_PHASE_NAME}"')
-                    created, counter = create_self_generated_governed_task(
+                    created, counter, improvement_class = create_recursive_improvement_task(
                         api_base=api_base,
                         owner=owner,
                         repo=repo,
@@ -732,10 +860,7 @@ def main():
                         headers=headers,
                     )
                     if created is not None:
-                        print(
-                            f"AUTO_TASK_CREATED issue={created.get('number')} "
-                            f"counter={counter}"
-                        )
+                        print(f"RECURSIVE_TASK_CREATED issue={created.get('number')} counter={counter} class={improvement_class}")
                     else:
                         print("Governance violation: autonomous task creation failed")
                         print(enforcer.compliance_report_block())
@@ -773,12 +898,14 @@ def main():
                         intended_outcome=f"Claim issue #{task['number']} as in-progress",
                     )
                 except GovernanceViolation:
+                    prior_cycle["governance_violation"] = True
                     print(
                         f"Rejected task #{task['number']} due to governance enforcement."
                     )
                     print(enforcer.compliance_report_block())
                     time.sleep(60)
                     continue
+                prior_cycle["governance_violation"] = False
 
                 print(f"Selected task: #{task['number']} - {task['title']}")
                 # Attempt to claim the issue
@@ -811,6 +938,7 @@ def main():
                             result, dispatch_input, max_duration_seconds
                         )
                         execution_verified = verification["verified"]
+                        prior_cycle["commit_determinism_mismatch"] = not verification["changed_subset_allowed"]
 
                         commit_attempt_eligible = (
                             execution_verified
@@ -876,6 +1004,10 @@ def main():
                                 "requires_commit": requires_commit,
                                 "commit_created": commit_created,
                             }
+                            task_labels = _issue_label_names(task)
+                            prior_cycle["recursive_rollback"] = (
+                                "recursive" in task_labels and task_final_state != "completed"
+                            )
                             if governance_phase_complete(
                                 api_base=api_base,
                                 owner=owner,
@@ -906,6 +1038,10 @@ def main():
                                 task["number"],
                                 "Execution verified but commit was not created; task kept open for deterministic retry.",
                                 headers,
+                            )
+                            task_labels = _issue_label_names(task)
+                            prior_cycle["recursive_rollback"] = (
+                                "recursive" in task_labels
                             )
 
                         _append_execution_log(
@@ -938,6 +1074,8 @@ def main():
                             "requires_commit": False,
                             "commit_created": False,
                         }
+                        task_labels = _issue_label_names(task)
+                        prior_cycle["recursive_rollback"] = ("recursive" in task_labels)
                         _append_execution_log(
                             {
                                 "task_id": task["number"],
