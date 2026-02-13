@@ -28,7 +28,7 @@ def _extract_allowed_files(instruction_text):
     Extract explicitly referenced repository file paths from instructions.
     Paths are recognized only when wrapped in backticks.
     """
-    return set(re.findall(r"`([A-Za-z0-9_.\\-/]+)`", instruction_text))
+    return set(re.findall(r"`([A-Za-z0-9_./\\\\-]+)`", instruction_text))
 
 
 class GovernanceEnforcer:
