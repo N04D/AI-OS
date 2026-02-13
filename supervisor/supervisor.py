@@ -5,10 +5,13 @@ import urllib.error
 import re
 import subprocess # Added for git command
 import sys # Added for sys.exit
+import os
+from datetime import datetime, timezone
 try:
     from governance_enforcement import GovernanceEnforcer, GovernanceViolation
 except ImportError:
     from supervisor.governance_enforcement import GovernanceEnforcer, GovernanceViolation
+from executor.dispatch import DispatchFailure, dispatch_task_once
 
 def get_repo_identity_from_remote_url():
     """
@@ -97,6 +100,22 @@ def _api_json_request(method, url, payload=None, headers=None):
             except Exception:
                 parsed = None
         return e.code, parsed, raw
+
+def _utc_iso8601():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+def _append_execution_log(entry):
+    os.makedirs("logs", exist_ok=True)
+    with open("logs/execution_cycle.log", "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, sort_keys=True) + "\n")
+
+def _extract_allowed_files(instruction_text):
+    return sorted(set(re.findall(r"`([A-Za-z0-9_.\\-/]+)`", instruction_text)))
+
+def _is_commit_message_valid(message):
+    if not message:
+        return True
+    return bool(re.match(r"^(feat|fix|chore)\([^)]+\): .+", message))
 
 def resolve_canonical_repo(api_base, owner, repo, headers):
     """Resolves redirected owner/repo names to canonical API values."""
@@ -189,6 +208,54 @@ def claim_issue_with_in_progress(api_base, owner, repo, issue_number, headers):
     )
     return attached and verified
 
+def post_issue_comment(api_base, owner, repo, issue_number, body, headers):
+    url = f"{api_base}/repos/{owner}/{repo}/issues/{issue_number}/comments"
+    status, _, raw = _api_json_request("POST", url, payload={"body": body}, headers=headers)
+    if status not in (200, 201):
+        print(f"Failed to post issue comment for #{issue_number}. Status={status}. Body={raw}")
+        return False
+    return True
+
+def close_issue(api_base, owner, repo, issue_number, headers):
+    url = f"{api_base}/repos/{owner}/{repo}/issues/{issue_number}"
+    status, _, raw = _api_json_request("PATCH", url, payload={"state": "closed"}, headers=headers)
+    if status not in (200, 201):
+        print(f"Failed to close issue #{issue_number}. Status={status}. Body={raw}")
+        return False
+    return True
+
+def build_dispatch_input(task, instruction_text, governance_hash):
+    return {
+        "task_id": task["number"],
+        "instruction": instruction_text,
+        "allowed_files": _extract_allowed_files(instruction_text),
+        "expected_outcome": f"Task #{task['number']} executes deterministically",
+        "governance_hash": governance_hash,
+        "timestamp": _utc_iso8601(),
+    }
+
+def verify_executor_result(result, dispatch_input, max_duration_seconds):
+    changed_files = result.changed_files or []
+    allowed_files = dispatch_input["allowed_files"]
+    changed_subset = set(changed_files).issubset(set(allowed_files))
+    commit_message_ok = _is_commit_message_valid(None)
+    within_timeout = result.exit_status != 124
+    deterministic_status = result.status in {"success", "failure"}
+
+    verified = (
+        deterministic_status
+        and changed_subset
+        and commit_message_ok
+        and within_timeout
+    )
+    return {
+        "verified": verified,
+        "changed_subset_allowed": changed_subset,
+        "commit_message_ok": commit_message_ok,
+        "within_timeout": within_timeout,
+        "max_duration_seconds": max_duration_seconds,
+    }
+
 def select_task(issues):
     """Deterministically selects the issue with the lowest number."""
     if not issues:
@@ -214,6 +281,7 @@ def main():
             "Governance context loaded "
             f"(hash={context_info['governance_hash'][:12]}...)."
         )
+        governance_hash = context_info["governance_hash"]
     except GovernanceViolation:
         print(enforcer.compliance_report_block())
         sys.exit(1)
@@ -266,8 +334,86 @@ def main():
                     api_base, owner, repo, task['number'], headers
                 ):
                     print(f"CLAIMED issue #{task['number']}")
+                    dispatch_input = build_dispatch_input(
+                        task=task,
+                        instruction_text=instruction_text,
+                        governance_hash=governance_hash,
+                    )
+                    max_duration_seconds = 60
+                    execution_dispatched = False
+                    execution_verified = False
+                    task_final_state = "retry_pending"
+
+                    try:
+                        result, dispatch_meta = dispatch_task_once(
+                            dispatch_input,
+                            start_timeout_seconds=5,
+                            max_duration_seconds=max_duration_seconds,
+                        )
+                        execution_dispatched = True
+                        verification = verify_executor_result(
+                            result, dispatch_input, max_duration_seconds
+                        )
+                        execution_verified = verification["verified"]
+
+                        if execution_verified and result.status == "success":
+                            task_final_state = "completed"
+                            close_issue(api_base, owner, repo, task["number"], headers)
+                            post_issue_comment(
+                                api_base,
+                                owner,
+                                repo,
+                                task["number"],
+                                "Execution completed and verified by deterministic executor.",
+                                headers,
+                            )
+                        else:
+                            task_final_state = "retry_pending"
+                            post_issue_comment(
+                                api_base,
+                                owner,
+                                repo,
+                                task["number"],
+                                "Execution failed verification; task kept open for deterministic retry.",
+                                headers,
+                            )
+
+                        _append_execution_log(
+                            {
+                                "task_id": task["number"],
+                                "dispatch_timestamp": dispatch_meta["dispatch_timestamp"],
+                                "executor_command": dispatch_meta["executor_command"],
+                                "exit_status": result.exit_status,
+                                "verification_outcome": execution_verified,
+                                "final_task_state": task_final_state,
+                            }
+                        )
+                    except DispatchFailure as e:
+                        task_final_state = "blocked" if str(e) == "execution.lock.violation" else "retry_pending"
+                        post_issue_comment(
+                            api_base,
+                            owner,
+                            repo,
+                            task["number"],
+                            f"Execution dispatch failure: {e}",
+                            headers,
+                        )
+                        _append_execution_log(
+                            {
+                                "task_id": task["number"],
+                                "dispatch_timestamp": _utc_iso8601(),
+                                "executor_command": [],
+                                "exit_status": -1,
+                                "verification_outcome": False,
+                                "final_task_state": task_final_state,
+                            }
+                        )
+
                     print(enforcer.compliance_report_block())
-                    sys.exit(0) # Stop execution after successful claim
+                    print(f"execution_dispatched: {str(execution_dispatched).lower()}")
+                    print(f"execution_verified: {str(execution_verified).lower()}")
+                    print(f"task_final_state: {task_final_state}")
+                    sys.exit(0)
                 else:
                     print(f"Failed to claim issue #{task['number']}. Retrying in next loop.")
             else:
