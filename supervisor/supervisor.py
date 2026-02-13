@@ -111,7 +111,7 @@ def _append_execution_log(entry):
         f.write(json.dumps(entry, sort_keys=True) + "\n")
 
 def _extract_allowed_files(instruction_text):
-    return sorted(set(re.findall(r"`([A-Za-z0-9_.\\-/]+)`", instruction_text)))
+    return sorted(set(re.findall(r"`([A-Za-z0-9_./-]+)`", instruction_text)))
 
 def _is_commit_message_valid(message):
     if not message:
