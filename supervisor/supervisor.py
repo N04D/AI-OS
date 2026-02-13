@@ -261,9 +261,13 @@ def select_task(issues):
     """Deterministically selects the issue with the lowest number."""
     if not issues:
         return None
-    
-    # Filter out issues that are already "in-progress"
-    available_issues = [issue for issue in issues if "in-progress" not in [lbl['name'] for lbl in issue.get('labels', [])]]
+
+    # Execute only governed build tasks and skip already claimed issues.
+    available_issues = [
+        issue for issue in issues
+        if "type:build" in [lbl["name"] for lbl in issue.get("labels", [])]
+        and "in-progress" not in [lbl["name"] for lbl in issue.get("labels", [])]
+    ]
     if not available_issues:
         return None
 
@@ -431,7 +435,7 @@ def main():
                 else:
                     print(f"Failed to claim issue #{task['number']}. Retrying in next loop.")
             else:
-                print("All open issues are already in-progress. Sleeping for 60 seconds.")
+                print("No eligible type:build issues found. Sleeping for 60 seconds.")
         else:
             print("No open issues found. Sleeping for 60 seconds.")
         print(enforcer.compliance_report_block())
