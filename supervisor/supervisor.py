@@ -11,6 +11,7 @@ try:
     from governance_enforcement import GovernanceEnforcer, GovernanceViolation
 except ImportError:
     from supervisor.governance_enforcement import GovernanceEnforcer, GovernanceViolation
+from supervisor.environment_validation import validate_environment
 from executor.dispatch import DispatchFailure, dispatch_task_once
 
 def get_repo_identity_from_remote_url():
@@ -305,6 +306,19 @@ def main():
             continue
         headers = _auth_headers(env)
         owner, repo = resolve_canonical_repo(api_base, owner, repo, headers)
+
+        env_validation = validate_environment(
+            api_base=api_base,
+            owner=owner,
+            repo=repo,
+            auth_headers=headers,
+        )
+        if not env_validation["environment_valid"]:
+            print(json.dumps(env_validation, sort_keys=True))
+            print("Environment validation failed; aborting cycle before task claiming.")
+            print(enforcer.compliance_report_block())
+            time.sleep(60)
+            continue
 
         issues = get_open_issues(api_base, owner, repo)
         
