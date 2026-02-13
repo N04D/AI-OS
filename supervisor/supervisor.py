@@ -15,6 +15,15 @@ from supervisor.environment_validation import validate_environment
 from executor.dispatch import DispatchFailure, dispatch_task_once
 from orchestrator.git import create_governed_commit
 
+TTL_SECONDS = 1800
+PHASE_MILESTONE_NAMES = [
+    "Phase 1 — Governed Core Runtime",
+    "Phase 2 — Environment Validation Layer",
+    "Phase 3 — Task Execution Engine",
+    "Phase 4 — Result & State Management",
+    "Phase 5 — End-to-End Governed Autonomy",
+]
+
 def get_repo_identity_from_remote_url():
     """
     Derives owner and repo from the actual git remote URL.
@@ -43,17 +52,12 @@ def get_repo_identity_from_remote_url():
         
     raise ValueError(f"Unsupported git remote URL format: {url}")
 
-def get_open_issues(api_base, owner, repo):
+def get_open_issues(api_base, owner, repo, headers=None):
     """Fetches open issues from the Gitea API."""
     api_url = f"{api_base}/repos/{owner}/{repo}/issues?state=open&limit=300"
-    try:
-        with urllib.request.urlopen(api_url, timeout=5) as response:
-            if response.status == 200:
-                data = json.loads(response.read().decode())
-                return data
-    except Exception as e:
-        # print(f"Error fetching issues from {api_url}: {e}") # Removed for cleaner output
-        pass # The main loop will handle the 'no issues found'
+    status, data, _ = _api_json_request("GET", api_url, headers=headers)
+    if status == 200 and isinstance(data, list):
+        return data
     return []
 
 def _auth_headers(env):
@@ -235,6 +239,134 @@ def close_issue(api_base, owner, repo, issue_number, headers):
         return False
     return True
 
+def _parse_iso8601(ts):
+    if not ts or not isinstance(ts, str):
+        return None
+    try:
+        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+def _issue_label_names(issue):
+    return {lbl.get("name") for lbl in issue.get("labels", []) if isinstance(lbl, dict)}
+
+def _milestone_id(issue):
+    milestone = issue.get("milestone")
+    if isinstance(milestone, dict):
+        return milestone.get("id")
+    return None
+
+def _is_eligible_build_issue(issue, phase_id=None):
+    if issue.get("state") != "open":
+        return False
+    labels = _issue_label_names(issue)
+    if "type:build" not in labels:
+        return False
+    if "in-progress" in labels:
+        return False
+    if phase_id is not None and _milestone_id(issue) != phase_id:
+        return False
+    return True
+
+def _phase_milestone_lookup(milestones):
+    lookup = {}
+    for milestone in milestones:
+        title = milestone.get("title")
+        if title in PHASE_MILESTONE_NAMES and title not in lookup:
+            lookup[title] = milestone
+    return lookup
+
+def _issue_last_in_progress_event_at(api_base, owner, repo, issue_number, headers):
+    timeline_url = f"{api_base}/repos/{owner}/{repo}/issues/{issue_number}/timeline"
+    status, body, _ = _api_json_request("GET", timeline_url, headers=headers)
+    if status != 200 or not isinstance(body, list):
+        return None
+    latest = None
+    for event in body:
+        if not isinstance(event, dict):
+            continue
+        label = event.get("label")
+        label_name = label.get("name") if isinstance(label, dict) else None
+        event_type = (event.get("type") or "").lower()
+        if label_name == "in-progress" or "label" in event_type:
+            created = _parse_iso8601(event.get("created_at"))
+            if created and (latest is None or created > latest):
+                latest = created
+    return latest
+
+def remove_in_progress_label(api_base, owner, repo, issue_number, headers):
+    labels_url = f"{api_base}/repos/{owner}/{repo}/issues/{issue_number}/labels"
+    status, labels, raw = _api_json_request("GET", labels_url, headers=headers)
+    if status != 200 or not isinstance(labels, list):
+        print(
+            f"Failed to list issue labels for #{issue_number}. "
+            f"Status={status}. Body={raw}"
+        )
+        return False
+
+    target = None
+    for lbl in labels:
+        if lbl.get("name") == "in-progress":
+            target = lbl
+            break
+    if target is None:
+        return True
+
+    label_id = target.get("id")
+    if label_id is None:
+        return False
+
+    delete_url = (
+        f"{api_base}/repos/{owner}/{repo}/issues/{issue_number}/labels/{label_id}"
+    )
+    del_status, _, del_raw = _api_json_request("DELETE", delete_url, headers=headers)
+    if del_status not in (200, 204):
+        print(
+            f"Failed to remove in-progress label from #{issue_number}. "
+            f"Status={del_status}. Body={del_raw}"
+        )
+        return False
+    return True
+
+def release_stale_in_progress_claims(api_base, owner, repo, issues, headers, ttl_seconds):
+    now = datetime.now(timezone.utc)
+    released = []
+    for issue in issues:
+        if issue.get("state") != "open":
+            continue
+        labels = _issue_label_names(issue)
+        if "in-progress" not in labels:
+            continue
+
+        last_event_at = _issue_last_in_progress_event_at(
+            api_base, owner, repo, issue["number"], headers
+        )
+        if last_event_at is None:
+            last_event_at = _parse_iso8601(issue.get("updated_at"))
+        if last_event_at is None:
+            continue
+
+        age_seconds = (now - last_event_at).total_seconds()
+        if age_seconds <= ttl_seconds:
+            continue
+
+        removed = remove_in_progress_label(
+            api_base, owner, repo, issue["number"], headers
+        )
+        if not removed:
+            continue
+        post_issue_comment(
+            api_base,
+            owner,
+            repo,
+            issue["number"],
+            f"AUTO_RELEASE: stale in-progress claim released by supervisor (ttl={ttl_seconds}s).",
+            headers,
+        )
+        print(f"CLAIM_STUCK_RELEASED issue={issue['number']} ttl_seconds={ttl_seconds}")
+        released.append(issue["number"])
+    return released
+
 def build_dispatch_input(task, instruction_text, governance_hash):
     return {
         "task_id": task["number"],
@@ -283,17 +415,13 @@ def _phase_sort_key(milestone):
     return (10**9, milestone.get("id", 10**9))
 
 def detect_active_phase(milestones, open_issues):
-    open_build_by_milestone = set()
-    for issue in open_issues:
-        names = [lbl["name"] for lbl in issue.get("labels", [])]
-        if "type:build" in names:
-            milestone = issue.get("milestone")
-            if isinstance(milestone, dict) and milestone.get("id") is not None:
-                open_build_by_milestone.add(milestone["id"])
-
-    ordered = sorted(milestones, key=_phase_sort_key)
-    for milestone in ordered:
-        if milestone.get("id") in open_build_by_milestone:
+    phase_lookup = _phase_milestone_lookup(milestones)
+    for phase_name in PHASE_MILESTONE_NAMES:
+        milestone = phase_lookup.get(phase_name)
+        if not milestone:
+            continue
+        phase_id = milestone.get("id")
+        if any(_is_eligible_build_issue(issue, phase_id) for issue in open_issues):
             return milestone
     return None
 
@@ -308,35 +436,15 @@ def _open_build_phase_ids(open_issues):
     return ids
 
 def select_task_for_phase(issues, active_phase_id):
-    available_issues = [
-        issue for issue in issues
-        if issue.get("state") == "open"
-        and isinstance(issue.get("milestone"), dict)
-        and issue["milestone"].get("id") == active_phase_id
-        and "type:build" in [lbl["name"] for lbl in issue.get("labels", [])]
-        and "in-progress" not in [lbl["name"] for lbl in issue.get("labels", [])]
-    ]
+    available_issues = [issue for issue in issues if _is_eligible_build_issue(issue, active_phase_id)]
     return min(available_issues, key=lambda i: i["number"]) if available_issues else None
 
 def count_eligible_tasks_for_phase(issues, active_phase_id):
-    return len([
-        issue for issue in issues
-        if issue.get("state") == "open"
-        and isinstance(issue.get("milestone"), dict)
-        and issue["milestone"].get("id") == active_phase_id
-        and "type:build" in [lbl["name"] for lbl in issue.get("labels", [])]
-        and "in-progress" not in [lbl["name"] for lbl in issue.get("labels", [])]
-    ])
+    return len([issue for issue in issues if _is_eligible_build_issue(issue, active_phase_id)])
 
 def phase_complete_recheck(api_base, owner, repo, headers, active_phase_id):
-    issues = get_open_issues(api_base, owner, repo)
-    remaining = [
-        issue for issue in issues
-        if issue.get("state") == "open"
-        and isinstance(issue.get("milestone"), dict)
-        and issue["milestone"].get("id") == active_phase_id
-        and "type:build" in [lbl["name"] for lbl in issue.get("labels", [])]
-    ]
+    issues = get_open_issues(api_base, owner, repo, headers=headers)
+    remaining = [issue for issue in issues if _is_eligible_build_issue(issue, active_phase_id)]
     return len(remaining) == 0
 
 def get_next_phase_name(milestones, active_phase_id):
@@ -446,38 +554,33 @@ def main():
             time.sleep(60)
             continue
 
-        issues = get_open_issues(api_base, owner, repo)
+        issues = get_open_issues(api_base, owner, repo, headers=headers)
+        release_stale_in_progress_claims(
+            api_base, owner, repo, issues, headers, TTL_SECONDS
+        )
+        issues = get_open_issues(api_base, owner, repo, headers=headers)
         milestones = get_milestones(api_base, owner, repo, headers)
 
         active_phase = detect_active_phase(milestones, issues)
         if active_phase is None:
-            print("ALL_PHASES_COMPLETE")
-            print("AUTONOMY_COMPLETE")
-            sys.exit(0)
+            print("NO_ELIGIBLE_BUILD_ISSUES active_phase=none")
+            print(enforcer.compliance_report_block())
+            time.sleep(60)
+            continue
 
         active_phase_id = active_phase["id"]
         active_phase_name = active_phase.get("title", "")
         eligible_count = count_eligible_tasks_for_phase(issues, active_phase_id)
 
-        ordered_milestones = sorted(milestones, key=_phase_sort_key)
-        open_phase_ids = _open_build_phase_ids(issues)
-        active_idx = next((idx for idx, m in enumerate(ordered_milestones) if m.get("id") == active_phase_id), 0)
-        if active_idx > 0:
-            prev_phase = ordered_milestones[active_idx - 1]
-            prev_name = prev_phase.get("title", "")
-            prev_id = prev_phase.get("id")
-            if prev_id not in open_phase_ids:
-                print(f"PHASE_COMPLETE: {prev_name}")
-                print(f"PHASE_PROMOTED: {active_phase_name}")
-                print(f"PHASE_PROMOTED={active_phase_name}")
-
         print(f"ACTIVE_PHASE={active_phase_name}")
         print(f"ELIGIBLE_TASK_COUNT={eligible_count}")
+        print(f'PHASE_GATE_ACTIVE phase="{active_phase_name}" milestone_id={active_phase_id}')
         
         if issues:
             task = select_task_for_phase(issues, active_phase_id)
             if task:
                 print("PHASE_STATUS=running")
+                print(f'PHASE_GATE_SELECTED issue={task["number"]} phase="{active_phase_name}"')
                 instruction_text = task.get("title", "")
                 if task.get("body"):
                     instruction_text = f"{instruction_text}\n\n{task['body']}"
@@ -534,7 +637,9 @@ def main():
                             and set(result.changed_files).issubset(set(dispatch_input["allowed_files"]))
                         )
 
-                        if commit_attempt_eligible:
+                        requires_commit = bool(result.changed_files)
+
+                        if commit_attempt_eligible and requires_commit:
                             commit_message = f"feat(task-{dispatch_input['task_id']}): governed executor result"
                             try:
                                 enforcer.validate_commit_policy(
@@ -554,15 +659,25 @@ def main():
                                 "commit_created": False,
                                 "commit_hash": None,
                                 "files_committed": [],
-                            }
+                                }
 
                         commit_created = bool(commit_result["commit_created"])
                         commit_hash = commit_result["commit_hash"]
                         files_committed = commit_result["files_committed"]
 
-                        if commit_created:
+                        close_allowed = (
+                            execution_verified
+                            and result.status == "success"
+                            and result.tests_passed is True
+                            and ((not requires_commit) or commit_created)
+                        )
+
+                        if close_allowed:
                             task_final_state = "completed"
                             close_issue(api_base, owner, repo, task["number"], headers)
+                            remove_in_progress_label(
+                                api_base, owner, repo, task["number"], headers
+                            )
                             post_issue_comment(
                                 api_base,
                                 owner,
@@ -571,6 +686,7 @@ def main():
                                 f"Execution verified and governed commit created: {commit_hash}",
                                 headers,
                             )
+                            print(f"TASK_COMPLETED issue={task['number']} final_state=completed")
                         else:
                             task_final_state = "retry_pending"
                             post_issue_comment(
@@ -595,6 +711,8 @@ def main():
                                 "final_task_state": task_final_state,
                             }
                         )
+                        if phase_complete_recheck(api_base, owner, repo, headers, active_phase_id):
+                            print(f'PHASE_COMPLETE phase="{active_phase_name}" milestone_id={active_phase_id}')
                     except DispatchFailure as e:
                         task_final_state = "blocked" if str(e) == "execution.lock.violation" else "retry_pending"
                         post_issue_comment(
@@ -632,18 +750,11 @@ def main():
             else:
                 if phase_complete_recheck(api_base, owner, repo, headers, active_phase_id):
                     print("PHASE_STATUS=complete")
-                    print(f"PHASE_COMPLETE: {active_phase_name}")
-                    next_phase = get_next_phase_name(milestones, active_phase_id)
-                    if next_phase:
-                        print(f"PHASE_PROMOTED: {next_phase}")
-                        print(f"PHASE_PROMOTED={next_phase}")
-                        continue
-                    print("AUTONOMY_COMPLETE")
-                    sys.exit(0)
+                    print(f'PHASE_COMPLETE phase="{active_phase_name}" milestone_id={active_phase_id}')
                 print("PHASE_STATUS=running")
-                print("No eligible type:build issues found. Sleeping for 60 seconds.")
+                print("NO_ELIGIBLE_BUILD_ISSUES active_phase=none")
         else:
-            print("No open issues found. Sleeping for 60 seconds.")
+            print("NO_ELIGIBLE_BUILD_ISSUES active_phase=none")
         print(enforcer.compliance_report_block())
         time.sleep(60) # Sleep even if claiming failed or all issues are in-progress
 
