@@ -13,6 +13,7 @@ except ImportError:
     from supervisor.governance_enforcement import GovernanceEnforcer, GovernanceViolation
 from supervisor.environment_validation import validate_environment
 from executor.dispatch import DispatchFailure, dispatch_task_once
+from orchestrator.git import create_governed_commit
 
 def get_repo_identity_from_remote_url():
     """
@@ -117,6 +118,15 @@ def _is_commit_message_valid(message):
     if not message:
         return True
     return bool(re.match(r"^(feat|fix|chore)\([^)]+\): .+", message))
+
+def _git_changed_files():
+    result = subprocess.run(
+        ["git", "diff", "--name-only", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 def resolve_canonical_repo(api_base, owner, repo, headers):
     """Resolves redirected owner/repo names to canonical API values."""
@@ -257,6 +267,37 @@ def verify_executor_result(result, dispatch_input, max_duration_seconds):
         "max_duration_seconds": max_duration_seconds,
     }
 
+def ingest_executor_result(result, dispatch_input):
+    payload = {}
+    out = (result.stdout or "").strip()
+    if out:
+        try:
+            payload = json.loads(out.splitlines()[-1])
+        except Exception:
+            payload = {}
+
+    changed_files = payload.get("changed_files")
+    if not isinstance(changed_files, list):
+        changed_files = list(result.changed_files or [])
+
+    # Deterministic fallback: if executor didn't emit changed_files, use the
+    # governance-scoped allowed file list as declared dispatch scope.
+    if not changed_files:
+        changed_files = sorted(dispatch_input.get("allowed_files", []))
+
+    tests_passed = payload.get("tests_passed")
+    if not isinstance(tests_passed, bool):
+        tests_passed = bool(result.tests_passed)
+
+    commit_hash = payload.get("commit_hash")
+    if commit_hash is not None and not isinstance(commit_hash, str):
+        commit_hash = None
+
+    result.changed_files = changed_files
+    result.tests_passed = tests_passed
+    result.commit_hash = commit_hash
+    return result
+
 def select_task(issues):
     """Deterministically selects the issue with the lowest number."""
     if not issues:
@@ -361,6 +402,9 @@ def main():
                     execution_dispatched = False
                     execution_verified = False
                     task_final_state = "retry_pending"
+                    commit_created = False
+                    commit_hash = None
+                    files_committed = []
 
                     try:
                         result, dispatch_meta = dispatch_task_once(
@@ -369,12 +413,46 @@ def main():
                             max_duration_seconds=max_duration_seconds,
                         )
                         execution_dispatched = True
+                        result = ingest_executor_result(result, dispatch_input)
                         verification = verify_executor_result(
                             result, dispatch_input, max_duration_seconds
                         )
                         execution_verified = verification["verified"]
 
-                        if execution_verified and result.status == "success":
+                        commit_attempt_eligible = (
+                            execution_verified
+                            and result.status == "success"
+                            and result.tests_passed is True
+                            and set(result.changed_files).issubset(set(dispatch_input["allowed_files"]))
+                        )
+
+                        if commit_attempt_eligible:
+                            commit_message = f"feat(task-{dispatch_input['task_id']}): governed executor result"
+                            try:
+                                enforcer.validate_commit_policy(
+                                    instruction_text=instruction_text,
+                                    changed_files=result.changed_files,
+                                    commit_message=commit_message,
+                                )
+                                commit_result = create_governed_commit(result, dispatch_input)
+                            except GovernanceViolation:
+                                commit_result = {
+                                    "commit_created": False,
+                                    "commit_hash": None,
+                                    "files_committed": [],
+                                }
+                        else:
+                            commit_result = {
+                                "commit_created": False,
+                                "commit_hash": None,
+                                "files_committed": [],
+                            }
+
+                        commit_created = bool(commit_result["commit_created"])
+                        commit_hash = commit_result["commit_hash"]
+                        files_committed = commit_result["files_committed"]
+
+                        if commit_created:
                             task_final_state = "completed"
                             close_issue(api_base, owner, repo, task["number"], headers)
                             post_issue_comment(
@@ -382,7 +460,7 @@ def main():
                                 owner,
                                 repo,
                                 task["number"],
-                                "Execution completed and verified by deterministic executor.",
+                                f"Execution verified and governed commit created: {commit_hash}",
                                 headers,
                             )
                         else:
@@ -392,7 +470,7 @@ def main():
                                 owner,
                                 repo,
                                 task["number"],
-                                "Execution failed verification; task kept open for deterministic retry.",
+                                "Execution verified but commit was not created; task kept open for deterministic retry.",
                                 headers,
                             )
 
@@ -403,6 +481,9 @@ def main():
                                 "executor_command": dispatch_meta["executor_command"],
                                 "exit_status": result.exit_status,
                                 "verification_outcome": execution_verified,
+                                "commit_created": commit_created,
+                                "commit_hash": commit_hash,
+                                "files_committed": files_committed,
                                 "final_task_state": task_final_state,
                             }
                         )
@@ -423,6 +504,9 @@ def main():
                                 "executor_command": [],
                                 "exit_status": -1,
                                 "verification_outcome": False,
+                                "commit_created": False,
+                                "commit_hash": None,
+                                "files_committed": [],
                                 "final_task_state": task_final_state,
                             }
                         )
@@ -430,6 +514,9 @@ def main():
                     print(enforcer.compliance_report_block())
                     print(f"execution_dispatched: {str(execution_dispatched).lower()}")
                     print(f"execution_verified: {str(execution_verified).lower()}")
+                    print(f"commit_created: {str(commit_created).lower()}")
+                    print(f"commit_hash: {commit_hash}")
+                    print(f"files_committed: {files_committed}")
                     print(f"task_final_state: {task_final_state}")
                     sys.exit(0)
                 else:

@@ -74,3 +74,58 @@ def get_open_issues():
         print(f"Error fetching issues from Gitea API: {e}")
         print(f"Attempted to connect to: {api_url}")
         return []
+
+
+def create_governed_commit(result, dispatch_input):
+    changed_files = sorted(set(result.changed_files or []))
+    allowed_files = set(dispatch_input.get("allowed_files", []))
+    task_id = dispatch_input.get("task_id")
+
+    if not changed_files:
+        return {
+            "commit_created": False,
+            "commit_hash": None,
+            "files_committed": [],
+        }
+
+    if not set(changed_files).issubset(allowed_files):
+        return {
+            "commit_created": False,
+            "commit_hash": None,
+            "files_committed": [],
+        }
+
+    commit_message = f"feat(task-{task_id}): governed executor result"
+
+    try:
+        subprocess.run(["git", "add", "--", *changed_files], check=True)
+        staged = subprocess.run(
+            ["git", "diff", "--cached", "--name-only", "--", *changed_files],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.splitlines()
+        staged = [x.strip() for x in staged if x.strip()]
+
+        commit_cmd = ["git", "commit", "--allow-empty", "-m", commit_message, "--", *changed_files]
+        subprocess.run(
+            commit_cmd,
+            check=True,
+        )
+        commit_hash = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        return {
+            "commit_created": True,
+            "commit_hash": commit_hash,
+            "files_committed": staged if staged else changed_files,
+        }
+    except subprocess.CalledProcessError:
+        return {
+            "commit_created": False,
+            "commit_hash": None,
+            "files_committed": [],
+        }
