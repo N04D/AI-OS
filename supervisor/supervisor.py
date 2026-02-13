@@ -45,7 +45,7 @@ def get_repo_identity_from_remote_url():
 
 def get_open_issues(api_base, owner, repo):
     """Fetches open issues from the Gitea API."""
-    api_url = f"{api_base}/repos/{owner}/{repo}/issues"
+    api_url = f"{api_base}/repos/{owner}/{repo}/issues?state=open&limit=300"
     try:
         with urllib.request.urlopen(api_url, timeout=5) as response:
             if response.status == 200:
@@ -267,6 +267,87 @@ def verify_executor_result(result, dispatch_input, max_duration_seconds):
         "max_duration_seconds": max_duration_seconds,
     }
 
+def get_milestones(api_base, owner, repo, headers):
+    url = f"{api_base}/repos/{owner}/{repo}/milestones?state=all"
+    status, body, raw = _api_json_request("GET", url, headers=headers)
+    if status != 200 or not isinstance(body, list):
+        print(f"Failed to list milestones. Status={status}. Body={raw}")
+        return []
+    return body
+
+def _phase_sort_key(milestone):
+    title = milestone.get("title", "")
+    m = re.search(r"phase\\s*(\\d+)", title, re.IGNORECASE)
+    if m:
+        return (int(m.group(1)), milestone.get("id", 10**9))
+    return (10**9, milestone.get("id", 10**9))
+
+def detect_active_phase(milestones, open_issues):
+    open_build_by_milestone = set()
+    for issue in open_issues:
+        names = [lbl["name"] for lbl in issue.get("labels", [])]
+        if "type:build" in names:
+            milestone = issue.get("milestone")
+            if isinstance(milestone, dict) and milestone.get("id") is not None:
+                open_build_by_milestone.add(milestone["id"])
+
+    ordered = sorted(milestones, key=_phase_sort_key)
+    for milestone in ordered:
+        if milestone.get("id") in open_build_by_milestone:
+            return milestone
+    return None
+
+def _open_build_phase_ids(open_issues):
+    ids = set()
+    for issue in open_issues:
+        names = [lbl["name"] for lbl in issue.get("labels", [])]
+        if issue.get("state") == "open" and "type:build" in names:
+            milestone = issue.get("milestone")
+            if isinstance(milestone, dict) and milestone.get("id") is not None:
+                ids.add(milestone["id"])
+    return ids
+
+def select_task_for_phase(issues, active_phase_id):
+    available_issues = [
+        issue for issue in issues
+        if issue.get("state") == "open"
+        and isinstance(issue.get("milestone"), dict)
+        and issue["milestone"].get("id") == active_phase_id
+        and "type:build" in [lbl["name"] for lbl in issue.get("labels", [])]
+        and "in-progress" not in [lbl["name"] for lbl in issue.get("labels", [])]
+    ]
+    return min(available_issues, key=lambda i: i["number"]) if available_issues else None
+
+def count_eligible_tasks_for_phase(issues, active_phase_id):
+    return len([
+        issue for issue in issues
+        if issue.get("state") == "open"
+        and isinstance(issue.get("milestone"), dict)
+        and issue["milestone"].get("id") == active_phase_id
+        and "type:build" in [lbl["name"] for lbl in issue.get("labels", [])]
+        and "in-progress" not in [lbl["name"] for lbl in issue.get("labels", [])]
+    ])
+
+def phase_complete_recheck(api_base, owner, repo, headers, active_phase_id):
+    issues = get_open_issues(api_base, owner, repo)
+    remaining = [
+        issue for issue in issues
+        if issue.get("state") == "open"
+        and isinstance(issue.get("milestone"), dict)
+        and issue["milestone"].get("id") == active_phase_id
+        and "type:build" in [lbl["name"] for lbl in issue.get("labels", [])]
+    ]
+    return len(remaining) == 0
+
+def get_next_phase_name(milestones, active_phase_id):
+    ordered = sorted(milestones, key=_phase_sort_key)
+    for idx, milestone in enumerate(ordered):
+        if milestone.get("id") == active_phase_id:
+            if idx + 1 < len(ordered):
+                return ordered[idx + 1].get("title")
+            return None
+    return None
+
 def ingest_executor_result(result, dispatch_input):
     payload = {}
     out = (result.stdout or "").strip()
@@ -366,10 +447,37 @@ def main():
             continue
 
         issues = get_open_issues(api_base, owner, repo)
+        milestones = get_milestones(api_base, owner, repo, headers)
+
+        active_phase = detect_active_phase(milestones, issues)
+        if active_phase is None:
+            print("ALL_PHASES_COMPLETE")
+            print("AUTONOMY_COMPLETE")
+            sys.exit(0)
+
+        active_phase_id = active_phase["id"]
+        active_phase_name = active_phase.get("title", "")
+        eligible_count = count_eligible_tasks_for_phase(issues, active_phase_id)
+
+        ordered_milestones = sorted(milestones, key=_phase_sort_key)
+        open_phase_ids = _open_build_phase_ids(issues)
+        active_idx = next((idx for idx, m in enumerate(ordered_milestones) if m.get("id") == active_phase_id), 0)
+        if active_idx > 0:
+            prev_phase = ordered_milestones[active_idx - 1]
+            prev_name = prev_phase.get("title", "")
+            prev_id = prev_phase.get("id")
+            if prev_id not in open_phase_ids:
+                print(f"PHASE_COMPLETE: {prev_name}")
+                print(f"PHASE_PROMOTED: {active_phase_name}")
+                print(f"PHASE_PROMOTED={active_phase_name}")
+
+        print(f"ACTIVE_PHASE={active_phase_name}")
+        print(f"ELIGIBLE_TASK_COUNT={eligible_count}")
         
         if issues:
-            task = select_task(issues)
+            task = select_task_for_phase(issues, active_phase_id)
             if task:
+                print("PHASE_STATUS=running")
                 instruction_text = task.get("title", "")
                 if task.get("body"):
                     instruction_text = f"{instruction_text}\n\n{task['body']}"
@@ -522,6 +630,17 @@ def main():
                 else:
                     print(f"Failed to claim issue #{task['number']}. Retrying in next loop.")
             else:
+                if phase_complete_recheck(api_base, owner, repo, headers, active_phase_id):
+                    print("PHASE_STATUS=complete")
+                    print(f"PHASE_COMPLETE: {active_phase_name}")
+                    next_phase = get_next_phase_name(milestones, active_phase_id)
+                    if next_phase:
+                        print(f"PHASE_PROMOTED: {next_phase}")
+                        print(f"PHASE_PROMOTED={next_phase}")
+                        continue
+                    print("AUTONOMY_COMPLETE")
+                    sys.exit(0)
+                print("PHASE_STATUS=running")
                 print("No eligible type:build issues found. Sleeping for 60 seconds.")
         else:
             print("No open issues found. Sleeping for 60 seconds.")
