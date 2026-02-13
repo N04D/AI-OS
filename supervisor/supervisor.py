@@ -1,6 +1,7 @@
 import json
 import time
 import urllib.request
+import urllib.error
 import re
 import subprocess # Added for git command
 import sys # Added for sys.exit
@@ -50,23 +51,143 @@ def get_open_issues(api_base, owner, repo):
         pass # The main loop will handle the 'no issues found'
     return []
 
-def add_label_to_issue(api_base, owner, repo, issue_number, label):
-    """Adds a label to a Gitea issue."""
-    url = f"{api_base}/repos/{owner}/{repo}/issues/{issue_number}/labels"
-    headers = {"Content-Type": "application/json"}
-    data = json.dumps([label]).encode('utf-8')
-    req = urllib.request.Request(url, data=data, headers=headers, method='POST')
+def _auth_headers(env):
+    """Builds optional Gitea authentication headers from env json or process env."""
+    token = (
+        env.get("api_token")
+        or env.get("gitea_token")
+        or env.get("token")
+        or env.get("access_token")
+        or env.get("auth_token")
+    )
+    if not token:
+        token = None
+        try:
+            import os
+            token = os.environ.get("GITEA_TOKEN")
+        except Exception:
+            token = None
+
+    headers = {}
+    if token:
+        headers["Authorization"] = f"token {token}"
+    return headers
+
+def _api_json_request(method, url, payload=None, headers=None):
+    req_headers = {"Accept": "application/json"}
+    if headers:
+        req_headers.update(headers)
+    data = None
+    if payload is not None:
+        req_headers["Content-Type"] = "application/json"
+        data = json.dumps(payload).encode("utf-8")
+
+    req = urllib.request.Request(url, data=data, headers=req_headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=5) as response:
-            if response.status in [200, 201]:
-                print(f"Successfully added label '{label}' to issue #{issue_number}")
-                return True
-            else:
-                print(f"Failed to add label '{label}' to issue #{issue_number}. Status: {response.status}")
-                return False
-    except Exception as e:
-        print(f"Error adding label '{label}' to issue #{issue_number}: {e}")
+            raw = response.read().decode()
+            parsed = json.loads(raw) if raw else None
+            return response.status, parsed, raw
+    except urllib.error.HTTPError as e:
+        raw = e.read().decode() if e.fp else ""
+        parsed = None
+        if raw:
+            try:
+                parsed = json.loads(raw)
+            except Exception:
+                parsed = None
+        return e.code, parsed, raw
+
+def resolve_canonical_repo(api_base, owner, repo, headers):
+    """Resolves redirected owner/repo names to canonical API values."""
+    url = f"{api_base}/repos/{owner}/{repo}"
+    status, body, _ = _api_json_request("GET", url, headers=headers)
+    if status == 200 and isinstance(body, dict):
+        resolved_owner = body.get("owner", {}).get("login", owner)
+        resolved_repo = body.get("name", repo)
+        return resolved_owner, resolved_repo
+    return owner, repo
+
+def ensure_in_progress_label(api_base, owner, repo, headers):
+    labels_url = f"{api_base}/repos/{owner}/{repo}/labels"
+    status, labels, raw = _api_json_request("GET", labels_url, headers=headers)
+    if status != 200 or not isinstance(labels, list):
+        print(f"Failed to list labels. Status={status}. Body={raw}")
+        return None
+
+    for label in labels:
+        if label.get("name") == "in-progress":
+            return label.get("id")
+
+    create_payload = {
+        "name": "in-progress",
+        "color": "f29513",
+        "description": "Task currently claimed by supervisor",
+    }
+    create_status, created, create_raw = _api_json_request(
+        "POST", labels_url, payload=create_payload, headers=headers
+    )
+    if create_status in (200, 201) and isinstance(created, dict):
+        return created.get("id")
+
+    print(
+        "Failed to create 'in-progress' label. "
+        f"Status={create_status}. Body={create_raw}"
+    )
+
+    # Label may already exist due to race; re-fetch once.
+    status, labels, raw = _api_json_request("GET", labels_url, headers=headers)
+    if status != 200 or not isinstance(labels, list):
+        print(f"Failed to re-list labels. Status={status}. Body={raw}")
+        return None
+    for label in labels:
+        if label.get("name") == "in-progress":
+            return label.get("id")
+    return None
+
+def attach_label_id_to_issue(api_base, owner, repo, issue_number, label_id, headers):
+    url = f"{api_base}/repos/{owner}/{repo}/issues/{issue_number}/labels"
+    status, _, raw = _api_json_request(
+        "POST",
+        url,
+        payload={"labels": [label_id]},
+        headers=headers,
+    )
+    if status in (200, 201):
+        return True
+    print(
+        f"Failed to attach label id {label_id} to issue #{issue_number}. "
+        f"Status={status}. Body={raw}"
+    )
+    return False
+
+def verify_issue_has_in_progress(api_base, owner, repo, issue_number, headers):
+    url = f"{api_base}/repos/{owner}/{repo}/issues/{issue_number}/labels"
+    status, labels, raw = _api_json_request("GET", url, headers=headers)
+    if status != 200 or not isinstance(labels, list):
+        print(
+            f"Failed to verify labels for issue #{issue_number}. "
+            f"Status={status}. Body={raw}"
+        )
+        print("CLAIM_VERIFIED in-progress present=false")
         return False
+
+    present = any(lbl.get("name") == "in-progress" for lbl in labels)
+    print(f"CLAIM_VERIFIED in-progress present={str(present).lower()}")
+    return present
+
+def claim_issue_with_in_progress(api_base, owner, repo, issue_number, headers):
+    label_id = ensure_in_progress_label(api_base, owner, repo, headers)
+    if label_id is None:
+        print("CLAIM_VERIFIED in-progress present=false")
+        return False
+    attached = attach_label_id_to_issue(
+        api_base, owner, repo, issue_number, label_id, headers
+    )
+    verified = verify_issue_has_in_progress(
+        api_base, owner, repo, issue_number, headers
+    )
+    return attached and verified
 
 def select_task(issues):
     """Deterministically selects the issue with the lowest number."""
@@ -114,6 +235,8 @@ def main():
             print(f"Error: {e}. Sleeping.")
             time.sleep(60)
             continue
+        headers = _auth_headers(env)
+        owner, repo = resolve_canonical_repo(api_base, owner, repo, headers)
 
         issues = get_open_issues(api_base, owner, repo)
         
@@ -139,7 +262,9 @@ def main():
 
                 print(f"Selected task: #{task['number']} - {task['title']}")
                 # Attempt to claim the issue
-                if add_label_to_issue(api_base, owner, repo, task['number'], "in-progress"):
+                if claim_issue_with_in_progress(
+                    api_base, owner, repo, task['number'], headers
+                ):
                     print(f"CLAIMED issue #{task['number']}")
                     print(enforcer.compliance_report_block())
                     sys.exit(0) # Stop execution after successful claim
