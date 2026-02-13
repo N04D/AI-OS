@@ -517,12 +517,69 @@ def detect_active_phase(milestones, open_issues):
 def _open_build_phase_ids(open_issues):
     ids = set()
     for issue in open_issues:
-        names = [lbl["name"] for lbl in issue.get("labels", [])]
-        if issue.get("state") == "open" and "type:build" in names:
+        labels = _issue_label_names(issue)
+        if issue.get("state") == "open" and "type:build" in labels:
             milestone = issue.get("milestone")
             if isinstance(milestone, dict) and milestone.get("id") is not None:
                 ids.add(milestone["id"])
     return ids
+
+def detect_active_phase_for_governance(milestones, open_issues):
+    """Earliest phase that still has any open build work, including in-progress."""
+    phase_lookup = _phase_milestone_lookup(milestones)
+    for phase_name in PHASE_MILESTONE_NAMES:
+        milestone = phase_lookup.get(phase_name)
+        if not milestone:
+            continue
+        phase_id = milestone.get("id")
+        for issue in open_issues:
+            if issue.get("state") != "open":
+                continue
+            if _milestone_id(issue) != phase_id:
+                continue
+            if "type:build" in _issue_label_names(issue):
+                return milestone
+    return None
+
+def _phase_next_name(active_phase_name):
+    if active_phase_name not in PHASE_MILESTONE_NAMES:
+        return None
+    idx = PHASE_MILESTONE_NAMES.index(active_phase_name)
+    if idx + 1 >= len(PHASE_MILESTONE_NAMES):
+        return None
+    return PHASE_MILESTONE_NAMES[idx + 1]
+
+def _phase_has_open_build_or_in_progress(issues, phase_id):
+    for issue in issues:
+        if issue.get("state") != "open":
+            continue
+        if _milestone_id(issue) != phase_id:
+            continue
+        labels = _issue_label_names(issue)
+        if "type:build" in labels or "in-progress" in labels:
+            return True
+    return False
+
+def governance_phase_complete(
+    api_base,
+    owner,
+    repo,
+    headers,
+    phase_id,
+    last_execution_verified,
+    last_task_final_state,
+    last_requires_commit,
+    last_commit_created,
+):
+    if not last_execution_verified:
+        return False
+    if last_task_final_state != "completed":
+        return False
+    if last_requires_commit and not last_commit_created:
+        return False
+
+    issues = get_open_issues(api_base, owner, repo, headers=headers)
+    return not _phase_has_open_build_or_in_progress(issues, phase_id)
 
 def select_task_for_phase(issues, active_phase_id):
     available_issues = [issue for issue in issues if _is_eligible_build_issue(issue, active_phase_id)]
@@ -609,6 +666,14 @@ def main():
     except GovernanceViolation:
         print(enforcer.compliance_report_block())
         sys.exit(1)
+
+    last_cycle = {
+        "phase_id": None,
+        "execution_verified": False,
+        "task_final_state": None,
+        "requires_commit": False,
+        "commit_created": False,
+    }
     
     while True:
         with open(env_file, "r") as f:
@@ -651,7 +716,7 @@ def main():
         milestones = get_milestones(api_base, owner, repo, headers)
 
         phase_lookup = _phase_milestone_lookup(milestones)
-        active_phase = detect_active_phase(milestones, issues)
+        active_phase = detect_active_phase_for_governance(milestones, issues)
         if active_phase is None:
             any_open_build = _open_build_issue_exists(issues)
             print(f"AUTONOMY_IDLE no_remaining_phases={str((not any_open_build)).lower()}")
@@ -804,6 +869,34 @@ def main():
                                 headers,
                             )
                             print(f"TASK_COMPLETED issue={task['number']} final_state=completed")
+                            last_cycle = {
+                                "phase_id": active_phase_id,
+                                "execution_verified": execution_verified,
+                                "task_final_state": task_final_state,
+                                "requires_commit": requires_commit,
+                                "commit_created": commit_created,
+                            }
+                            if governance_phase_complete(
+                                api_base=api_base,
+                                owner=owner,
+                                repo=repo,
+                                headers=headers,
+                                phase_id=active_phase_id,
+                                last_execution_verified=last_cycle["execution_verified"],
+                                last_task_final_state=last_cycle["task_final_state"],
+                                last_requires_commit=last_cycle["requires_commit"],
+                                last_commit_created=last_cycle["commit_created"],
+                            ):
+                                print(f'PHASE_COMPLETE phase="{active_phase_name}" milestone_id={active_phase_id}')
+                                next_phase_name = _phase_next_name(active_phase_name)
+                                if next_phase_name:
+                                    print(
+                                        f'PHASE_PROMOTED from="{active_phase_name}" '
+                                        f'to="{next_phase_name}"'
+                                    )
+                                else:
+                                    print("AUTONOMY_COMPLETE")
+                                    print("AUTONOMY_IDLE no_remaining_phases=true")
                         else:
                             task_final_state = "retry_pending"
                             post_issue_comment(
@@ -828,8 +921,6 @@ def main():
                                 "final_task_state": task_final_state,
                             }
                         )
-                        if phase_complete_recheck(api_base, owner, repo, headers, active_phase_id):
-                            print(f'PHASE_COMPLETE phase="{active_phase_name}" milestone_id={active_phase_id}')
                     except DispatchFailure as e:
                         task_final_state = "blocked" if str(e) == "execution.lock.violation" else "retry_pending"
                         post_issue_comment(
@@ -840,6 +931,13 @@ def main():
                             f"Execution dispatch failure: {e}",
                             headers,
                         )
+                        last_cycle = {
+                            "phase_id": active_phase_id,
+                            "execution_verified": False,
+                            "task_final_state": task_final_state,
+                            "requires_commit": False,
+                            "commit_created": False,
+                        }
                         _append_execution_log(
                             {
                                 "task_id": task["number"],
@@ -865,9 +963,43 @@ def main():
                 else:
                     print(f"Failed to claim issue #{task['number']}. Retrying in next loop.")
             else:
-                if phase_complete_recheck(api_base, owner, repo, headers, active_phase_id):
+                if governance_phase_complete(
+                    api_base=api_base,
+                    owner=owner,
+                    repo=repo,
+                    headers=headers,
+                    phase_id=active_phase_id,
+                    last_execution_verified=(
+                        last_cycle["phase_id"] == active_phase_id
+                        and last_cycle["execution_verified"]
+                    ),
+                    last_task_final_state=(
+                        last_cycle["task_final_state"]
+                        if last_cycle["phase_id"] == active_phase_id
+                        else None
+                    ),
+                    last_requires_commit=(
+                        last_cycle["requires_commit"]
+                        if last_cycle["phase_id"] == active_phase_id
+                        else False
+                    ),
+                    last_commit_created=(
+                        last_cycle["commit_created"]
+                        if last_cycle["phase_id"] == active_phase_id
+                        else False
+                    ),
+                ):
                     print("PHASE_STATUS=complete")
                     print(f'PHASE_COMPLETE phase="{active_phase_name}" milestone_id={active_phase_id}')
+                    next_phase_name = _phase_next_name(active_phase_name)
+                    if next_phase_name:
+                        print(
+                            f'PHASE_PROMOTED from="{active_phase_name}" '
+                            f'to="{next_phase_name}"'
+                        )
+                    else:
+                        print("AUTONOMY_COMPLETE")
+                        print("AUTONOMY_IDLE no_remaining_phases=true")
                 print("PHASE_STATUS=running")
                 print("NO_ELIGIBLE_BUILD_ISSUES active_phase=none")
         else:
