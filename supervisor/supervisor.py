@@ -23,6 +23,8 @@ PHASE_MILESTONE_NAMES = [
     "Phase 4 — Result & State Management",
     "Phase 5 — End-to-End Governed Autonomy",
 ]
+FINAL_PHASE_NAME = "Phase 5 — End-to-End Governed Autonomy"
+AUTONOMY_SLEEP_SECONDS = 60
 
 def get_repo_identity_from_remote_url():
     """
@@ -55,6 +57,13 @@ def get_repo_identity_from_remote_url():
 def get_open_issues(api_base, owner, repo, headers=None):
     """Fetches open issues from the Gitea API."""
     api_url = f"{api_base}/repos/{owner}/{repo}/issues?state=open&limit=300"
+    status, data, _ = _api_json_request("GET", api_url, headers=headers)
+    if status == 200 and isinstance(data, list):
+        return data
+    return []
+
+def get_all_issues(api_base, owner, repo, headers=None):
+    api_url = f"{api_base}/repos/{owner}/{repo}/issues?state=all&limit=300"
     status, data, _ = _api_json_request("GET", api_url, headers=headers)
     if status == 200 and isinstance(data, list):
         return data
@@ -238,6 +247,86 @@ def close_issue(api_base, owner, repo, issue_number, headers):
         print(f"Failed to close issue #{issue_number}. Status={status}. Body={raw}")
         return False
     return True
+
+def ensure_repo_label(api_base, owner, repo, label_name, headers):
+    labels_url = f"{api_base}/repos/{owner}/{repo}/labels"
+    status, labels, raw = _api_json_request("GET", labels_url, headers=headers)
+    if status != 200 or not isinstance(labels, list):
+        print(f"Failed to list labels. Status={status}. Body={raw}")
+        return None
+    for label in labels:
+        if label.get("name") == label_name:
+            return label.get("id")
+
+    create_payload = {
+        "name": label_name,
+        "color": "0e8a16",
+        "description": f"{label_name} label",
+    }
+    create_status, created, create_raw = _api_json_request(
+        "POST", labels_url, payload=create_payload, headers=headers
+    )
+    if create_status in (200, 201) and isinstance(created, dict):
+        return created.get("id")
+    print(
+        f"Failed to create '{label_name}' label. "
+        f"Status={create_status}. Body={create_raw}"
+    )
+    return None
+
+def _highest_auto_task_counter(issues):
+    max_counter = 0
+    for issue in issues:
+        title = issue.get("title", "")
+        m = re.match(r"^auto: governed improvement task (\d+)$", title)
+        if not m:
+            continue
+        value = int(m.group(1))
+        if value > max_counter:
+            max_counter = value
+    return max_counter
+
+def _open_build_issue_exists(issues):
+    for issue in issues:
+        if issue.get("state") != "open":
+            continue
+        labels = _issue_label_names(issue)
+        if "type:build" in labels:
+            return True
+    return False
+
+def create_self_generated_governed_task(api_base, owner, repo, final_phase_id, headers):
+    all_issues = get_all_issues(api_base, owner, repo, headers=headers)
+    counter = _highest_auto_task_counter(all_issues) + 1
+    title = f"auto: governed improvement task {counter}"
+    label_ids = []
+    for label_name in ["type:build", "governed", "deterministic", "auto-generated"]:
+        label_id = ensure_repo_label(api_base, owner, repo, label_name, headers)
+        if label_id is None:
+            return None, counter
+        label_ids.append(label_id)
+
+    body = (
+        "Origin: autonomous supervisor\n"
+        "Reason: no remaining governed build tasks in final phase\n"
+        "Scope: repository-internal deterministic improvement\n"
+        "Expected Outcome: concrete verifiable change\n"
+        "Governance: must pass commit-policy + phase-gate"
+    )
+    create_payload = {
+        "title": title,
+        "body": body,
+        "labels": label_ids,
+        "milestone": final_phase_id,
+    }
+    issue_url = f"{api_base}/repos/{owner}/{repo}/issues"
+    status, created, raw = _api_json_request(
+        "POST", issue_url, payload=create_payload, headers=headers
+    )
+    if status not in (200, 201) or not isinstance(created, dict):
+        print(f"Failed to create autonomous task. Status={status}. Body={raw}")
+        return None, counter
+    return created, counter
 
 def _parse_iso8601(ts):
     if not ts or not isinstance(ts, str):
@@ -561,11 +650,39 @@ def main():
         issues = get_open_issues(api_base, owner, repo, headers=headers)
         milestones = get_milestones(api_base, owner, repo, headers)
 
+        phase_lookup = _phase_milestone_lookup(milestones)
         active_phase = detect_active_phase(milestones, issues)
         if active_phase is None:
+            any_open_build = _open_build_issue_exists(issues)
+            print(f"AUTONOMY_IDLE no_remaining_phases={str((not any_open_build)).lower()}")
+            if not any_open_build:
+                final_phase = phase_lookup.get(FINAL_PHASE_NAME)
+                if final_phase:
+                    print(f'AUTONOMY_MODE_ACTIVE phase="{FINAL_PHASE_NAME}"')
+                    created, counter = create_self_generated_governed_task(
+                        api_base=api_base,
+                        owner=owner,
+                        repo=repo,
+                        final_phase_id=final_phase.get("id"),
+                        headers=headers,
+                    )
+                    if created is not None:
+                        print(
+                            f"AUTO_TASK_CREATED issue={created.get('number')} "
+                            f"counter={counter}"
+                        )
+                    else:
+                        print("Governance violation: autonomous task creation failed")
+                        print(enforcer.compliance_report_block())
+                        time.sleep(AUTONOMY_SLEEP_SECONDS)
+                        continue
+                    print(f"AUTONOMY_SLEEP interval_seconds={AUTONOMY_SLEEP_SECONDS}")
+                    print(enforcer.compliance_report_block())
+                    time.sleep(AUTONOMY_SLEEP_SECONDS)
+                    continue
             print("NO_ELIGIBLE_BUILD_ISSUES active_phase=none")
             print(enforcer.compliance_report_block())
-            time.sleep(60)
+            time.sleep(AUTONOMY_SLEEP_SECONDS)
             continue
 
         active_phase_id = active_phase["id"]
@@ -756,7 +873,7 @@ def main():
         else:
             print("NO_ELIGIBLE_BUILD_ISSUES active_phase=none")
         print(enforcer.compliance_report_block())
-        time.sleep(60) # Sleep even if claiming failed or all issues are in-progress
+        time.sleep(AUTONOMY_SLEEP_SECONDS) # Sleep even if claiming failed or all issues are in-progress
 
 if __name__ == "__main__":
     main()
