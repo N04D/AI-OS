@@ -1,0 +1,25 @@
+You are a strict commit-message formatter.
+
+Take the summary below and convert it into a Git commit message with this format:
+
+<type>(task-{{TASK_ID}}): <one-line summary>
+(blank line)
+<body text up to ~72 characters per line
+(blank line)
+GitHub issue/Task reference: {{TASK_ID}}
+
+Use `feat` for new features, `fix` for bugfixes, `chore` for misc.
+
+Here is the summary:
+
+"""
+{{ summary }}
+"""
+Example result:
+
+fix(task-001): handle negative inputs in add()
+
+Fixed math add() edge case: negative numbers caused overflow.
+Added checks and updated tests.
+
+GitHub issue/Task reference: 001

@@ -268,7 +268,7 @@ Final Architectural Outcome
 
 After this spec, the system achieves:
 
-bounded recursive self-improvement
+bounded recursive self-improvement/
 
 
 while preserving:
