@@ -11,11 +11,48 @@ try:
     from governance_enforcement import GovernanceEnforcer, GovernanceViolation
 except ImportError:
     from supervisor.governance_enforcement import GovernanceEnforcer, GovernanceViolation
+from supervisor.pr_gate.logger import log_event
+try:
+    from pr_gate import (
+        EvaluationCache,
+        GiteaClientError,
+        PolicyLoadError,
+        StatusPublishError,
+        evaluate_pr,
+        gate_report,
+        get_commit_statuses,
+        get_open_pull_requests,
+        get_pull_request_commits,
+        get_pull_request_files,
+        get_pull_request_reviews,
+        load_policy,
+        publish_governance_status,
+        write_gate_artifact,
+    )
+except ImportError:
+    from supervisor.pr_gate import (
+        EvaluationCache,
+        GiteaClientError,
+        PolicyLoadError,
+        StatusPublishError,
+        evaluate_pr,
+        gate_report,
+        get_commit_statuses,
+        get_open_pull_requests,
+        get_pull_request_commits,
+        get_pull_request_files,
+        get_pull_request_reviews,
+        load_policy,
+        publish_governance_status,
+        write_gate_artifact,
+    )
 from supervisor.environment_validation import validate_environment
 from executor.dispatch import DispatchFailure, dispatch_task_once
 from orchestrator.git import create_governed_commit
 
 TTL_SECONDS = 1800
+PR_GATE_TARGET_BRANCHES = {"main", "develop"}
+DEFAULT_POLICY_PATH = "governance/policy/pr-governance.v0.2.yaml"
 PHASE_MILESTONE_NAMES = [
     "Phase 1 — Governed Core Runtime",
     "Phase 2 — Environment Validation Layer",
@@ -80,6 +117,142 @@ def get_all_issues(api_base, owner, repo, headers=None):
     if status == 200 and isinstance(data, list):
         return data
     return []
+
+def _policy_path():
+    return os.environ.get("PR_GATE_POLICY_PATH", DEFAULT_POLICY_PATH)
+
+def _write_policy_baseline_artifact(policy_hash, policy_path):
+    os.makedirs("artifacts/governance", exist_ok=True)
+    artifact_path = "artifacts/governance/policy-baseline.json"
+    payload = {
+        "policy_path": policy_path,
+        "policy_hash_baseline": policy_hash,
+    }
+    with open(artifact_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, sort_keys=True, indent=2)
+        f.write("\n")
+
+def enforce_policy_hash_lockdown(policy_hash_baseline, policy_path=None):
+    effective_policy_path = policy_path or _policy_path()
+    _, current_hash = load_policy(effective_policy_path)
+    if current_hash != policy_hash_baseline:
+        log_event(
+            "PR_GATE",
+            (
+                "POLICY_LOCKDOWN policy_hash_changed "
+                f"baseline={policy_hash_baseline} current={current_hash}"
+            ),
+        )
+        raise RuntimeError(
+            "POLICY_LOCKDOWN "
+            f"baseline={policy_hash_baseline} current={current_hash}"
+        )
+    return current_hash
+
+def run_pr_governance_gate(
+    api_base,
+    owner,
+    repo,
+    headers,
+    pr_eval_cache,
+    enforcer,
+    policy_hash_baseline,
+):
+    policy_path = _policy_path()
+    policy, policy_hash = load_policy(policy_path)
+    if policy_hash != policy_hash_baseline:
+        log_event(
+            "PR_GATE",
+            (
+                "POLICY_LOCKDOWN policy_hash_changed "
+                f"baseline={policy_hash_baseline} current={policy_hash}"
+            ),
+        )
+        raise RuntimeError(
+            "POLICY_LOCKDOWN "
+            f"baseline={policy_hash_baseline} current={policy_hash}"
+        )
+    open_prs = get_open_pull_requests(
+        api_base,
+        owner,
+        repo,
+        headers=headers,
+        target_branches=PR_GATE_TARGET_BRANCHES,
+    )
+    for pr in open_prs:
+        pr_number = pr.get("number")
+        head_sha = ((pr.get("head") or {}).get("sha") or "").strip()
+        if pr_number is None or not head_sha:
+            raise RuntimeError("PR gate data missing number/head sha")
+
+        if pr_eval_cache.seen(pr_number, head_sha, policy_hash):
+            continue
+
+        publish_governance_status(
+            api_base=api_base,
+            owner=owner,
+            repo=repo,
+            sha=head_sha,
+            state="pending",
+            description="governance evaluation in progress",
+            headers=headers,
+        )
+
+        commits = get_pull_request_commits(
+            api_base,
+            owner,
+            repo,
+            pr_number,
+            head_sha,
+            headers=headers,
+        )
+        files = get_pull_request_files(api_base, owner, repo, pr_number, headers=headers)
+        reviews = get_pull_request_reviews(api_base, owner, repo, pr_number, headers=headers)
+        statuses = get_commit_statuses(api_base, owner, repo, head_sha, headers=headers)
+
+        eval_pr = dict(pr)
+        eval_pr["_open_prs"] = open_prs
+        result = evaluate_pr(policy, eval_pr, commits, files, reviews, statuses)
+        for gate_event in result.get("gate_events", []):
+            log_event(
+                "evaluate_pr",
+                (
+                    f"gate={gate_event.get('gate')} "
+                    f"result={gate_event.get('result')} reason={gate_event.get('reason')}"
+                ),
+            )
+        log_event(
+            "evaluate_pr",
+            (
+                f"FINAL result={'PASS' if result.get('passed', False) else 'FAIL'} "
+                f"failed_gates={result.get('failed_gates', [])}"
+            ),
+        )
+        write_gate_artifact(pr_number, head_sha, policy_hash, result)
+        if result.get("passed", False):
+            publish_governance_status(
+                api_base=api_base,
+                owner=owner,
+                repo=repo,
+                sha=head_sha,
+                state="success",
+                description="governance requirements satisfied",
+                headers=headers,
+            )
+        else:
+            publish_governance_status(
+                api_base=api_base,
+                owner=owner,
+                repo=repo,
+                sha=head_sha,
+                state="failure",
+                description="governance requirements failed",
+                headers=headers,
+            )
+            enforcer.enforce_pr_gate_result(pr_number, result)
+
+        print(gate_report(pr_number, head_sha, policy_hash, result))
+        pr_eval_cache.mark(pr_number, head_sha, policy_hash)
 
 def _auth_headers(env):
     """Builds optional Gitea authentication headers from env json or process env."""
@@ -767,6 +940,8 @@ def main():
         "recursive_rollback": False,
         "commit_determinism_mismatch": False,
     }
+    pr_eval_cache = EvaluationCache()
+    policy_hash_baseline = None
     
     while True:
         with open(env_file, "r") as f:
@@ -802,6 +977,36 @@ def main():
             time.sleep(60)
             continue
         prior_cycle["environment_failed"] = False
+
+        if policy_hash_baseline is None:
+            _, policy_hash_baseline = load_policy(_policy_path())
+            _write_policy_baseline_artifact(policy_hash_baseline, _policy_path())
+
+        log_event("PR_GATE", "run_pr_governance_gate start")
+        try:
+            run_pr_governance_gate(
+                api_base=api_base,
+                owner=owner,
+                repo=repo,
+                headers=headers,
+                pr_eval_cache=pr_eval_cache,
+                enforcer=enforcer,
+                policy_hash_baseline=policy_hash_baseline,
+            )
+        except (
+            PolicyLoadError,
+            StatusPublishError,
+            GiteaClientError,
+            GovernanceViolation,
+            RuntimeError,
+        ) as exc:
+            prior_cycle["governance_violation"] = True
+            log_event("PR_GATE", f"FAIL_CLOSED reason={exc}")
+            print(f"PR governance gate failed closed: {exc}")
+            print(enforcer.compliance_report_block())
+            time.sleep(60)
+            continue
+        log_event("PR_GATE", "run_pr_governance_gate end")
 
         issues = get_open_issues(api_base, owner, repo, headers=headers)
         release_stale_in_progress_claims(

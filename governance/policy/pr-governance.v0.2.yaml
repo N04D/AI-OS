@@ -1,0 +1,109 @@
+version: "v0.2"
+policy_id: "agent-git-governance"
+mode: "strict"
+fail_closed: true
+
+targets:
+  protected_branches: ["main", "develop"]
+  allowed_base_branches: ["main", "develop"]
+
+branch_rules:
+  # Feature work must go to develop
+  feature_to_develop_only: true
+
+  patterns:
+    feature:
+      regex: "^agent\\/[a-z0-9_-]+\\/(feat|fix|chore|docs|test)\\/[0-9]+-[a-z0-9-]+$"
+    hotfix:
+      regex: "^hotfix\\/[0-9]+-[a-z0-9-]+$"
+    release:
+      regex: "^release\\/[0-9]+\\.[0-9]+\\.[0-9]+$"
+
+issue_link:
+  required: true
+  patterns:
+    - "(^|\\s)#([0-9]+)(\\s|$)"
+    - "\\[#([0-9]+)\\]"
+
+pr_template:
+  required_sections:
+    - "Subsystem"
+    - "Risk Level"
+    - "Determinism Impact"
+    - "Lock Required?"
+    - "Tests Executed"
+    - "Rollback Plan"
+  reject_placeholders:
+    - "TBD"
+    - "TODO"
+    - "N/A"
+  min_section_length: 5
+
+risk:
+  allowed: ["low", "medium", "high"]
+  high_risk_minimum: "medium"
+
+high_risk_paths:
+  - "supervisor/"
+  - "governance/"
+  - "executor/"
+  - "orchestrator/"
+  - "environment/"
+  - ".gitea/"
+  - ".github/"
+
+locks:
+  required_on_high_risk: true
+  token_prefix: "LOCK:"
+  allowed:
+    - "LOCK:supervisor/"
+    - "LOCK:governance/"
+    - "LOCK:executor/"
+    - "LOCK:orchestrator/"
+    - "LOCK:environment/"
+  exclusive: true
+  lock_release: "on_merge"
+
+approvals:
+  # Review separation
+  disallow_self_approval: true
+
+  # develop merges
+  develop:
+    min_approvals: 1
+    require_distinct_reviewer: true
+    require_supervisor_status: true
+
+  # main merges
+  main:
+    min_approvals: 2
+    require_human_approval: true
+    require_supervisor_status: true
+
+commit_signing:
+  required: true
+  mode: "all_commits"   # "all_commits" | "merge_commit_only"
+  accepted_types: ["gpg", "ssh"]
+
+ci:
+  required: true
+  required_checks:
+    - "lint"
+    - "unit-tests"
+    - "smoke-test"
+  allow_manual_evidence: false
+
+system_evolution:
+  detect_paths:
+    - "governance/policy/"
+    - "supervisor/"
+  label: "SYSTEM_EVOLUTION"
+  approvals:
+    min_approvals: 2
+    require_human_approval: true
+  ci:
+    required_checks:
+      - "lint"
+      - "unit-tests"
+      - "smoke-test"
+      - "determinism-check"

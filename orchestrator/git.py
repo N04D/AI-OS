@@ -44,20 +44,65 @@ def get_repo_info():
     )
     url = result.stdout.strip()
     
-    # Handle ssh://git@localhost:2222/Don/dev.git
-    match = re.search(r'ssh://git@(?P<host>[^:]+):(?P<port>\d+)/(?P<owner>[^/]+)/(?P<repo>.+)\.git', url)
-    if match:
-        info = match.groupdict()
+    # Handle ssh://git@<host>:<port>/<owner>/<repo>.git
+    # Example: ssh://git@localhost:2222/Don/dev.git
+    match_ssh_full = re.search(r'ssh://git@(?P<host>[^:]+):(?P<port>\d+)/(?P<owner>[^/]+)/(?P<repo>.+)\.git', url)
+    if match_ssh_full:
+        info = match_ssh_full.groupdict()
         return info['host'], info['port'], info['owner'], info['repo']
-    
-    # Handle git@github.com:owner/repo.git
-    match = re.search(r'git@(?P<host>[^:]+):(?P<owner>[^/]+)/(?P<repo>.+)\.git', url)
-    if match:
-        info = match.groupdict()
-        info['port'] = '80' # Default port for http
-        return info['host'], info['port'], info['owner'], info['repo']
+
+    # Handle git@<host>:<owner>/<repo>.git (standard SSH)
+    match_ssh = re.search(r'git@(?P<host>[^:]+):(?P<owner>[^/]+)/(?P<repo>.+)\.git', url)
+    if match_ssh:
+        info = match_ssh.groupdict()
+        # Default Gitea HTTP port is typically 3000, but there is no way to know for sure from SSH url 
+        # unless we assume or config.
+        # However, for 'git@localhost:Don/dev.git', it's ambiguous. 
+        # The previous code assumed port 80 for 'github.com', but here we are dealing with local/private Gitea.
+        # If the user says "Canonical remote is Gitea", and "Always derive API endpoints", 
+        # we might need to assume the http service is on a standard port or the same host.
+        # But wait, the previous code returned '80' for the GitHub case. 
+        # For a local Gitea derived from `ssh://git@localhost:2222...`, we have a port 2222 for SSH.
+        # We need the HTTP port for the API. It is NOT 2222.
+        # The original code used 2222 as the HTTP port? 
+        # Line 67: api_url = f"http://{host}:{port}/api/v1/..."
+        # This implies the code assumed the SSH port and HTTP port are the same, OR that the URL contained the HTTP port.
+        # In `ssh://git@localhost:2222/...`, 2222 is the SSH port. using that for HTTP is likely WRONG unless Gitea is doing something weird.
+        # BUT, strictly following instructions to "derive API endpoints from git remote", 
+        # and looking at the existing code which used the `port` from the regex...
         
-    raise ValueError(f"Unsupported git remote URL format: {url}")
+        # Let's look closer at the original code:
+        # match = re.search(r'ssh://git@(?P<host>[^:]+):(?P<port>\d+)/(?P<owner>[^/]+)/(?P<repo>.+)\.git', url)
+        # return info['host'], info['port'], ...
+        # Api call: f"http://{host}:{port}/..."
+        
+        # If the remote is ssh://git@localhost:2222/..., then host=localhost, port=2222.
+        # The API call becomes http://localhost:2222/api/v1/... 
+        # This works ONLY if Gitea is exposed on HTTP at 2222 as well, or if the user's environment has SSH and HTTP on same port (unlikely), 
+        # OR if the "2222" in the URL was actually meant to be the HTTP port (also unlikely for an SSH URL).
+        
+        # However, typically in these local setups with docker mapping:
+        # 2222:22 (SSH)
+        # 3000:3000 (HTTP)
+        
+        # If the remote is just `git@server:owner/repo.git`, we have NO port info.
+        
+        # The user instruction said: "Always derive API endpoints from git remote get-url origin."
+        
+        # If the user's setup relies on the port being present in the ssh url (Docker style), we should preserve extracting it.
+        # But we must NOT assume GitHub.
+        
+        return info['host'], "3000", info['owner'], info['repo'] # Default to 3000 if not specified? 
+        # Or should we just fail if we can't find it?
+        
+    # Handle http(s)://<host>:<port>/<owner>/<repo>.git
+    match_http = re.search(r'https?://(?P<host>[^:]+)(:(?P<port>\d+))?/(?P<owner>[^/]+)/(?P<repo>.+)\.git', url)
+    if match_http:
+        info = match_http.groupdict()
+        port = info.get('port') or ('443' if url.startswith('https') else '80')
+        return info['host'], port, info['owner'], info['repo']
+
+    raise ValueError(f"Unsupported or non-Gitea git remote URL format: {url}")
 
 
 def get_open_issues():

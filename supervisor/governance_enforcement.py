@@ -230,6 +230,23 @@ class GovernanceEnforcer:
             )
             raise GovernanceViolation("Commit policy validation failed")
 
+    def enforce_pr_gate_result(self, pr_number, result):
+        """
+        PR Governance gate:
+        fail closed when PR evaluation does not pass.
+        """
+        if result.get("passed", False):
+            return
+        self._record_violation(
+            rule="pr_governance_gate",
+            message=f"PR #{pr_number} failed governance gate",
+            context={
+                "failed_reasons": result.get("failed_reasons", []),
+                "system_evolution": result.get("system_evolution", False),
+            },
+        )
+        raise GovernanceViolation("PR governance gate failed")
+
     def compliance_report_block(self):
         """
         Returns a reporting block required by the governance enforcement spec.
