@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-02-16T05:26:02Z",
+  "commit_sha": "66b8a5f0f2596084b74dd7acd861e7fe39536401",
+  "wiki_pages": [
+    "Home.md",
+    "Architecture.md",
+    "Governance-Policy.md",
+    "PR-Gate-Mechanics.md",
+    "Developer-Workflow.md",
+    "Agent-Report-Guidelines.md",
+    "Test-Coverage.md",
+    "CI-and-Automation.md",
+    "Security-and-Fail-Closed-Model.md"
+  ],
+  "documentation_hash": "88e9a26c5cbdefbcd1c383937ece518705b2779f43e8c8e65934dad983004f84"
+}
