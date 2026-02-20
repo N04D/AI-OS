@@ -1006,3 +1006,195 @@ def test_permit_usage_policy_hash_required() -> None:
         assert False, "Expected InvalidPermitError"
     except InvalidPermitError as exc:
         assert "secure_layer.permit.invalid.policy_hash" in str(exc)
+
+
+def test_replay_mode_no_side_effect_execution() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    permit = _make_permit()
+    called = {"subprocess": 0}
+    original_run = dispatch_module.subprocess.run
+
+    def _forbidden_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+        called["subprocess"] += 1
+        raise AssertionError("subprocess.run must not be called in replay mode")
+
+    try:
+        dispatch_module.subprocess.run = _forbidden_run  # type: ignore[assignment]
+        replay = dispatch_module.execute_capability(
+            dispatch_input,
+            permit=permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash="prev-hash-1",
+            mode="replay",
+        )
+        assert replay["mode"] == "replay"
+        assert called["subprocess"] == 0
+    finally:
+        dispatch_module.subprocess.run = original_run  # type: ignore[assignment]
+
+
+def test_replay_mode_returns_deterministic_result() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    permit = _make_permit()
+    first = dispatch_module.execute_capability(
+        dispatch_input,
+        permit=permit,
+        current_stream_id="stream-1",
+        current_sequence=5,
+        current_prev_event_hash="prev-hash-1",
+        mode="replay",
+    )
+    second = dispatch_module.execute_capability(
+        dispatch_input,
+        permit=permit,
+        current_stream_id="stream-1",
+        current_sequence=5,
+        current_prev_event_hash="prev-hash-1",
+        mode="replay",
+    )
+    assert first == second
+
+
+def test_replay_mode_fails_on_sequence_gap() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    previous_event = AuditEvent(
+        event_id="prev-1",
+        event_type="tool.exec.requested",
+        policy_hash="policy-hash-1",
+        request_fingerprint="request-fp-1",
+        sequence=3,
+        stream_id="stream-1",
+        prev_event_hash="prev-0-hash",
+        payload={"tool": "echo"},
+    )
+    permit = _make_permit(
+        issued_at_sequence=5,
+        prev_event_hash=event_fingerprint(previous_event),
+        stream_id="stream-1",
+    )
+    try:
+        dispatch_module.execute_capability(
+            dispatch_input,
+            permit=permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash=event_fingerprint(previous_event),
+            previous_event=previous_event,
+            mode="replay",
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert str(exc) == "secure_layer.replay.invalid execution"
+
+
+def test_replay_mode_fails_on_hash_mismatch() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    previous_event = AuditEvent(
+        event_id="prev-1",
+        event_type="tool.exec.requested",
+        policy_hash="policy-hash-1",
+        request_fingerprint="request-fp-1",
+        sequence=4,
+        stream_id="stream-1",
+        prev_event_hash="prev-0-hash",
+        payload={"tool": "echo"},
+    )
+    permit = _make_permit(
+        issued_at_sequence=5,
+        prev_event_hash="mismatched-hash",
+        stream_id="stream-1",
+    )
+    try:
+        dispatch_module.execute_capability(
+            dispatch_input,
+            permit=permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash="mismatched-hash",
+            previous_event=previous_event,
+            mode="replay",
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert str(exc) == "secure_layer.replay.invalid execution"
+
+
+def test_live_mode_unchanged_behavior() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    permit = _make_permit()
+    called = {"subprocess": 0}
+    original_run = dispatch_module.subprocess.run
+    original_utc = dispatch_module.utc_iso8601
+    original_monotonic = dispatch_module.time.monotonic
+    mono_values = iter([1.0, 1.0])
+
+    class _ProcResult:
+        stdout = "{\"ok\":true}\\n"
+        stderr = ""
+        returncode = 0
+
+    def _fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+        called["subprocess"] += 1
+        return _ProcResult()
+
+    def _fake_utc() -> str:
+        return "2026-02-20T00:00:00Z"
+
+    def _fake_monotonic() -> float:
+        return next(mono_values)
+
+    try:
+        dispatch_module.subprocess.run = _fake_run  # type: ignore[assignment]
+        dispatch_module.utc_iso8601 = _fake_utc  # type: ignore[assignment]
+        dispatch_module.time.monotonic = _fake_monotonic  # type: ignore[assignment]
+        result, metadata = dispatch_module.execute_capability(
+            dispatch_input,
+            permit=permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash="prev-hash-1",
+            mode="live",
+        )
+        assert result.status == "success"
+        assert metadata["timed_out"] is False
+        assert called["subprocess"] == 1
+    finally:
+        dispatch_module.subprocess.run = original_run  # type: ignore[assignment]
+        dispatch_module.utc_iso8601 = original_utc  # type: ignore[assignment]
+        dispatch_module.time.monotonic = original_monotonic  # type: ignore[assignment]

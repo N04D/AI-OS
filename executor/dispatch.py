@@ -2,6 +2,7 @@ import json
 import subprocess
 import threading
 import time
+from typing import Any
 
 from executor.result import ExecutorResult, utc_iso8601
 from executor.secure_execution_layer.audit_event_taxonomy import (
@@ -72,7 +73,8 @@ def dispatch_task_once(
     current_sequence: int = -1,
     current_prev_event_hash: str = "",
     previous_event: AuditEvent | None = None,
-) -> tuple[ExecutorResult, dict]:
+    mode: str = "live",
+) -> tuple[ExecutorResult, dict] | dict[str, Any]:
     """
     Dispatches exactly one deterministic execution for a claimed task.
     Returns structured executor result and dispatch metadata.
@@ -87,6 +89,7 @@ def dispatch_task_once(
         current_sequence=current_sequence,
         current_prev_event_hash=current_prev_event_hash,
         previous_event=previous_event,
+        mode=mode,
     )
 
 
@@ -100,10 +103,38 @@ def execute_capability(
     current_sequence: int = -1,
     current_prev_event_hash: str = "",
     previous_event: AuditEvent | None = None,
-) -> tuple[ExecutorResult, dict]:
+    mode: str = "live",
+) -> tuple[ExecutorResult, dict] | dict[str, Any]:
     _validate_dispatch_input(dispatch_input)
+    if mode not in ("live", "replay"):
+        raise ValueError("secure_layer.invalid mode")
     if permit is None:
         raise PermitRequiredError("execution.permit.required")
+    if mode == "replay":
+        try:
+            validate_execution_permit_structure(permit)
+            verify_execution_permit_against_chain(
+                permit,
+                current_stream_id=current_stream_id,
+                current_sequence=current_sequence,
+                current_prev_event_hash=current_prev_event_hash,
+            )
+            permit_used_event, permit_used_event_hash = _build_permit_usage_event(
+                permit=permit,
+                current_stream_id=current_stream_id,
+                current_sequence=current_sequence,
+                current_prev_event_hash=current_prev_event_hash,
+                previous_event=previous_event,
+            )
+        except ValueError as exc:
+            raise ValueError("secure_layer.replay.invalid execution") from exc
+        return {
+            "mode": "replay",
+            "event_hash": permit_used_event_hash,
+            "capability": permit_used_event.payload["capability"],
+            "decision": permit_used_event.payload["decision"],
+        }
+
     try:
         validate_execution_permit_structure(permit)
         verify_execution_permit_against_chain(
@@ -115,27 +146,14 @@ def execute_capability(
     except ValueError as exc:
         raise InvalidPermitError(str(exc)) from exc
 
-    permit_used_event = AuditEvent(
-        event_id=permit.permit_id,
-        event_type="permit.used",
-        policy_hash=permit.policy_hash,
-        request_fingerprint=permit.request_fingerprint,
-        sequence=current_sequence,
-        stream_id=current_stream_id,
-        prev_event_hash=current_prev_event_hash,
-        payload={
-            "capability": permit.capability,
-            "decision": permit.decision,
-            "permit_scope": permit.permit_scope,
-        },
-    )
     try:
-        validate_audit_event(permit_used_event)
-        if previous_event is None:
-            validate_event_stream([permit_used_event])
-        else:
-            validate_event_stream([previous_event, permit_used_event])
-        permit_used_event_hash = event_fingerprint(permit_used_event)
+        permit_used_event, permit_used_event_hash = _build_permit_usage_event(
+            permit=permit,
+            current_stream_id=current_stream_id,
+            current_sequence=current_sequence,
+            current_prev_event_hash=current_prev_event_hash,
+            previous_event=previous_event,
+        )
     except ValueError as exc:
         raise ValueError("secure_layer.audit.invalid permit_usage") from exc
 
@@ -206,3 +224,34 @@ def execute_capability(
         return result, metadata
     finally:
         _EXECUTION_LOCK.release()
+
+
+def _build_permit_usage_event(
+    *,
+    permit: ExecutionPermit,
+    current_stream_id: str,
+    current_sequence: int,
+    current_prev_event_hash: str,
+    previous_event: AuditEvent | None,
+) -> tuple[AuditEvent, str]:
+    permit_used_event = AuditEvent(
+        event_id=permit.permit_id,
+        event_type="permit.used",
+        policy_hash=permit.policy_hash,
+        request_fingerprint=permit.request_fingerprint,
+        sequence=current_sequence,
+        stream_id=current_stream_id,
+        prev_event_hash=current_prev_event_hash,
+        payload={
+            "capability": permit.capability,
+            "decision": permit.decision,
+            "permit_scope": permit.permit_scope,
+        },
+    )
+    validate_audit_event(permit_used_event)
+    if previous_event is None:
+        validate_event_stream([permit_used_event])
+    else:
+        validate_event_stream([previous_event, permit_used_event])
+    permit_used_event_hash = event_fingerprint(permit_used_event)
+    return permit_used_event, permit_used_event_hash
