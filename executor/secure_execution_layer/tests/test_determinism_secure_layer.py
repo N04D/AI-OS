@@ -7,6 +7,12 @@ from executor.secure_execution_layer.policy_interpreter import (
 from executor.secure_execution_layer.network_egress_evaluator import (
     validate_network_egress_initialization,
 )
+from executor.secure_execution_layer.audit_event_taxonomy import (
+    AuditEvent,
+    event_fingerprint,
+    validate_audit_event,
+    validate_event_stream,
+)
 from executor.secure_execution_layer.review_ledger_resolver import (
     ReviewArtifact,
     resolve_review_artifact,
@@ -179,3 +185,88 @@ def test_secret_validator_requires_expiry_or_rotation() -> None:
         disallowed_injection_modes={"query_param", "url_path"},
     )
     assert valid == "valid"
+
+
+def test_audit_event_requires_policy_hash_and_chain_fields() -> None:
+    try:
+        validate_audit_event(
+            AuditEvent(
+                event_id="evt-1",
+                event_type="policy.evaluated",
+                policy_hash="",
+                sequence=0,
+                stream_hash="stream-1",
+            )
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "policy_hash" in str(exc)
+
+    try:
+        validate_audit_event(
+            AuditEvent(
+                event_id="evt-1",
+                event_type="policy.evaluated",
+                policy_hash="hash-1",
+            )
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "requires prev_event_id or sequence+stream_hash" in str(exc)
+
+
+def test_audit_event_stream_requires_deterministic_contiguous_sequence() -> None:
+    validate_event_stream(
+        [
+            AuditEvent(
+                event_id="evt-0",
+                event_type="policy.evaluated",
+                policy_hash="hash-1",
+                sequence=0,
+                stream_hash="stream-1",
+            ),
+            AuditEvent(
+                event_id="evt-1",
+                event_type="tool.exec.requested",
+                policy_hash="hash-1",
+                sequence=1,
+                stream_hash="stream-1",
+            ),
+        ]
+    )
+
+    try:
+        validate_event_stream(
+            [
+                AuditEvent(
+                    event_id="evt-0",
+                    event_type="policy.evaluated",
+                    policy_hash="hash-1",
+                    sequence=0,
+                    stream_hash="stream-1",
+                ),
+                AuditEvent(
+                    event_id="evt-2",
+                    event_type="tool.exec.requested",
+                    policy_hash="hash-1",
+                    sequence=2,
+                    stream_hash="stream-1",
+                ),
+            ]
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "non_contiguous_sequence" in str(exc)
+
+
+def test_audit_event_fingerprint_is_stable() -> None:
+    event = AuditEvent(
+        event_id="evt-1",
+        event_type="review.paused",
+        policy_hash="hash-1",
+        sequence=0,
+        stream_hash="stream-1",
+    )
+    first = event_fingerprint(event)
+    second = event_fingerprint(event)
+    assert first == second

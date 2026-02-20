@@ -12,6 +12,13 @@ from executor.secure_execution_layer.network_egress_evaluator import (
     ResolutionSnapshot,
     validate_network_egress_initialization,
 )
+from executor.secure_execution_layer.audit_event_taxonomy import (
+    AuditEvent,
+    AuditEventType,
+    event_fingerprint,
+    validate_audit_event,
+    validate_event_stream,
+)
 from executor.secure_execution_layer.policy_interpreter import (
     ConflictResolutionMode,
     Decision,
@@ -40,6 +47,8 @@ from executor.secure_execution_layer.secret_injection_validator import (
 __all__ = [
     "ConflictResolutionMode",
     "Decision",
+    "AuditEvent",
+    "AuditEventType",
     "EgressDecision",
     "EgressRequest",
     "LedgerResolution",
@@ -56,6 +65,9 @@ __all__ = [
     "SecretRef",
     "ValidationResult",
     "resolve_overlapping_rules",
+    "event_fingerprint",
+    "validate_audit_event",
+    "validate_event_stream",
     "resolve_review_artifact",
     "validate_network_egress_initialization",
     "validate_policy_interpretation_config",
