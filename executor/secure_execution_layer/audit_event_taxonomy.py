@@ -15,6 +15,7 @@ from executor.secure_execution_layer.canonical_hash import (
 )
 AuditEventType = Literal[
     "policy.evaluated",
+    "permit.used",
     "tool.exec.requested",
     "tool.exec.allowed",
     "tool.exec.blocked",
@@ -72,14 +73,15 @@ def validate_event_stream(events: list[AuditEvent]) -> None:
         if event.stream_id != first_stream_id:
             raise ValueError("secure_layer.audit.invalid stream_id_mismatch")
 
-    expected_sequence = 0
+    expected_sequence = events[0].sequence
     previous_hash: str | None = None
-    for event in events:
+    for index, event in enumerate(events):
         if event.sequence != expected_sequence:
             raise ValueError("secure_layer.audit.invalid non_contiguous_sequence")
-        expected_prev = previous_hash or ""
-        if (event.prev_event_hash or "") != expected_prev:
-            raise ValueError("secure_layer.audit.invalid prev_event_hash_mismatch")
+        if index > 0:
+            expected_prev = previous_hash or ""
+            if (event.prev_event_hash or "") != expected_prev:
+                raise ValueError("secure_layer.audit.invalid prev_event_hash_mismatch")
         previous_hash = event_fingerprint(event)
         expected_sequence += 1
 

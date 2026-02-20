@@ -4,6 +4,19 @@ import threading
 import time
 
 from executor.result import ExecutorResult, utc_iso8601
+from executor.secure_execution_layer.audit_event_taxonomy import (
+    AuditEvent,
+    event_fingerprint,
+    validate_audit_event,
+    validate_event_stream,
+)
+from executor.secure_execution_layer.execution_permit_validator import (
+    ExecutionPermit,
+    InvalidPermitError,
+    PermitRequiredError,
+    validate_execution_permit_structure,
+    verify_execution_permit_against_chain,
+)
 
 
 _EXECUTION_LOCK = threading.Lock()
@@ -54,12 +67,77 @@ def dispatch_task_once(
     *,
     start_timeout_seconds: int = 5,
     max_duration_seconds: int = 60,
+    permit: ExecutionPermit | None = None,
+    current_stream_id: str = "",
+    current_sequence: int = -1,
+    current_prev_event_hash: str = "",
+    previous_event: AuditEvent | None = None,
 ) -> tuple[ExecutorResult, dict]:
     """
     Dispatches exactly one deterministic execution for a claimed task.
     Returns structured executor result and dispatch metadata.
     """
     _validate_dispatch_input(dispatch_input)
+    return execute_capability(
+        dispatch_input,
+        start_timeout_seconds=start_timeout_seconds,
+        max_duration_seconds=max_duration_seconds,
+        permit=permit,
+        current_stream_id=current_stream_id,
+        current_sequence=current_sequence,
+        current_prev_event_hash=current_prev_event_hash,
+        previous_event=previous_event,
+    )
+
+
+def execute_capability(
+    dispatch_input: dict,
+    *,
+    start_timeout_seconds: int = 5,
+    max_duration_seconds: int = 60,
+    permit: ExecutionPermit | None = None,
+    current_stream_id: str = "",
+    current_sequence: int = -1,
+    current_prev_event_hash: str = "",
+    previous_event: AuditEvent | None = None,
+) -> tuple[ExecutorResult, dict]:
+    _validate_dispatch_input(dispatch_input)
+    if permit is None:
+        raise PermitRequiredError("execution.permit.required")
+    try:
+        validate_execution_permit_structure(permit)
+        verify_execution_permit_against_chain(
+            permit,
+            current_stream_id=current_stream_id,
+            current_sequence=current_sequence,
+            current_prev_event_hash=current_prev_event_hash,
+        )
+    except ValueError as exc:
+        raise InvalidPermitError(str(exc)) from exc
+
+    permit_used_event = AuditEvent(
+        event_id=permit.permit_id,
+        event_type="permit.used",
+        policy_hash=permit.policy_hash,
+        request_fingerprint=permit.request_fingerprint,
+        sequence=current_sequence,
+        stream_id=current_stream_id,
+        prev_event_hash=current_prev_event_hash,
+        payload={
+            "capability": permit.capability,
+            "decision": permit.decision,
+            "permit_scope": permit.permit_scope,
+        },
+    )
+    try:
+        validate_audit_event(permit_used_event)
+        if previous_event is None:
+            validate_event_stream([permit_used_event])
+        else:
+            validate_event_stream([previous_event, permit_used_event])
+        permit_used_event_hash = event_fingerprint(permit_used_event)
+    except ValueError as exc:
+        raise ValueError("secure_layer.audit.invalid permit_usage") from exc
 
     if not _EXECUTION_LOCK.acquire(blocking=False):
         raise DispatchFailure("execution.lock.violation")
@@ -122,6 +200,8 @@ def dispatch_task_once(
             "executor_command": command,
             "timed_out": timed_out,
             "max_duration_seconds": max_duration_seconds,
+            "permit_usage_event_id": permit_used_event.event_id,
+            "permit_usage_event_hash": permit_used_event_hash,
         }
         return result, metadata
     finally:

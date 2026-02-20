@@ -26,11 +26,14 @@ from executor.secure_execution_layer.replay_verifier import (
 )
 from executor.secure_execution_layer.execution_permit_validator import (
     ExecutionPermit,
+    InvalidPermitError,
+    PermitRequiredError,
     compute_permit_id,
     compute_permit_id_input,
     validate_execution_permit_structure,
     verify_execution_permit_against_chain,
 )
+import executor.dispatch as dispatch_module
 from executor.secure_execution_layer.review_ledger_resolver import (
     ReviewArtifact,
     resolve_review_artifact,
@@ -493,12 +496,15 @@ def _make_permit(
     permit_scope: str = "one_shot",
     expiry_condition: dict | None = None,
     issued_at_sequence: int = 5,
+    stream_id: str = "stream-1",
+    prev_event_hash: str = "prev-hash-1",
+    policy_hash: str = "policy-hash-1",
     compute_id: bool = True,
 ) -> ExecutionPermit:
     base_expiry = expiry_condition if expiry_condition is not None else {"valid_for_sequence_range": [5, 5]}
     seed = ExecutionPermit(
         permit_id="seed",
-        policy_hash="policy-hash-1",
+        policy_hash=policy_hash,
         request_fingerprint="request-fp-1",
         capability={"kind": "tool", "selector": "tool.echo"},
         decision="allow",
@@ -510,8 +516,8 @@ def _make_permit(
         },
         issued_by="supervisor.v1",
         issued_at_sequence=issued_at_sequence,
-        stream_id="stream-1",
-        prev_event_hash="prev-hash-1",
+        stream_id=stream_id,
+        prev_event_hash=prev_event_hash,
         permit_scope=permit_scope,  # type: ignore[arg-type]
         expiry_condition=base_expiry,
     )
@@ -676,3 +682,327 @@ def test_bounded_scope_sequence_range_validation() -> None:
         assert False, "Expected ValueError"
     except ValueError as exc:
         assert str(exc) == "secure_layer.permit.invalid.bounded_range_violation"
+
+
+def test_executor_rejects_missing_permit() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    try:
+        dispatch_module.execute_capability(
+            dispatch_input,
+            permit=None,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash="prev-hash-1",
+        )
+        assert False, "Expected PermitRequiredError"
+    except PermitRequiredError:
+        pass
+
+
+def test_executor_rejects_invalid_permit() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    permit = _make_permit(compute_id=False)
+    bad_permit = ExecutionPermit(
+        permit_id=permit.permit_id,
+        policy_hash="",
+        request_fingerprint=permit.request_fingerprint,
+        capability=permit.capability,
+        decision=permit.decision,
+        severity_to_gating=permit.severity_to_gating,
+        issued_by=permit.issued_by,
+        issued_at_sequence=permit.issued_at_sequence,
+        stream_id=permit.stream_id,
+        prev_event_hash=permit.prev_event_hash,
+        permit_scope=permit.permit_scope,
+        expiry_condition=permit.expiry_condition,
+    )
+    try:
+        dispatch_module.execute_capability(
+            dispatch_input,
+            permit=bad_permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash="prev-hash-1",
+        )
+        assert False, "Expected InvalidPermitError"
+    except InvalidPermitError as exc:
+        assert "secure_layer.permit.invalid" in str(exc)
+
+
+def test_executor_accepts_valid_permit() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    permit = _make_permit()
+
+    original_run = dispatch_module.subprocess.run
+    original_utc = dispatch_module.utc_iso8601
+    original_monotonic = dispatch_module.time.monotonic
+    mono_values = iter([1.0, 1.0])
+
+    class _ProcResult:
+        stdout = "{\"ok\":true}\\n"
+        stderr = ""
+        returncode = 0
+
+    def _fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+        return _ProcResult()
+
+    def _fake_utc() -> str:
+        return "2026-02-20T00:00:00Z"
+
+    def _fake_monotonic() -> float:
+        return next(mono_values)
+
+    try:
+        dispatch_module.subprocess.run = _fake_run  # type: ignore[assignment]
+        dispatch_module.utc_iso8601 = _fake_utc  # type: ignore[assignment]
+        dispatch_module.time.monotonic = _fake_monotonic  # type: ignore[assignment]
+        result, metadata = dispatch_module.execute_capability(
+            dispatch_input,
+            permit=permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash="prev-hash-1",
+        )
+        assert result.status == "success"
+        assert result.exit_status == 0
+        assert metadata["timed_out"] is False
+        assert metadata["permit_usage_event_id"] == permit.permit_id
+        assert isinstance(metadata["permit_usage_event_hash"], str)
+    finally:
+        dispatch_module.subprocess.run = original_run  # type: ignore[assignment]
+        dispatch_module.utc_iso8601 = original_utc  # type: ignore[assignment]
+        dispatch_module.time.monotonic = original_monotonic  # type: ignore[assignment]
+
+
+def test_permit_usage_emits_valid_audit_event() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    permit = _make_permit()
+    original_run = dispatch_module.subprocess.run
+    original_utc = dispatch_module.utc_iso8601
+    original_monotonic = dispatch_module.time.monotonic
+    mono_values = iter([1.0, 1.0])
+
+    class _ProcResult:
+        stdout = "{\"ok\":true}\\n"
+        stderr = ""
+        returncode = 0
+
+    def _fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+        return _ProcResult()
+
+    def _fake_utc() -> str:
+        return "2026-02-20T00:00:00Z"
+
+    def _fake_monotonic() -> float:
+        return next(mono_values)
+
+    try:
+        dispatch_module.subprocess.run = _fake_run  # type: ignore[assignment]
+        dispatch_module.utc_iso8601 = _fake_utc  # type: ignore[assignment]
+        dispatch_module.time.monotonic = _fake_monotonic  # type: ignore[assignment]
+        result, metadata = dispatch_module.execute_capability(
+            dispatch_input,
+            permit=permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash="prev-hash-1",
+        )
+        assert result.status == "success"
+        assert metadata["permit_usage_event_id"] == permit.permit_id
+        expected_hash = event_fingerprint(
+            AuditEvent(
+                event_id=permit.permit_id,
+                event_type="permit.used",
+                policy_hash=permit.policy_hash,
+                request_fingerprint=permit.request_fingerprint,
+                sequence=5,
+                stream_id="stream-1",
+                prev_event_hash="prev-hash-1",
+                payload={
+                    "capability": permit.capability,
+                    "decision": permit.decision,
+                    "permit_scope": permit.permit_scope,
+                },
+            )
+        )
+        assert metadata["permit_usage_event_hash"] == expected_hash
+    finally:
+        dispatch_module.subprocess.run = original_run  # type: ignore[assignment]
+        dispatch_module.utc_iso8601 = original_utc  # type: ignore[assignment]
+        dispatch_module.time.monotonic = original_monotonic  # type: ignore[assignment]
+
+
+def test_permit_usage_fails_on_stream_mismatch() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    previous_event = AuditEvent(
+        event_id="prev-1",
+        event_type="tool.exec.requested",
+        policy_hash="policy-hash-1",
+        request_fingerprint="request-fp-1",
+        sequence=4,
+        stream_id="other-stream",
+        prev_event_hash="prev-0-hash",
+        payload={"tool": "echo"},
+    )
+    permit = _make_permit(
+        prev_event_hash=event_fingerprint(previous_event),
+        stream_id="stream-1",
+    )
+    try:
+        dispatch_module.execute_capability(
+            dispatch_input,
+            permit=permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash=event_fingerprint(previous_event),
+            previous_event=previous_event,
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert str(exc) == "secure_layer.audit.invalid permit_usage"
+
+
+def test_permit_usage_fails_on_sequence_gap() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    previous_event = AuditEvent(
+        event_id="prev-1",
+        event_type="tool.exec.requested",
+        policy_hash="policy-hash-1",
+        request_fingerprint="request-fp-1",
+        sequence=3,
+        stream_id="stream-1",
+        prev_event_hash="prev-0-hash",
+        payload={"tool": "echo"},
+    )
+    permit = _make_permit(
+        issued_at_sequence=5,
+        prev_event_hash=event_fingerprint(previous_event),
+        stream_id="stream-1",
+    )
+    try:
+        dispatch_module.execute_capability(
+            dispatch_input,
+            permit=permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash=event_fingerprint(previous_event),
+            previous_event=previous_event,
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert str(exc) == "secure_layer.audit.invalid permit_usage"
+
+
+def test_permit_usage_hash_deterministic() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    permit = _make_permit()
+    original_run = dispatch_module.subprocess.run
+    original_utc = dispatch_module.utc_iso8601
+    original_monotonic = dispatch_module.time.monotonic
+
+    class _ProcResult:
+        stdout = "{\"ok\":true}\\n"
+        stderr = ""
+        returncode = 0
+
+    def _fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+        return _ProcResult()
+
+    def _fake_utc() -> str:
+        return "2026-02-20T00:00:00Z"
+
+    try:
+        dispatch_module.subprocess.run = _fake_run  # type: ignore[assignment]
+        dispatch_module.utc_iso8601 = _fake_utc  # type: ignore[assignment]
+        dispatch_module.time.monotonic = lambda: 1.0  # type: ignore[assignment]
+        _, first_meta = dispatch_module.execute_capability(
+            dispatch_input,
+            permit=permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash="prev-hash-1",
+        )
+        _, second_meta = dispatch_module.execute_capability(
+            dispatch_input,
+            permit=permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash="prev-hash-1",
+        )
+        assert first_meta["permit_usage_event_hash"] == second_meta["permit_usage_event_hash"]
+    finally:
+        dispatch_module.subprocess.run = original_run  # type: ignore[assignment]
+        dispatch_module.utc_iso8601 = original_utc  # type: ignore[assignment]
+        dispatch_module.time.monotonic = original_monotonic  # type: ignore[assignment]
+
+
+def test_permit_usage_policy_hash_required() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    permit = _make_permit(policy_hash="", compute_id=False)
+    try:
+        dispatch_module.execute_capability(
+            dispatch_input,
+            permit=permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash="prev-hash-1",
+        )
+        assert False, "Expected InvalidPermitError"
+    except InvalidPermitError as exc:
+        assert "secure_layer.permit.invalid.policy_hash" in str(exc)
