@@ -22,6 +22,7 @@ Linked open issues:
 - [x] Network egress deterministic conflict structure validation.
 - [x] Secret injection mode tightening (no bearer mode).
 - [x] Deterministic audit event taxonomy + chain validation scaffold.
+- [ ] Execution Permit Attestation Contract v0.1 (spec prerequisite for runtime wiring).
 
 ## Next implementation boundary
 
@@ -29,3 +30,9 @@ Linked open issues:
 - No supervisor wiring.
 - No governance-core mutation.
 - No runtime sink integration.
+
+- [ ] Supervisor Permit Issuance Flow v0.1 defined (spec only). Runtime wiring pending.
+
+- [ ] Policy-to-Capability Deterministic Mapping Contract v0.1 defined (spec only). Runtime enforcement pending.
+
+- [ ] Controlled Runtime Enforcement Plan v0.1 defined (spec only). Runtime wiring pending.

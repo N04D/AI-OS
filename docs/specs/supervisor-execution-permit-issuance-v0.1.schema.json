@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "supervisor-execution-permit-issuance-v0.1.schema.json",
+  "title": "Supervisor Execution Permit Issuance Flow v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "policy_hash",
+    "request_fingerprint",
+    "decision",
+    "severity_to_gating",
+    "issued_by",
+    "issued_at_sequence",
+    "stream_id",
+    "prev_event_hash",
+    "permit",
+    "issuance_event"
+  ],
+  "properties": {
+    "policy_hash": { "type": "string", "minLength": 1 },
+    "request_fingerprint": { "type": "string", "minLength": 1 },
+    "decision": {
+      "type": "string",
+      "enum": ["allow", "warn", "block", "review"]
+    },
+    "severity_to_gating": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allow", "warn", "block", "review"],
+      "properties": {
+        "allow": { "type": "string", "minLength": 1 },
+        "warn": { "type": "string", "minLength": 1 },
+        "block": { "type": "string", "minLength": 1 },
+        "review": { "type": "string", "minLength": 1 }
+      }
+    },
+    "issued_by": { "type": "string", "minLength": 1 },
+    "issued_at_sequence": { "type": "integer", "minimum": 0 },
+    "stream_id": { "type": "string", "minLength": 1 },
+    "prev_event_hash": { "type": "string", "minLength": 1 },
+    "permit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["permit_id"],
+      "properties": {
+        "permit_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "issuance_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_type",
+        "policy_hash",
+        "request_fingerprint",
+        "permit_id",
+        "stream_id",
+        "sequence",
+        "prev_event_hash"
+      ],
+      "properties": {
+        "event_type": { "const": "permit.issued" },
+        "policy_hash": { "type": "string", "minLength": 1 },
+        "request_fingerprint": { "type": "string", "minLength": 1 },
+        "permit_id": { "type": "string", "minLength": 1 },
+        "stream_id": { "type": "string", "minLength": 1 },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "prev_event_hash": { "type": "string", "minLength": 1 }
+      }
+    },
+    "review_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_id", "review_type"],
+      "properties": {
+        "review_id": { "type": "string", "minLength": 1 },
+        "review_type": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "decision": { "const": "review" } },
+        "required": ["decision"]
+      },
+      "then": { "required": ["review_ref"] }
+    }
+  ]
+}
