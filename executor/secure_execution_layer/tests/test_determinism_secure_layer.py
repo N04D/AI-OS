@@ -13,6 +13,17 @@ from executor.secure_execution_layer.audit_event_taxonomy import (
     validate_audit_event,
     validate_event_stream,
 )
+from executor.secure_execution_layer.canonical_hash import (
+    build_audit_event_body_input,
+    build_audit_event_identity_input,
+    build_review_id_input,
+    canon_json_bytes_v1,
+    domain_hash,
+)
+from executor.secure_execution_layer.replay_verifier import (
+    verify_audit_chain,
+    verify_review_resume,
+)
 from executor.secure_execution_layer.review_ledger_resolver import (
     ReviewArtifact,
     resolve_review_artifact,
@@ -187,15 +198,67 @@ def test_secret_validator_requires_expiry_or_rotation() -> None:
     assert valid == "valid"
 
 
-def test_audit_event_requires_policy_hash_and_chain_fields() -> None:
+def test_canonical_json_stability_and_key_order() -> None:
+    left = {"b": {"y": 2, "x": 1}, "a": "ok"}
+    right = {"a": "ok", "b": {"x": 1, "y": 2}}
+    assert canon_json_bytes_v1(left) == canon_json_bytes_v1(right)
+
+
+def test_domain_separation_changes_hash() -> None:
+    obj = {"field": "value", "count": 1}
+    first = domain_hash("secure_execution_layer.audit_event.v1", obj)
+    second = domain_hash("secure_execution_layer.review_id.v1", obj)
+    assert first != second
+
+
+def test_canon_json_rejects_floats() -> None:
+    try:
+        canon_json_bytes_v1({"latency_ms": 1.5})
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "float_forbidden" in str(exc)
+
+
+def test_event_hash_determinism_and_semantic_change() -> None:
+    base = AuditEvent(
+        event_id="evt-1",
+        event_type="review.paused",
+        policy_hash="hash-1",
+        request_fingerprint="req-1",
+        sequence=0,
+        stream_id="stream-1",
+        prev_event_hash=None,
+        payload={"action": "pause"},
+    )
+    first = event_fingerprint(base)
+    second = event_fingerprint(base)
+    assert first == second
+
+    changed = AuditEvent(
+        event_id="evt-1",
+        event_type="review.paused",
+        policy_hash="hash-1",
+        request_fingerprint="req-1",
+        sequence=0,
+        stream_id="stream-1",
+        prev_event_hash=None,
+        payload={"action": "resume"},
+    )
+    assert event_fingerprint(changed) != first
+
+
+def test_audit_event_requires_policy_and_request_and_payload() -> None:
     try:
         validate_audit_event(
             AuditEvent(
                 event_id="evt-1",
                 event_type="policy.evaluated",
                 policy_hash="",
+                request_fingerprint="req-1",
                 sequence=0,
-                stream_hash="stream-1",
+                stream_id="stream-1",
+                prev_event_hash=None,
+                payload={"k": "v"},
             )
         )
         assert False, "Expected ValueError"
@@ -208,55 +271,198 @@ def test_audit_event_requires_policy_hash_and_chain_fields() -> None:
                 event_id="evt-1",
                 event_type="policy.evaluated",
                 policy_hash="hash-1",
+                request_fingerprint="",
+                sequence=0,
+                stream_id="stream-1",
+                prev_event_hash=None,
+                payload={"k": "v"},
             )
         )
         assert False, "Expected ValueError"
     except ValueError as exc:
-        assert "requires prev_event_id or sequence+stream_hash" in str(exc)
+        assert "request_fingerprint" in str(exc)
+
+
+def test_chain_integrity_rejects_non_contiguous_sequence_and_prev_hash_mismatch() -> None:
+    first = AuditEvent(
+        event_id="evt-0",
+        event_type="policy.evaluated",
+        policy_hash="hash-1",
+        request_fingerprint="req-1",
+        sequence=0,
+        stream_id="stream-1",
+        prev_event_hash=None,
+        payload={"step": "start"},
+    )
+    second = AuditEvent(
+        event_id="evt-1",
+        event_type="tool.exec.requested",
+        policy_hash="hash-1",
+        request_fingerprint="req-1",
+        sequence=2,
+        stream_id="stream-1",
+        prev_event_hash=event_fingerprint(first),
+        payload={"tool": "x"},
+    )
+    non_contiguous = verify_audit_chain([first, second], "stream-1")
+    assert non_contiguous.ok is False
+    assert non_contiguous.error == "secure_layer.replay.invalid sequence"
+
+    second_bad_prev = AuditEvent(
+        event_id="evt-1",
+        event_type="tool.exec.requested",
+        policy_hash="hash-1",
+        request_fingerprint="req-1",
+        sequence=1,
+        stream_id="stream-1",
+        prev_event_hash="wrong",
+        payload={"tool": "x"},
+    )
+    wrong_prev = verify_audit_chain([first, second_bad_prev], "stream-1")
+    assert wrong_prev.ok is False
+    assert wrong_prev.error == "secure_layer.replay.invalid prev_event_hash"
+
+
+def test_verify_audit_chain_rejects_stream_id_mismatch() -> None:
+    first = AuditEvent(
+        event_id="evt-0",
+        event_type="policy.evaluated",
+        policy_hash="hash-1",
+        request_fingerprint="req-1",
+        sequence=0,
+        stream_id="stream-1",
+        prev_event_hash=None,
+        payload={"step": "start"},
+    )
+    result = verify_audit_chain([first], "stream-2")
+    assert result.ok is False
+    assert result.error == "secure_layer.replay.invalid stream_id_mismatch"
+
+
+def test_verify_audit_chain_rejects_wrong_input_order_without_auto_sort() -> None:
+    first = AuditEvent(
+        event_id="evt-0",
+        event_type="policy.evaluated",
+        policy_hash="hash-1",
+        request_fingerprint="req-1",
+        sequence=0,
+        stream_id="stream-1",
+        prev_event_hash=None,
+        payload={"step": "start"},
+    )
+    second = AuditEvent(
+        event_id="evt-1",
+        event_type="tool.exec.requested",
+        policy_hash="hash-1",
+        request_fingerprint="req-1",
+        sequence=1,
+        stream_id="stream-1",
+        prev_event_hash=event_fingerprint(first),
+        payload={"tool": "x"},
+    )
+    out_of_order = verify_audit_chain([second, first], "stream-1")
+    assert out_of_order.ok is False
+    assert out_of_order.error == "secure_layer.replay.invalid sequence"
 
 
 def test_audit_event_stream_requires_deterministic_contiguous_sequence() -> None:
-    validate_event_stream(
-        [
-            AuditEvent(
-                event_id="evt-0",
-                event_type="policy.evaluated",
-                policy_hash="hash-1",
-                sequence=0,
-                stream_hash="stream-1",
-            ),
-            AuditEvent(
-                event_id="evt-1",
-                event_type="tool.exec.requested",
-                policy_hash="hash-1",
-                sequence=1,
-                stream_hash="stream-1",
-            ),
-        ]
+    first = AuditEvent(
+        event_id="evt-0",
+        event_type="policy.evaluated",
+        policy_hash="hash-1",
+        request_fingerprint="req-1",
+        sequence=0,
+        stream_id="stream-1",
+        prev_event_hash=None,
+        payload={"step": "start"},
+    )
+    second = AuditEvent(
+        event_id="evt-1",
+        event_type="tool.exec.requested",
+        policy_hash="hash-1",
+        request_fingerprint="req-1",
+        sequence=1,
+        stream_id="stream-1",
+        prev_event_hash=event_fingerprint(first),
+        payload={"tool": "x"},
+    )
+    validate_event_stream([first, second])
+
+
+def test_review_resume_verification_contract() -> None:
+    policy_hash = "policy-h-1"
+    request_fingerprint = "req-fp-1"
+    review_id = domain_hash(
+        "secure_execution_layer.review_id.v1",
+        build_review_id_input(
+            policy_hash=policy_hash,
+            request_fingerprint=request_fingerprint,
+        ),
     )
 
+    assert verify_review_resume(policy_hash, request_fingerprint, None) is False
+
+    mismatched_policy = {
+        "review_id": review_id,
+        "policy_hash": "other",
+        "request_fingerprint": request_fingerprint,
+        "decision": "allow",
+        "decided_by": "actor-1",
+        "signature_ref": "sig-1",
+    }
+    assert verify_review_resume(policy_hash, request_fingerprint, mismatched_policy) is False
+
+    mismatched_fp = {
+        "review_id": review_id,
+        "policy_hash": policy_hash,
+        "request_fingerprint": "other",
+        "decision": "allow",
+        "decided_by": "actor-1",
+        "signature_ref": "sig-1",
+    }
+    assert verify_review_resume(policy_hash, request_fingerprint, mismatched_fp) is False
+
+    allow_artifact = {
+        "review_id": review_id,
+        "policy_hash": policy_hash,
+        "request_fingerprint": request_fingerprint,
+        "decision": "allow",
+        "decided_by": "actor-1",
+        "signature_ref": "sig-1",
+        "timestamp_utc": "2026-02-20T00:00:00Z",
+    }
+    block_artifact = {
+        "review_id": review_id,
+        "policy_hash": policy_hash,
+        "request_fingerprint": request_fingerprint,
+        "decision": "block",
+        "decided_by": "actor-1",
+        "signature_ref": "sig-2",
+    }
+    assert verify_review_resume(policy_hash, request_fingerprint, allow_artifact) is True
+    assert verify_review_resume(policy_hash, request_fingerprint, block_artifact) is True
+
+
+def test_identity_and_body_builders_fail_closed() -> None:
     try:
-        validate_event_stream(
-            [
-                AuditEvent(
-                    event_id="evt-0",
-                    event_type="policy.evaluated",
-                    policy_hash="hash-1",
-                    sequence=0,
-                    stream_hash="stream-1",
-                ),
-                AuditEvent(
-                    event_id="evt-2",
-                    event_type="tool.exec.requested",
-                    policy_hash="hash-1",
-                    sequence=2,
-                    stream_hash="stream-1",
-                ),
-            ]
+        build_audit_event_identity_input(
+            event_id="",
+            event_type="policy.evaluated",
+            policy_hash="hash-1",
+            request_fingerprint="req-1",
+            sequence=0,
+            stream_id="stream-1",
+            prev_event_hash=None,
         )
         assert False, "Expected ValueError"
     except ValueError as exc:
-        assert "non_contiguous_sequence" in str(exc)
+        assert "event_id" in str(exc)
+
+    try:
+        build_audit_event_body_input(payload={"latency_ms": 1.5})
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "float_forbidden" in str(exc)
 
 
 def test_audit_event_fingerprint_is_stable() -> None:
@@ -264,8 +470,11 @@ def test_audit_event_fingerprint_is_stable() -> None:
         event_id="evt-1",
         event_type="review.paused",
         policy_hash="hash-1",
+        request_fingerprint="req-1",
         sequence=0,
-        stream_hash="stream-1",
+        stream_id="stream-1",
+        prev_event_hash=None,
+        payload={"stage": "pause"},
     )
     first = event_fingerprint(event)
     second = event_fingerprint(event)

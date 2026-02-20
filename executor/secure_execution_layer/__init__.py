@@ -12,12 +12,27 @@ from executor.secure_execution_layer.network_egress_evaluator import (
     ResolutionSnapshot,
     validate_network_egress_initialization,
 )
+from executor.secure_execution_layer.canonical_hash import (
+    build_audit_event_body_input,
+    build_audit_event_identity_input,
+    build_policy_hash_input,
+    build_request_fingerprint_input,
+    build_review_decision_input,
+    build_review_id_input,
+    canon_json_bytes_v1,
+    domain_hash,
+)
 from executor.secure_execution_layer.audit_event_taxonomy import (
     AuditEvent,
     AuditEventType,
     event_fingerprint,
     validate_audit_event,
     validate_event_stream,
+)
+from executor.secure_execution_layer.replay_verifier import (
+    VerificationResult,
+    verify_audit_chain,
+    verify_review_resume,
 )
 from executor.secure_execution_layer.policy_interpreter import (
     ConflictResolutionMode,
@@ -49,6 +64,7 @@ __all__ = [
     "Decision",
     "AuditEvent",
     "AuditEventType",
+    "VerificationResult",
     "EgressDecision",
     "EgressRequest",
     "LedgerResolution",
@@ -65,9 +81,19 @@ __all__ = [
     "SecretRef",
     "ValidationResult",
     "resolve_overlapping_rules",
+    "build_audit_event_body_input",
+    "build_audit_event_identity_input",
+    "build_policy_hash_input",
+    "build_request_fingerprint_input",
+    "build_review_decision_input",
+    "build_review_id_input",
+    "canon_json_bytes_v1",
+    "domain_hash",
     "event_fingerprint",
     "validate_audit_event",
     "validate_event_stream",
+    "verify_audit_chain",
+    "verify_review_resume",
     "resolve_review_artifact",
     "validate_network_egress_initialization",
     "validate_policy_interpretation_config",
