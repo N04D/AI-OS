@@ -42,8 +42,16 @@ def validate_network_egress_initialization(
 ) -> None:
     if interpretation_authority != "supervisor":
         raise ValueError("secure_layer.init.invalid interpretation_authority must be supervisor")
-    if not conflict_resolution:
+    if not isinstance(conflict_resolution, dict):
         raise ValueError("secure_layer.init.invalid conflict_resolution required")
+    mode = conflict_resolution.get("mode")
+    tie_breaker = conflict_resolution.get("tie_breaker")
+    stable_order_mode = conflict_resolution.get("stable_order_mode")
+    if mode not in ("deny_wins", "most_specific", "explicit_priority"):
+        raise ValueError("secure_layer.init.invalid conflict_resolution.mode")
+    if tie_breaker != "stable_order":
+        raise ValueError("secure_layer.init.invalid conflict_resolution.tie_breaker")
+    if stable_order_mode not in ("lexical_rule_id", "order_index"):
+        raise ValueError("secure_layer.init.invalid conflict_resolution.stable_order_mode")
     if dns_replay_mode not in ("pinned_ips", "resolution_snapshot_hash"):
         raise ValueError("secure_layer.init.invalid dns_replay_mode required")
-

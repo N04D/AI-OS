@@ -49,6 +49,17 @@ class PolicyInterpreter(Protocol):
     ) -> Decision: ...
 
 
+class ReviewLedgerResolverProtocol(Protocol):
+    """Structural contract for review ledger resolution."""
+
+    def resolve(
+        self,
+        review_id: str,
+        request_fingerprint: str,
+        policy_hash: str,
+    ) -> str: ...
+
+
 def validate_policy_interpretation_config(config: PolicyInterpretationConfig) -> None:
     if config.interpretation_authority != "supervisor":
         raise ValueError("secure_layer.init.invalid interpretation_authority must be supervisor")
@@ -64,7 +75,7 @@ def validate_secure_layer_initialization(
     *,
     config: PolicyInterpretationConfig,
     emitted_severities: list[DecisionEffect],
-    review_ledger_resolver: object | None,
+    review_ledger_resolver: ReviewLedgerResolverProtocol | object | None,
 ) -> None:
     """Initialization guardrails from v0.2-delta.
 
@@ -77,6 +88,8 @@ def validate_secure_layer_initialization(
     validate_policy_interpretation_config(config)
     if "review" in emitted_severities and review_ledger_resolver is None:
         raise ValueError("secure_layer.init.invalid review severity requires ledger resolver")
+    if "review" in emitted_severities and not _has_review_ledger_resolver_contract(review_ledger_resolver):
+        raise TypeError("secure_layer.init.invalid ledger resolver contract requires resolve(review_id, request_fingerprint, policy_hash)")
 
 
 def resolve_overlapping_rules(
@@ -128,3 +141,7 @@ def _stable_pick(matches: list[RuleMatch], config: PolicyInterpretationConfig) -
         return sorted(matches, key=lambda m: m.rule_id)[0]
     return sorted(matches, key=lambda m: (m.order_index, m.rule_id))[0]
 
+
+def _has_review_ledger_resolver_contract(review_ledger_resolver: object) -> bool:
+    resolve_method = getattr(review_ledger_resolver, "resolve", None)
+    return callable(resolve_method)

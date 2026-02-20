@@ -17,6 +17,7 @@ from executor.secure_execution_layer.policy_interpreter import (
     Decision,
     PolicyInterpretationConfig,
     PolicyInterpreter,
+    ReviewLedgerResolverProtocol,
     RuleMatch,
     resolve_overlapping_rules,
     validate_policy_interpretation_config,
@@ -45,6 +46,7 @@ __all__ = [
     "NetworkEgressEvaluator",
     "PolicyInterpretationConfig",
     "PolicyInterpreter",
+    "ReviewLedgerResolverProtocol",
     "ResolutionSnapshot",
     "ReviewArtifact",
     "ReviewLedgerResolver",
@@ -60,4 +62,3 @@ __all__ = [
     "validate_secure_layer_initialization",
     "validate_secret_injection",
 ]
-

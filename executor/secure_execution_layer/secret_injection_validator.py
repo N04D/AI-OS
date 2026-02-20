@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-SecretInjectionMode = Literal["bearer", "header", "body_field", "query_param", "url_path"]
+SecretInjectionMode = Literal["header", "body_field", "query_param", "url_path"]
 ValidationResult = Literal["valid", "invalid", "review_required"]
 
 
@@ -53,4 +53,3 @@ def validate_secret_injection(
         return "invalid"
 
     return "valid"
-

@@ -4,6 +4,9 @@ from executor.secure_execution_layer.policy_interpreter import (
     resolve_overlapping_rules,
     validate_secure_layer_initialization,
 )
+from executor.secure_execution_layer.network_egress_evaluator import (
+    validate_network_egress_initialization,
+)
 from executor.secure_execution_layer.review_ledger_resolver import (
     ReviewArtifact,
     resolve_review_artifact,
@@ -116,6 +119,46 @@ def test_guardrail_fails_when_review_emitted_without_resolver() -> None:
         assert "requires ledger resolver" in str(exc)
 
 
+def test_guardrail_fails_when_review_resolver_contract_missing() -> None:
+    config = PolicyInterpretationConfig(
+        interpretation_authority="supervisor",
+        conflict_resolution_mode="deny_wins",
+        tie_breaker="stable_order",
+        stable_order_mode="lexical_rule_id",
+    )
+    try:
+        validate_secure_layer_initialization(
+            config=config,
+            emitted_severities=["review"],
+            review_ledger_resolver=object(),
+        )
+        assert False, "Expected TypeError"
+    except TypeError as exc:
+        assert "ledger resolver contract" in str(exc)
+
+
+def test_network_egress_init_requires_deterministic_conflict_structure() -> None:
+    validate_network_egress_initialization(
+        interpretation_authority="supervisor",
+        conflict_resolution={
+            "mode": "deny_wins",
+            "tie_breaker": "stable_order",
+            "stable_order_mode": "lexical_rule_id",
+        },
+        dns_replay_mode="pinned_ips",
+    )
+
+    try:
+        validate_network_egress_initialization(
+            interpretation_authority="supervisor",
+            conflict_resolution={"mode": "deny_wins"},
+            dns_replay_mode="pinned_ips",
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "conflict_resolution.tie_breaker" in str(exc)
+
+
 def test_secret_validator_requires_expiry_or_rotation() -> None:
     secret_ref = SecretRef(provider="vault", key="service/api-key")
     result = validate_secret_injection(
@@ -136,4 +179,3 @@ def test_secret_validator_requires_expiry_or_rotation() -> None:
         disallowed_injection_modes={"query_param", "url_path"},
     )
     assert valid == "valid"
-
