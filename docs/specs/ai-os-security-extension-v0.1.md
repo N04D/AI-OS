@@ -1,100 +1,137 @@
-# AI-OS Security Extension v0.1
+# AI-OS Security Extension v0.2-delta
 
 STATUS: Experimental – Not production-ready – Architectural exploration.
-Version: v0.1
-Type: Governance + Runtime interface spec (no implementation)
+Version: v0.2-delta
+Type: Spec + schema tightening only (no runtime implementation)
 
-## 1. Objectives
-- Define a deterministic capability model for AI-OS tool/runtime execution.
-- Define fail-closed security policy semantics for supervisor enforcement.
-- Define secret boundary contract where untrusted tools never access plaintext secrets.
-- Define network egress policy with allowlist-first behavior.
-- Define auditable event taxonomy for security-relevant actions.
+## 1. Delta Objectives
+- Make policy interpretation deterministic (match + precedence + tie-break).
+- Bind `review` outcomes to Git-ledgered decision artifacts.
+- Remove high-leak secret injection modes by default.
+- Prevent userland trust-lift into kernel/supervisor authority.
+- Define minimal replay-safe audit event contract.
 
 ## 2. Non-goals
-- No direct import of IronClaw runtime architecture.
-- No database migration requirements in this spec.
-- No replacement of existing PR governance policy engine.
-- No mandate to adopt MCP federation as a kernel feature.
+- No runtime enforcement implementation.
+- No new runtime dependency stack.
+- No import of IronClaw runtime architecture.
 
-## 3. Background Evidence
-- Deny-by-default capability model exists in IronClaw (`src/tools/wasm/capabilities.rs:4`).
-- AI-OS governance requires fail-closed + hash-validated policy (`docs/architecture/ARCHITECTURE_CHARTER_v1.0.md:124`, `supervisor/pr_gate/policy_loader.py:46`).
+## 3. Deterministic Rule Evaluation Contract
+Policy documents that evaluate rules MUST machine-specify:
+- Matching semantics.
+- Conflict resolution mode.
+- No-match behavior.
 
-## 4. Capability Model (Conceptual)
-Capability domains:
-- `workspace.read`
-- `http.request`
-- `tool.invoke`
-- `secret.presence`
-- `secret.inject` (host-only action; never exposed to untrusted tool code)
+Supported conflict modes:
+- `deny_wins`
+- `most_specific`
+- `explicit_priority`
 
-Rules:
-- All capabilities are denied by default.
-- Capability grants must be explicit in versioned policy.
-- Supervisor validates requested capabilities against task intent and policy.
-- Executor enforces runtime checks before side effects.
+Tie-breaker requirements:
+- `tie_breaker: stable_order`
+- stable order defined as lexical rule ID order or explicit `order_index`.
 
-## 5. Policy Severity Levels
-Security policy decision levels:
-- `block`: deny action and emit violation event.
-- `warn`: allow action, record warning event.
-- `review`: pause for governed/human or higher-trust supervisor decision.
-- `allow`: action proceeds with audit event.
+Interpretation authority:
+- Supervisor is canonical interpretation authority.
+- Executor must implement the same contract.
+- Any Supervisor/Executor divergence is fail-closed.
 
-Fail-closed behavior:
-- Unknown action type or missing policy rule -> `block`.
-- Schema validation failure -> `block`.
+## 4. Severity as Machine Contract
+Mandatory severity->gating mapping:
+- `allow` -> proceed
+- `warn` -> proceed + emit audit event
+- `block` -> deny + emit audit event
+- `review` -> pause execution pending ledgered decision artifact
 
-## 6. Secrets Boundary Contract
-Contract requirements:
-- Tools may only reference secret aliases (names/handles), never raw values.
-- Secret decryption/injection occurs only at trusted host boundary.
-- Secrets may be injected into headers/query/path per policy mapping.
-- Secret values must be redacted in logs/errors/events.
-- Every successful or denied secret injection attempt emits `secret.use`.
+## 5. Review Ledger Contract
+Review decision artifact path:
+- `governance/reviews/<review_id>.review.json`
 
-## 7. Network Egress Policy
-Policy posture: allowlist-first.
+Required fields:
+- `review_id`
+- `policy_hash`
+- `request_fingerprint`
+- `decision` (`allow` | `block`)
+- `decided_by`
+- `timestamp_utc`
+- `signature` (or signed commit/tag reference)
 
-Requirements:
-- Allowed endpoint constraints include host, path prefix, and method.
-- HTTPS required by default.
-- URL userinfo (`user:pass@`) denied.
-- DNS rebinding and private IP targets denied.
-- Max request/response size and timeout governed by policy.
+Deterministic resume rule:
+Execution may resume only when artifact exists in current Git state and both:
+- `policy_hash` matches current policy hash
+- `request_fingerprint` matches paused request
 
-## 8. Audit Event Types
-Required normalized event types:
-- `tool.exec` - tool execution attempt/result.
-- `net.req` - outbound network request decision/result.
-- `secret.use` - secret resolution/injection decision/result.
-- `policy.violation` - blocked or review-required rule violation.
+Any mismatch -> fail-closed and re-review.
+
+## 6. Secrets Boundary Tightening
+Default disallowed injection modes:
+- `query_param`
+- `url_path`
+
+Default allowed modes:
+- `header`
+- `bearer`
+- `body_field` only with `redaction_required: true` and constrained `content_type`
+
+Exception contract for disallowed modes:
+- `exception_justification`
+- `exception_ttl_seconds`
+- `severity_on_use: review`
+
+Secret reference contract must be deterministic and backend-agnostic:
+- `secret_ref.provider`: `vault` | `env` | `keychain` | `kms`
+- `secret_ref.key`: stable identifier
+- `secret_ref.version`: optional stable version
+
+Secret lifetime policy must include one of:
+- `expires_at_required: true`
+- `rotation_ttl_seconds`
+
+## 7. Network Egress Tightening
+- Default fail-closed (`default_effect: deny`).
+- Wildcard `*` forbidden.
+- `*.example.com` allowed only with `max_subdomain_depth`.
+- `path_prefix` must be explicit.
+
+Deterministic DNS/IP handling:
+- Use `pinned_ips` or `resolution_snapshot_hash` policy mode.
+- Non-replayable resolution context is fail-closed.
+
+Optional structured denylist permitted, but precedence remains deterministic under conflict contract.
+
+## 8. Userland Trust-Lift Prohibition
+- Userland integrations are disabled by default unless explicitly policy-granted.
+- Userland may not implicitly request kernel/supervisor capability classes.
+- Any trust-zone elevation change requires `review` and a ledgered decision artifact.
+
+## 9. Minimal Replay-Safe Audit Event Contract
+Canonical event families:
+- `policy.evaluated`
+- `tool.exec.requested`
+- `tool.exec.allowed|blocked|warned|reviewed`
+- `net.egress.requested`
+- `net.egress.allowed|blocked|warned|reviewed`
+- `secret.use.requested`
+- `secret.use.allowed|blocked|warned|reviewed`
+- `review.paused`
+- `review.resolved`
 
 Minimum event fields:
-- `event_id`, `timestamp`, `policy_version`, `policy_hash`, `actor`, `resource`, `decision`, `reason`, `correlation_id`.
+- `event_id`
+- `policy_hash`
+- ordering integrity via either hash-chain (`prev_event_id`) or deterministic sequence + `stream_hash`
 
-## 9. Integration Points
-`Supervisor` interface (conceptual):
-- `evaluate_security_policy(action_context) -> decision`
-- `validate_policy_hash(expected_hash) -> ok|error`
-- `publish_security_status(event)`
+Runtime sink remains implementation-defined, but event format must be stable and replayable.
 
-`Executor` interface (conceptual):
-- `enforce_capability(request, policy) -> allow|deny`
-- `enforce_network_egress(request, policy) -> allow|deny`
-- `resolve_and_inject_secret(mapping, context) -> injected|denied`
-- `emit_audit_event(event)`
+## 10. Files Hardened by v0.2-delta
+- `governance/policy/security/capabilities.schema.json`
+- `governance/policy/security/network-egress.schema.json`
+- `governance/policy/security/secrets-boundary.schema.json`
+- `roadmap/secure-execution-layer.md` (canonical roadmap naming)
 
-## 10. Determinism Constraints
-- Same policy version + same policy hash + same normalized inputs => same decision.
-- Policy cannot mutate during execution window.
-- Security decisions must be replayable from recorded events/artifacts.
-
-## 11. Compatibility Notes
-- Compatible with existing AI-OS policy hashing and lockdown (`supervisor/supervisor.py:135`).
-- Dynamic plugin ecosystems remain userland unless governance requirements are met.
-
-## 12. Open Questions
-- `UNVERIFIED`: canonical long-term event sink for AI-OS (`artifact JSON` only vs optional DB mirror).
-- `UNVERIFIED`: exact executor plugin API shape for non-Python runtimes.
+## 11. Deferred Implementation
+This delta does not implement:
+- Executor adapters
+- Sandbox runtimes
+- MCP runtime guardrail execution
+- Event sink backend
