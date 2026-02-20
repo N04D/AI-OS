@@ -34,6 +34,13 @@ from executor.secure_execution_layer.replay_verifier import (
     verify_audit_chain,
     verify_review_resume,
 )
+from executor.secure_execution_layer.execution_permit_validator import (
+    ExecutionPermit,
+    compute_permit_id,
+    compute_permit_id_input,
+    validate_execution_permit_structure,
+    verify_execution_permit_against_chain,
+)
 from executor.secure_execution_layer.policy_interpreter import (
     ConflictResolutionMode,
     Decision,
@@ -64,6 +71,7 @@ __all__ = [
     "Decision",
     "AuditEvent",
     "AuditEventType",
+    "ExecutionPermit",
     "VerificationResult",
     "EgressDecision",
     "EgressRequest",
@@ -89,10 +97,14 @@ __all__ = [
     "build_review_id_input",
     "canon_json_bytes_v1",
     "domain_hash",
+    "compute_permit_id",
+    "compute_permit_id_input",
     "event_fingerprint",
     "validate_audit_event",
+    "validate_execution_permit_structure",
     "validate_event_stream",
     "verify_audit_chain",
+    "verify_execution_permit_against_chain",
     "verify_review_resume",
     "resolve_review_artifact",
     "validate_network_egress_initialization",

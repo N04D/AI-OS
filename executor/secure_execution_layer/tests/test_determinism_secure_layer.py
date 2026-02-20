@@ -24,6 +24,13 @@ from executor.secure_execution_layer.replay_verifier import (
     verify_audit_chain,
     verify_review_resume,
 )
+from executor.secure_execution_layer.execution_permit_validator import (
+    ExecutionPermit,
+    compute_permit_id,
+    compute_permit_id_input,
+    validate_execution_permit_structure,
+    verify_execution_permit_against_chain,
+)
 from executor.secure_execution_layer.review_ledger_resolver import (
     ReviewArtifact,
     resolve_review_artifact,
@@ -479,3 +486,193 @@ def test_audit_event_fingerprint_is_stable() -> None:
     first = event_fingerprint(event)
     second = event_fingerprint(event)
     assert first == second
+
+
+def _make_permit(
+    *,
+    permit_scope: str = "one_shot",
+    expiry_condition: dict | None = None,
+    issued_at_sequence: int = 5,
+    compute_id: bool = True,
+) -> ExecutionPermit:
+    base_expiry = expiry_condition if expiry_condition is not None else {"valid_for_sequence_range": [5, 5]}
+    seed = ExecutionPermit(
+        permit_id="seed",
+        policy_hash="policy-hash-1",
+        request_fingerprint="request-fp-1",
+        capability={"kind": "tool", "selector": "tool.echo"},
+        decision="allow",
+        severity_to_gating={
+            "allow": "proceed",
+            "warn": "proceed_emit_audit",
+            "block": "deny_emit_audit",
+            "review": "pause_pending_ledger",
+        },
+        issued_by="supervisor.v1",
+        issued_at_sequence=issued_at_sequence,
+        stream_id="stream-1",
+        prev_event_hash="prev-hash-1",
+        permit_scope=permit_scope,  # type: ignore[arg-type]
+        expiry_condition=base_expiry,
+    )
+    permit_id = compute_permit_id(seed) if compute_id else "invalid-seed-id"
+    return ExecutionPermit(
+        permit_id=permit_id,
+        policy_hash=seed.policy_hash,
+        request_fingerprint=seed.request_fingerprint,
+        capability=seed.capability,
+        decision=seed.decision,
+        severity_to_gating=seed.severity_to_gating,
+        issued_by=seed.issued_by,
+        issued_at_sequence=seed.issued_at_sequence,
+        stream_id=seed.stream_id,
+        prev_event_hash=seed.prev_event_hash,
+        permit_scope=seed.permit_scope,
+        expiry_condition=seed.expiry_condition,
+    )
+
+
+def test_permit_structure_rejects_empty_fields() -> None:
+    permit = _make_permit()
+    broken = ExecutionPermit(
+        permit_id=permit.permit_id,
+        policy_hash="",
+        request_fingerprint=permit.request_fingerprint,
+        capability=permit.capability,
+        decision=permit.decision,
+        severity_to_gating=permit.severity_to_gating,
+        issued_by=permit.issued_by,
+        issued_at_sequence=permit.issued_at_sequence,
+        stream_id=permit.stream_id,
+        prev_event_hash=permit.prev_event_hash,
+        permit_scope=permit.permit_scope,
+        expiry_condition=permit.expiry_condition,
+    )
+    try:
+        validate_execution_permit_structure(broken)
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert str(exc) == "secure_layer.permit.invalid.policy_hash"
+
+
+def test_permit_structure_rejects_unknown_expiry_key() -> None:
+    permit = _make_permit(expiry_condition={"valid_for_sequence_range": [5, 5], "timestamp_utc": "x"})
+    try:
+        validate_execution_permit_structure(permit)
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert str(exc) == "secure_layer.permit.invalid.expiry_condition_key"
+
+
+def test_permit_structure_rejects_float_in_expiry() -> None:
+    permit = _make_permit(
+        expiry_condition={"valid_for_sequence_range": [5.0, 5]},  # type: ignore[list-item]
+        compute_id=False,
+    )
+    try:
+        validate_execution_permit_structure(permit)
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert str(exc) in (
+            "secure_layer.permit.invalid.valid_for_sequence_range",
+            "secure_layer.permit.invalid.float_in_expiry_condition",
+        )
+
+
+def test_permit_id_determinism() -> None:
+    permit = _make_permit()
+    first = compute_permit_id(permit)
+    second = compute_permit_id(permit)
+    assert first == second
+    validate_execution_permit_structure(permit)
+
+
+def test_permit_id_domain_separation() -> None:
+    permit = _make_permit()
+    permit_input = compute_permit_id_input(permit)
+    first = domain_hash("secure_execution_layer.execution_permit.v1", permit_input)
+    second = domain_hash("secure_execution_layer.review_id.v1", permit_input)
+    assert first != second
+
+
+def test_verify_permit_chain_binding_success() -> None:
+    permit = _make_permit()
+    verify_execution_permit_against_chain(
+        permit,
+        current_stream_id="stream-1",
+        current_sequence=5,
+        current_prev_event_hash="prev-hash-1",
+    )
+
+
+def test_verify_permit_chain_binding_stream_mismatch() -> None:
+    permit = _make_permit()
+    try:
+        verify_execution_permit_against_chain(
+            permit,
+            current_stream_id="other-stream",
+            current_sequence=5,
+            current_prev_event_hash="prev-hash-1",
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert str(exc) == "secure_layer.permit.invalid.stream_id_mismatch"
+
+
+def test_verify_permit_chain_binding_prev_hash_mismatch() -> None:
+    permit = _make_permit()
+    try:
+        verify_execution_permit_against_chain(
+            permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash="other-hash",
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert str(exc) == "secure_layer.permit.invalid.prev_event_hash_mismatch"
+
+
+def test_one_shot_scope_requires_exact_sequence() -> None:
+    permit = _make_permit(
+        permit_scope="one_shot",
+        expiry_condition={"valid_for_sequence_range": [5, 6]},
+    )
+    try:
+        verify_execution_permit_against_chain(
+            permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash="prev-hash-1",
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert str(exc) == "secure_layer.permit.invalid.one_shot_range_mismatch"
+
+
+def test_bounded_scope_sequence_range_validation() -> None:
+    permit = _make_permit(
+        permit_scope="bounded",
+        expiry_condition={"valid_for_sequence_range": [5, 7]},
+    )
+    verify_execution_permit_against_chain(
+        permit,
+        current_stream_id="stream-1",
+        current_sequence=5,
+        current_prev_event_hash="prev-hash-1",
+    )
+    try:
+        out_of_range = _make_permit(
+            permit_scope="bounded",
+            expiry_condition={"valid_for_sequence_range": [5, 7]},
+            issued_at_sequence=8,
+        )
+        verify_execution_permit_against_chain(
+            out_of_range,
+            current_stream_id="stream-1",
+            current_sequence=8,
+            current_prev_event_hash="prev-hash-1",
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert str(exc) == "secure_layer.permit.invalid.bounded_range_violation"
