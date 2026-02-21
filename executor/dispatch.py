@@ -14,6 +14,7 @@ from executor.secure_execution_layer.audit_event_taxonomy import (
 from executor.secure_execution_layer.execution_permit_validator import (
     ExecutionPermit,
     InvalidPermitError,
+    KillSwitchError,
     PermitRequiredError,
     validate_execution_permit_structure,
     verify_execution_permit_against_chain,
@@ -107,9 +108,9 @@ def execute_capability(
 ) -> tuple[ExecutorResult, dict] | dict[str, Any]:
     _validate_dispatch_input(dispatch_input)
     if mode not in ("live", "replay"):
-        raise ValueError("secure_layer.invalid mode")
+        raise KillSwitchError("secure_layer.killswitch.mode_invalid")
     if permit is None:
-        raise PermitRequiredError("execution.permit.required")
+        raise KillSwitchError("secure_layer.killswitch.permit_missing")
     if mode == "replay":
         try:
             validate_execution_permit_structure(permit)
@@ -127,7 +128,7 @@ def execute_capability(
                 previous_event=previous_event,
             )
         except ValueError as exc:
-            raise ValueError("secure_layer.replay.invalid execution") from exc
+            raise KillSwitchError("secure_layer.killswitch.replay_invalid") from exc
         return {
             "mode": "replay",
             "event_hash": permit_used_event_hash,
@@ -144,7 +145,10 @@ def execute_capability(
             current_prev_event_hash=current_prev_event_hash,
         )
     except ValueError as exc:
-        raise InvalidPermitError(str(exc)) from exc
+        try:
+            raise InvalidPermitError(str(exc))
+        except InvalidPermitError as permit_exc:
+            raise KillSwitchError("secure_layer.killswitch.permit_invalid") from permit_exc
 
     try:
         permit_used_event, permit_used_event_hash = _build_permit_usage_event(
@@ -155,7 +159,7 @@ def execute_capability(
             previous_event=previous_event,
         )
     except ValueError as exc:
-        raise ValueError("secure_layer.audit.invalid permit_usage") from exc
+        raise KillSwitchError("secure_layer.killswitch.audit_invalid") from exc
 
     if not _EXECUTION_LOCK.acquire(blocking=False):
         raise DispatchFailure("execution.lock.violation")
@@ -220,6 +224,16 @@ def execute_capability(
             "max_duration_seconds": max_duration_seconds,
             "permit_usage_event_id": permit_used_event.event_id,
             "permit_usage_event_hash": permit_used_event_hash,
+            "permit_usage_event": {
+                "event_id": permit_used_event.event_id,
+                "event_type": permit_used_event.event_type,
+                "policy_hash": permit_used_event.policy_hash,
+                "request_fingerprint": permit_used_event.request_fingerprint,
+                "sequence": permit_used_event.sequence,
+                "stream_id": permit_used_event.stream_id,
+                "prev_event_hash": permit_used_event.prev_event_hash,
+                "payload": permit_used_event.payload,
+            },
         }
         return result, metadata
     finally:

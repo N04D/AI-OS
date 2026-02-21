@@ -1,3 +1,6 @@
+import json
+import tempfile
+
 from executor.secure_execution_layer.policy_interpreter import (
     PolicyInterpretationConfig,
     RuleMatch,
@@ -26,12 +29,18 @@ from executor.secure_execution_layer.replay_verifier import (
 )
 from executor.secure_execution_layer.execution_permit_validator import (
     ExecutionPermit,
-    InvalidPermitError,
-    PermitRequiredError,
+    KillSwitchError,
     compute_permit_id,
     compute_permit_id_input,
     validate_execution_permit_structure,
     verify_execution_permit_against_chain,
+)
+from executor.secure_execution_layer.audit_artifact_sink import (
+    GitWorktreeAuditWriter,
+    build_audit_artifact_bytes,
+    build_audit_artifact_path,
+    load_audit_stream_from_repo,
+    verify_audit_stream_from_repo,
 )
 import executor.dispatch as dispatch_module
 from executor.secure_execution_layer.review_ledger_resolver import (
@@ -701,9 +710,9 @@ def test_executor_rejects_missing_permit() -> None:
             current_sequence=5,
             current_prev_event_hash="prev-hash-1",
         )
-        assert False, "Expected PermitRequiredError"
-    except PermitRequiredError:
-        pass
+        assert False, "Expected KillSwitchError"
+    except KillSwitchError as exc:
+        assert exc.code == "secure_layer.killswitch.permit_missing"
 
 
 def test_executor_rejects_invalid_permit() -> None:
@@ -738,9 +747,9 @@ def test_executor_rejects_invalid_permit() -> None:
             current_sequence=5,
             current_prev_event_hash="prev-hash-1",
         )
-        assert False, "Expected InvalidPermitError"
-    except InvalidPermitError as exc:
-        assert "secure_layer.permit.invalid" in str(exc)
+        assert False, "Expected KillSwitchError"
+    except KillSwitchError as exc:
+        assert exc.code == "secure_layer.killswitch.permit_invalid"
 
 
 def test_executor_accepts_valid_permit() -> None:
@@ -892,9 +901,9 @@ def test_permit_usage_fails_on_stream_mismatch() -> None:
             current_prev_event_hash=event_fingerprint(previous_event),
             previous_event=previous_event,
         )
-        assert False, "Expected ValueError"
-    except ValueError as exc:
-        assert str(exc) == "secure_layer.audit.invalid permit_usage"
+        assert False, "Expected KillSwitchError"
+    except KillSwitchError as exc:
+        assert exc.code == "secure_layer.killswitch.audit_invalid"
 
 
 def test_permit_usage_fails_on_sequence_gap() -> None:
@@ -930,9 +939,9 @@ def test_permit_usage_fails_on_sequence_gap() -> None:
             current_prev_event_hash=event_fingerprint(previous_event),
             previous_event=previous_event,
         )
-        assert False, "Expected ValueError"
-    except ValueError as exc:
-        assert str(exc) == "secure_layer.audit.invalid permit_usage"
+        assert False, "Expected KillSwitchError"
+    except KillSwitchError as exc:
+        assert exc.code == "secure_layer.killswitch.audit_invalid"
 
 
 def test_permit_usage_hash_deterministic() -> None:
@@ -1003,9 +1012,9 @@ def test_permit_usage_policy_hash_required() -> None:
             current_sequence=5,
             current_prev_event_hash="prev-hash-1",
         )
-        assert False, "Expected InvalidPermitError"
-    except InvalidPermitError as exc:
-        assert "secure_layer.permit.invalid.policy_hash" in str(exc)
+        assert False, "Expected KillSwitchError"
+    except KillSwitchError as exc:
+        assert exc.code == "secure_layer.killswitch.permit_invalid"
 
 
 def test_replay_mode_no_side_effect_execution() -> None:
@@ -1104,9 +1113,9 @@ def test_replay_mode_fails_on_sequence_gap() -> None:
             previous_event=previous_event,
             mode="replay",
         )
-        assert False, "Expected ValueError"
-    except ValueError as exc:
-        assert str(exc) == "secure_layer.replay.invalid execution"
+        assert False, "Expected KillSwitchError"
+    except KillSwitchError as exc:
+        assert exc.code == "secure_layer.killswitch.replay_invalid"
 
 
 def test_replay_mode_fails_on_hash_mismatch() -> None:
@@ -1143,9 +1152,9 @@ def test_replay_mode_fails_on_hash_mismatch() -> None:
             previous_event=previous_event,
             mode="replay",
         )
-        assert False, "Expected ValueError"
-    except ValueError as exc:
-        assert str(exc) == "secure_layer.replay.invalid execution"
+        assert False, "Expected KillSwitchError"
+    except KillSwitchError as exc:
+        assert exc.code == "secure_layer.killswitch.replay_invalid"
 
 
 def test_live_mode_unchanged_behavior() -> None:
@@ -1198,3 +1207,252 @@ def test_live_mode_unchanged_behavior() -> None:
         dispatch_module.subprocess.run = original_run  # type: ignore[assignment]
         dispatch_module.utc_iso8601 = original_utc  # type: ignore[assignment]
         dispatch_module.time.monotonic = original_monotonic  # type: ignore[assignment]
+
+
+def test_killswitch_missing_permit_live_and_replay() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    for mode in ("live", "replay"):
+        try:
+            dispatch_module.execute_capability(
+                dispatch_input,
+                permit=None,
+                current_stream_id="stream-1",
+                current_sequence=5,
+                current_prev_event_hash="prev-hash-1",
+                mode=mode,
+            )
+            assert False, "Expected KillSwitchError"
+        except KillSwitchError as exc:
+            assert exc.code == "secure_layer.killswitch.permit_missing"
+
+
+def test_killswitch_invalid_permit() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    bad = _make_permit(compute_id=False)
+    try:
+        dispatch_module.execute_capability(
+            dispatch_input,
+            permit=bad,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash="prev-hash-1",
+            mode="live",
+        )
+        assert False, "Expected KillSwitchError"
+    except KillSwitchError as exc:
+        assert exc.code == "secure_layer.killswitch.permit_invalid"
+
+
+def test_killswitch_audit_invalid() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    previous_event = AuditEvent(
+        event_id="prev-1",
+        event_type="tool.exec.requested",
+        policy_hash="policy-hash-1",
+        request_fingerprint="request-fp-1",
+        sequence=4,
+        stream_id="other-stream",
+        prev_event_hash="prev-0-hash",
+        payload={"tool": "echo"},
+    )
+    permit = _make_permit(prev_event_hash=event_fingerprint(previous_event), stream_id="stream-1")
+    try:
+        dispatch_module.execute_capability(
+            dispatch_input,
+            permit=permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash=event_fingerprint(previous_event),
+            previous_event=previous_event,
+            mode="live",
+        )
+        assert False, "Expected KillSwitchError"
+    except KillSwitchError as exc:
+        assert exc.code == "secure_layer.killswitch.audit_invalid"
+
+
+def test_killswitch_replay_invalid() -> None:
+    dispatch_input = {
+        "task_id": "t-1",
+        "instruction": "run deterministically",
+        "allowed_files": [],
+        "expected_outcome": "ok",
+        "governance_hash": "g-1",
+        "timestamp": "ignored",
+    }
+    previous_event = AuditEvent(
+        event_id="prev-1",
+        event_type="tool.exec.requested",
+        policy_hash="policy-hash-1",
+        request_fingerprint="request-fp-1",
+        sequence=4,
+        stream_id="stream-1",
+        prev_event_hash="prev-0-hash",
+        payload={"tool": "echo"},
+    )
+    permit = _make_permit(issued_at_sequence=5, prev_event_hash="wrong", stream_id="stream-1")
+    try:
+        dispatch_module.execute_capability(
+            dispatch_input,
+            permit=permit,
+            current_stream_id="stream-1",
+            current_sequence=5,
+            current_prev_event_hash="wrong",
+            previous_event=previous_event,
+            mode="replay",
+        )
+        assert False, "Expected KillSwitchError"
+    except KillSwitchError as exc:
+        assert exc.code == "secure_layer.killswitch.replay_invalid"
+
+
+def test_audit_artifact_path_deterministic() -> None:
+    assert build_audit_artifact_path("stream-1", 0) == "audit/streams/stream-1/0.audit.json"
+    assert build_audit_artifact_path("stream-1", 5) == "audit/streams/stream-1/5.audit.json"
+
+
+def test_audit_artifact_bytes_canonical() -> None:
+    event = AuditEvent(
+        event_id="evt-1",
+        event_type="permit.used",
+        policy_hash="policy-hash-1",
+        request_fingerprint="request-fp-1",
+        sequence=0,
+        stream_id="stream-1",
+        prev_event_hash="",
+        payload={"b": {"z": 1, "a": 2}, "a": "x"},
+    )
+    first = build_audit_artifact_bytes(event)
+    second = build_audit_artifact_bytes(event)
+    assert first == second
+
+
+def test_append_only_violation_triggers_killswitch() -> None:
+    with tempfile.TemporaryDirectory() as td:
+        writer = GitWorktreeAuditWriter(repo_root=td)
+        event = AuditEvent(
+            event_id="evt-1",
+            event_type="permit.used",
+            policy_hash="policy-hash-1",
+            request_fingerprint="request-fp-1",
+            sequence=0,
+            stream_id="stream-1",
+            prev_event_hash="",
+            payload={"k": "v"},
+        )
+        writer.write_event(event)
+        try:
+            writer.write_event(event)
+            assert False, "Expected KillSwitchError"
+        except KillSwitchError as exc:
+            assert exc.code == "secure_layer.killswitch.audit_append_violation"
+
+
+def test_replay_load_and_verify_stream_ok() -> None:
+    with tempfile.TemporaryDirectory() as td:
+        writer = GitWorktreeAuditWriter(repo_root=td)
+        first = AuditEvent(
+            event_id="evt-0",
+            event_type="permit.used",
+            policy_hash="policy-hash-1",
+            request_fingerprint="request-fp-1",
+            sequence=0,
+            stream_id="stream-1",
+            prev_event_hash="",
+            payload={"k": "v0"},
+        )
+        writer.write_event(first)
+        second = AuditEvent(
+            event_id="evt-1",
+            event_type="permit.used",
+            policy_hash="policy-hash-1",
+            request_fingerprint="request-fp-1",
+            sequence=1,
+            stream_id="stream-1",
+            prev_event_hash=event_fingerprint(first),
+            payload={"k": "v1"},
+        )
+        writer.write_event(second)
+        loaded = load_audit_stream_from_repo(td, "stream-1")
+        assert len(loaded) == 2
+        verification = verify_audit_stream_from_repo(td, "stream-1")
+        assert verification.ok is True
+
+
+def test_replay_fails_on_missing_sequence_file() -> None:
+    with tempfile.TemporaryDirectory() as td:
+        writer = GitWorktreeAuditWriter(repo_root=td)
+        first = AuditEvent(
+            event_id="evt-0",
+            event_type="permit.used",
+            policy_hash="policy-hash-1",
+            request_fingerprint="request-fp-1",
+            sequence=0,
+            stream_id="stream-1",
+            prev_event_hash="",
+            payload={"k": "v0"},
+        )
+        writer.write_event(first)
+        third = AuditEvent(
+            event_id="evt-2",
+            event_type="permit.used",
+            policy_hash="policy-hash-1",
+            request_fingerprint="request-fp-1",
+            sequence=2,
+            stream_id="stream-1",
+            prev_event_hash="any",
+            payload={"k": "v2"},
+        )
+        writer.write_event(third)
+        try:
+            load_audit_stream_from_repo(td, "stream-1")
+            assert False, "Expected ValueError"
+        except ValueError as exc:
+            assert str(exc) == "secure_layer.replay.invalid missing_sequence"
+
+
+def test_replay_fails_on_event_hash_mismatch() -> None:
+    with tempfile.TemporaryDirectory() as td:
+        writer = GitWorktreeAuditWriter(repo_root=td)
+        event = AuditEvent(
+            event_id="evt-0",
+            event_type="permit.used",
+            policy_hash="policy-hash-1",
+            request_fingerprint="request-fp-1",
+            sequence=0,
+            stream_id="stream-1",
+            prev_event_hash="",
+            payload={"k": "v0"},
+        )
+        rel_path = writer.write_event(event)
+        full_path = f"{td}/{rel_path}"
+        data = json.loads(open(full_path, "r", encoding="utf-8").read())
+        data["event_hash"] = "mismatch"
+        with open(full_path, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(data, sort_keys=True))
+        try:
+            load_audit_stream_from_repo(td, "stream-1")
+            assert False, "Expected ValueError"
+        except ValueError as exc:
+            assert str(exc) == "secure_layer.replay.invalid event_hash_mismatch"

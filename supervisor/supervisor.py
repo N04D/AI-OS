@@ -48,6 +48,21 @@ except ImportError:
     )
 from supervisor.environment_validation import validate_environment
 from executor.dispatch import DispatchFailure, dispatch_task_once
+from executor.secure_execution_layer.canonical_hash import (
+    build_request_fingerprint_input,
+    domain_hash,
+)
+from executor.secure_execution_layer.execution_permit_validator import (
+    ExecutionPermit,
+    KillSwitchError,
+    compute_permit_id,
+    validate_execution_permit_structure,
+)
+from executor.secure_execution_layer.audit_artifact_sink import (
+    GitWorktreeAuditWriter,
+    verify_audit_stream_from_repo,
+)
+from executor.secure_execution_layer.audit_event_taxonomy import AuditEvent
 from orchestrator.git import create_governed_commit
 
 TTL_SECONDS = 1800
@@ -74,6 +89,13 @@ RECURSIVE_SCOPE_BY_CLASS = {
     "type:observability": "orchestrator/",
     "type:performance-bounded": "executor/",
 }
+_SEVERITY_TO_GATING = {
+    "allow": "proceed",
+    "warn": "proceed_emit_audit",
+    "block": "deny_emit_audit",
+    "review": "pause_pending_ledger",
+}
+_ALLOWED_PERMIT_DECISIONS = {"allow", "warn", "block", "review"}
 
 def get_repo_identity_from_remote_url():
     """
@@ -726,6 +748,156 @@ def build_dispatch_input(task, instruction_text, governance_hash):
         "timestamp": _utc_iso8601(),
     }
 
+
+def _build_request_fingerprint(dispatch_input):
+    governance_hash = dispatch_input.get("governance_hash")
+    if not isinstance(governance_hash, str) or not governance_hash:
+        raise ValueError("supervisor.permit.invalid.governance_hash")
+    task_id = dispatch_input.get("task_id")
+    if not isinstance(task_id, int):
+        raise ValueError("supervisor.permit.invalid.task_id")
+
+    return domain_hash(
+        "secure_execution_layer.request_fingerprint.v1",
+        build_request_fingerprint_input(
+            actor_id="supervisor",
+            capability="executor.dispatch_task_once",
+            operation="execute_capability",
+            target=f"task:{task_id}",
+            context_hash=governance_hash,
+        ),
+    )
+
+
+def build_execution_permit_for_dispatch(
+    *,
+    policy_hash,
+    dispatch_input,
+    decision="allow",
+):
+    if not isinstance(policy_hash, str) or not policy_hash:
+        raise ValueError("supervisor.permit.invalid.policy_hash")
+    if decision not in _ALLOWED_PERMIT_DECISIONS:
+        raise ValueError("supervisor.permit.invalid.decision")
+
+    task_id = dispatch_input.get("task_id")
+    if not isinstance(task_id, int):
+        raise ValueError("supervisor.permit.invalid.task_id")
+    governance_hash = dispatch_input.get("governance_hash")
+    if not isinstance(governance_hash, str) or not governance_hash:
+        raise ValueError("supervisor.permit.invalid.governance_hash")
+
+    current_sequence = task_id
+    current_stream_id = f"task-{task_id}"
+    current_prev_event_hash = governance_hash
+    request_fingerprint = _build_request_fingerprint(dispatch_input)
+    capability_descriptor = {"kind": "tool", "selector": "executor.dispatch_task_once"}
+    expiry_condition = {"valid_for_sequence_range": [current_sequence, current_sequence]}
+
+    seed = ExecutionPermit(
+        permit_id="pending",
+        policy_hash=policy_hash,
+        request_fingerprint=request_fingerprint,
+        capability=capability_descriptor,
+        decision=decision,
+        severity_to_gating=dict(_SEVERITY_TO_GATING),
+        issued_by="supervisor",
+        issued_at_sequence=current_sequence,
+        stream_id=current_stream_id,
+        prev_event_hash=current_prev_event_hash,
+        permit_scope="one_shot",
+        expiry_condition=expiry_condition,
+    )
+    permit = ExecutionPermit(
+        permit_id=compute_permit_id(seed),
+        policy_hash=seed.policy_hash,
+        request_fingerprint=seed.request_fingerprint,
+        capability=seed.capability,
+        decision=seed.decision,
+        severity_to_gating=seed.severity_to_gating,
+        issued_by=seed.issued_by,
+        issued_at_sequence=seed.issued_at_sequence,
+        stream_id=seed.stream_id,
+        prev_event_hash=seed.prev_event_hash,
+        permit_scope=seed.permit_scope,
+        expiry_condition=seed.expiry_condition,
+    )
+    validate_execution_permit_structure(permit)
+    return permit, {
+        "current_stream_id": current_stream_id,
+        "current_sequence": current_sequence,
+        "current_prev_event_hash": current_prev_event_hash,
+    }
+
+
+def dispatch_task_with_supervisor_permit(
+    dispatch_input,
+    *,
+    policy_hash,
+    start_timeout_seconds,
+    max_duration_seconds,
+    decision="allow",
+):
+    permit, permit_chain_context = build_execution_permit_for_dispatch(
+        policy_hash=policy_hash,
+        dispatch_input=dispatch_input,
+        decision=decision,
+    )
+    return dispatch_task_once(
+        dispatch_input,
+        start_timeout_seconds=start_timeout_seconds,
+        max_duration_seconds=max_duration_seconds,
+        permit=permit,
+        current_stream_id=permit_chain_context["current_stream_id"],
+        current_sequence=permit_chain_context["current_sequence"],
+        current_prev_event_hash=permit_chain_context["current_prev_event_hash"],
+    )
+
+
+def dispatch_task_with_supervisor_permit_or_halt(
+    dispatch_input,
+    *,
+    policy_hash,
+    start_timeout_seconds,
+    max_duration_seconds,
+    decision="allow",
+):
+    try:
+        return dispatch_task_with_supervisor_permit(
+            dispatch_input,
+            policy_hash=policy_hash,
+            start_timeout_seconds=start_timeout_seconds,
+            max_duration_seconds=max_duration_seconds,
+            decision=decision,
+        )
+    except KillSwitchError:
+        raise SystemExit(2)
+
+
+def write_permit_usage_audit_artifact_or_halt(dispatch_meta, *, repo_root="."):
+    event_payload = dispatch_meta.get("permit_usage_event")
+    if not isinstance(event_payload, dict):
+        raise SystemExit(2)
+
+    try:
+        event = AuditEvent(
+            event_id=str(event_payload["event_id"]),
+            event_type=event_payload["event_type"],
+            policy_hash=str(event_payload["policy_hash"]),
+            request_fingerprint=str(event_payload["request_fingerprint"]),
+            sequence=int(event_payload["sequence"]),
+            stream_id=str(event_payload["stream_id"]),
+            prev_event_hash=event_payload.get("prev_event_hash"),
+            payload=event_payload["payload"],
+        )
+        writer = GitWorktreeAuditWriter(repo_root=repo_root)
+        writer.write_event(event)
+        verification = verify_audit_stream_from_repo(repo_root, event.stream_id)
+        if not verification.ok:
+            raise KillSwitchError("secure_layer.killswitch.audit_invalid")
+    except (KeyError, TypeError, ValueError, KillSwitchError):
+        raise SystemExit(2)
+
 def verify_executor_result(result, dispatch_input, max_duration_seconds):
     changed_files = result.changed_files or []
     allowed_files = dispatch_input["allowed_files"]
@@ -1132,12 +1304,19 @@ def main():
                     files_committed = []
 
                     try:
-                        result, dispatch_meta = dispatch_task_once(
-                            dispatch_input,
-                            start_timeout_seconds=5,
-                            max_duration_seconds=max_duration_seconds,
-                        )
+                        try:
+                            result, dispatch_meta = dispatch_task_with_supervisor_permit_or_halt(
+                                dispatch_input,
+                                policy_hash=policy_hash_baseline,
+                                start_timeout_seconds=5,
+                                max_duration_seconds=max_duration_seconds,
+                                decision="allow",
+                            )
+                        except ValueError as exc:
+                            raise DispatchFailure(str(exc)) from exc
+
                         execution_dispatched = True
+                        write_permit_usage_audit_artifact_or_halt(dispatch_meta, repo_root=".")
                         result = ingest_executor_result(result, dispatch_input)
                         verification = verify_executor_result(
                             result, dispatch_input, max_duration_seconds
