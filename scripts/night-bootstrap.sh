@@ -2,6 +2,7 @@
 set -euo pipefail
 
 NIGHT_DIR="${NIGHT_DIR:-/home/infra/night/AI-OS}"
+NIGHT_BRANCH="${NIGHT_BRANCH:-dev}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if git -C "$REPO_ROOT" remote get-url gitea >/dev/null 2>&1; then
   SELECTED_REMOTE="gitea"
@@ -29,18 +30,14 @@ cd "$NIGHT_DIR"
 git remote set-url origin "$ORIGIN_URL"
 git fetch --prune --all
 
-DEFAULT_BRANCH="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD | sed 's@^origin/@@')"
-if [ -z "$DEFAULT_BRANCH" ]; then
-  DEFAULT_BRANCH="$(git remote show origin | sed -n '/HEAD branch/s/.*: //p' | head -n1)"
-fi
-if [ -z "$DEFAULT_BRANCH" ]; then
-  echo "ERROR: could not determine default branch from origin/HEAD" >&2
+if ! git show-ref --verify --quiet "refs/remotes/origin/$NIGHT_BRANCH"; then
+  echo "ERROR: target branch does not exist on origin: $NIGHT_BRANCH" >&2
   exit 1
 fi
 
-echo "NIGHT_BOOTSTRAP_DEFAULT_BRANCH=$DEFAULT_BRANCH"
-git checkout "$DEFAULT_BRANCH"
-git reset --hard "origin/$DEFAULT_BRANCH"
+echo "NIGHT_BOOTSTRAP_TARGET_BRANCH=$NIGHT_BRANCH"
+git checkout "$NIGHT_BRANCH"
+git reset --hard "origin/$NIGHT_BRANCH"
 git clean -fd
 
 if [ -n "$(git status --porcelain)" ]; then
