@@ -111,5 +111,8 @@ Night Executor loads `GITEA_TOKEN` from:
 - Environment variable (preferred)
 - Fallback file: `/home/infra/.secrets/gitea_token`
 
+`GITEA_BASE_URL` is loaded from the environment variable or fallback file:
+- `/home/infra/.secrets/gitea_base_url`
+
 Tokens are never logged or stored in repository.
 Missing token causes fail-closed termination.
