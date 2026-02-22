@@ -1180,20 +1180,37 @@ def main():
                             commit_message = f"feat(task-{dispatch_input['task_id']}): governed executor result"
                             run_id = _compute_dispatch_run_id(dispatch_input)
                             ledger_path = "ledger/evaluations.jsonl"
+                            task_id = dispatch_input.get("task_id")
                             try:
                                 enforcer.validate_commit_policy(
                                     instruction_text=instruction_text,
                                     changed_files=result.changed_files,
                                     commit_message=commit_message,
                                 )
-                                if is_run_committed(ledger_path, run_id):
+                                if not run_id or task_id is None or str(task_id).strip() == "":
+                                    _append_execution_log(
+                                        {
+                                            "task_id": task_id,
+                                            "run_id": run_id,
+                                            "evaluation_result": "internal_error",
+                                            "reason": "missing_run_id_or_task_id_for_commit_guard",
+                                            "timestamp": _utc_iso8601(),
+                                        }
+                                    )
+                                    commit_result = {
+                                        "commit_created": False,
+                                        "commit_hash": None,
+                                        "files_committed": [],
+                                    }
+                                elif is_run_committed(ledger_path, run_id):
                                     rejection_record = {
                                         "run_id": run_id,
-                                        "task_id": str(dispatch_input["task_id"]),
+                                        "task_id": str(task_id),
                                         "evaluation_result": "rejected",
-                                        "timestamp": _utc_iso8601(),
                                         "commit_performed": False,
-                                        "rejection_reason": "commit_already_performed_for_run_id",
+                                        "rejection_reason": "duplicate_run_id_committed",
+                                        "violations": [],
+                                        "timestamp": _utc_iso8601(),
                                     }
                                     ingest_evaluation_record(ledger_path, rejection_record)
                                     commit_result = {
@@ -1206,7 +1223,7 @@ def main():
                                     if commit_result["commit_created"]:
                                         success_record = {
                                             "run_id": run_id,
-                                            "task_id": str(dispatch_input["task_id"]),
+                                            "task_id": str(task_id),
                                             "evaluation_result": "success",
                                             "timestamp": _utc_iso8601(),
                                             "commit_sha": commit_result["commit_hash"],
