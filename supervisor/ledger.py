@@ -56,6 +56,30 @@ def ingest_evaluation_record(path: str | os.PathLike[str], record: dict[str, Any
     return {"status": "ingested", "record": record}
 
 
+def ingest_evaluation_record_linked(
+    eval_path: str | os.PathLike[str],
+    runs_path: str | os.PathLike[str],
+    record: dict[str, Any],
+) -> dict[str, Any]:
+    run_id = str(record.get("run_id", "")).strip()
+    if not run_id:
+        raise ValueError("missing required keys: run_id")
+
+    try:
+        from results import find_run_by_id
+    except ImportError:
+        from supervisor.results import find_run_by_id
+
+    run = find_run_by_id(runs_path, run_id)
+    if run is None:
+        return {
+            "status": "missing_run",
+            "reason": "missing_run_record_for_evaluation",
+            "run_id": run_id,
+        }
+    return ingest_evaluation_record(eval_path, record)
+
+
 def is_run_committed(path: str | os.PathLike[str], run_id: str) -> bool:
     record = find_evaluation_by_run_id(path, run_id)
     if record is None:
@@ -66,4 +90,4 @@ def is_run_committed(path: str | os.PathLike[str], run_id: str) -> bool:
 def mark_run_committed(path: str | os.PathLike[str], record: dict[str, Any]) -> dict[str, Any]:
     committed_record = dict(record)
     committed_record["commit_performed"] = True
-    return ingest_evaluation_record(path, committed_record)
+    return ingest_evaluation_record_linked(path, "ledger/runs.jsonl", committed_record)

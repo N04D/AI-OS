@@ -49,18 +49,23 @@ except ImportError:
     )
 from supervisor.environment_validation import validate_environment
 try:
-    from ledger import compute_run_id, ingest_evaluation_record, is_run_committed, mark_run_committed
+    from ledger import (
+        compute_run_id,
+        ingest_evaluation_record_linked,
+        is_run_committed,
+        mark_run_committed,
+    )
 except ImportError:
     from supervisor.ledger import (
         compute_run_id,
-        ingest_evaluation_record,
+        ingest_evaluation_record_linked,
         is_run_committed,
         mark_run_committed,
     )
 try:
-    from results import ingest_run_record
+    from results import find_run_by_id, ingest_run_record
 except ImportError:
-    from supervisor.results import ingest_run_record
+    from supervisor.results import find_run_by_id, ingest_run_record
 from executor.dispatch import DispatchFailure, dispatch_task_once
 from orchestrator.git import create_governed_commit
 
@@ -1204,8 +1209,9 @@ def main():
                             task_id = run_identity["task_id"] if run_identity else dispatch_input.get("task_id")
                             run_id = run_identity["run_id"] if run_identity else None
                             if run_id and task_id is not None and str(task_id).strip():
-                                ingest_evaluation_record(
+                                linkage_result = ingest_evaluation_record_linked(
                                     "ledger/evaluations.jsonl",
+                                    "ledger/runs.jsonl",
                                     {
                                         "run_id": run_id,
                                         "task_id": str(task_id),
@@ -1214,6 +1220,16 @@ def main():
                                         "reason": f"execresult_ingestion_failed:{exc}",
                                     },
                                 )
+                                if linkage_result.get("status") == "missing_run":
+                                    _append_execution_log(
+                                        {
+                                            "task_id": task_id,
+                                            "run_id": run_id,
+                                            "evaluation_result": "internal_error",
+                                            "reason": "missing_run_record_for_evaluation",
+                                            "timestamp": _utc_iso8601(),
+                                        }
+                                    )
                             _append_execution_log(
                                 {
                                     "task_id": task_id,
@@ -1265,6 +1281,21 @@ def main():
                                         "commit_hash": None,
                                         "files_committed": [],
                                     }
+                                elif find_run_by_id("ledger/runs.jsonl", run_id) is None:
+                                    _append_execution_log(
+                                        {
+                                            "task_id": task_id,
+                                            "run_id": run_id,
+                                            "evaluation_result": "rejected",
+                                            "reason": "missing_run_record_for_evaluation",
+                                            "timestamp": _utc_iso8601(),
+                                        }
+                                    )
+                                    commit_result = {
+                                        "commit_created": False,
+                                        "commit_hash": None,
+                                        "files_committed": [],
+                                    }
                                 elif is_run_committed(ledger_path, run_id):
                                     rejection_record = {
                                         "run_id": run_id,
@@ -1275,7 +1306,19 @@ def main():
                                         "violations": [],
                                         "timestamp": _utc_iso8601(),
                                     }
-                                    ingest_evaluation_record(ledger_path, rejection_record)
+                                    linkage_result = ingest_evaluation_record_linked(
+                                        ledger_path, "ledger/runs.jsonl", rejection_record
+                                    )
+                                    if linkage_result.get("status") == "missing_run":
+                                        _append_execution_log(
+                                            {
+                                                "task_id": task_id,
+                                                "run_id": run_id,
+                                                "evaluation_result": "rejected",
+                                                "reason": "missing_run_record_for_evaluation",
+                                                "timestamp": _utc_iso8601(),
+                                            }
+                                        )
                                     commit_result = {
                                         "commit_created": False,
                                         "commit_hash": None,
@@ -1291,7 +1334,17 @@ def main():
                                             "timestamp": _utc_iso8601(),
                                             "commit_sha": commit_result["commit_hash"],
                                         }
-                                        mark_run_committed(ledger_path, success_record)
+                                        linkage_result = mark_run_committed(ledger_path, success_record)
+                                        if linkage_result.get("status") == "missing_run":
+                                            _append_execution_log(
+                                                {
+                                                    "task_id": task_id,
+                                                    "run_id": run_id,
+                                                    "evaluation_result": "internal_error",
+                                                    "reason": "missing_run_record_for_evaluation",
+                                                    "timestamp": _utc_iso8601(),
+                                                }
+                                            )
                             except GovernanceViolation:
                                 commit_result = {
                                     "commit_created": False,
