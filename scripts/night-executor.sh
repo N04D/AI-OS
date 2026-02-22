@@ -11,6 +11,12 @@ if [ -z "${GITEA_TOKEN:-}" ]; then
 fi
 
 if [ -z "${GITEA_BASE_URL:-}" ]; then
+  if [ -f /home/infra/.secrets/gitea_base_url ]; then
+    export GITEA_BASE_URL="$(cat /home/infra/.secrets/gitea_base_url)"
+  fi
+fi
+
+if [ -z "${GITEA_BASE_URL:-}" ]; then
   echo "ERROR: GITEA_BASE_URL not set" >&2
   exit 1
 fi
