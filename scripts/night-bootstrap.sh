@@ -3,13 +3,20 @@ set -euo pipefail
 
 NIGHT_DIR="${NIGHT_DIR:-/home/infra/night/AI-OS}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ORIGIN_URL="$(git -C "$REPO_ROOT" config --get remote.origin.url)"
+if git -C "$REPO_ROOT" remote get-url gitea >/dev/null 2>&1; then
+  SELECTED_REMOTE="gitea"
+  ORIGIN_URL="$(git -C "$REPO_ROOT" remote get-url gitea)"
+else
+  SELECTED_REMOTE="origin"
+  ORIGIN_URL="$(git -C "$REPO_ROOT" config --get remote.origin.url)"
+fi
 
 if [ -z "$ORIGIN_URL" ]; then
   echo "ERROR: missing remote.origin.url" >&2
   exit 1
 fi
 
+echo "NIGHT_BOOTSTRAP_SELECTED_REMOTE=$SELECTED_REMOTE"
 echo "NIGHT_BOOTSTRAP_SOURCE_ORIGIN=$ORIGIN_URL"
 echo "NIGHT_BOOTSTRAP_TARGET_DIR=$NIGHT_DIR"
 
