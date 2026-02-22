@@ -13,6 +13,18 @@ _ALLOWED_SCOPE = ("one_shot", "bounded")
 _ALLOWED_EXPIRY_KEYS = ("valid_for_sequence_range", "valid_for_commit")
 
 
+class InvalidPermitError(Exception):
+    """Compatibility exception for invalid permit failures."""
+
+
+class PermitRequiredError(Exception):
+    """Compatibility exception when a permit is required but missing."""
+
+
+class KillSwitchError(Exception):
+    """Compatibility exception used by secure execution kill-switch paths."""
+
+
 @dataclass(frozen=True)
 class ExecutionPermit:
     permit_id: str
@@ -222,3 +234,10 @@ def _copy_value(value: Any) -> Any:
     if isinstance(value, Mapping):
         return _copy_mapping(value)
     raise ValueError("secure_layer.permit.invalid.value_type")
+
+
+def test_killswitcherror_import_contract() -> None:
+    """Minimal import-compatibility test for legacy API consumers."""
+    from executor.secure_execution_layer.execution_permit_validator import KillSwitchError as Imported
+
+    assert issubclass(Imported, Exception)
