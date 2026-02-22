@@ -1,0 +1,28 @@
+mode: night-v0.1
+max_tasks: 5
+max_commits: 3
+max_attempts_per_task: 3
+stop_on_first_failure: true
+
+allowed_paths:
+  - supervisor/
+  - scripts/
+  - docs/
+  - ledger/
+  - governance/
+
+forbidden_paths:
+  - governance/core/
+  - kernel/
+  - executor/runtime/
+
+task_sources:
+  # TODO: add once spec file exists
+  - issue: 26
+    spec: docs/phase-gate-multi-cycle-scheduler-v0.1.md
+  - issue: 27
+    spec: docs/autonomous-phase-transition-governance-v0.1.md
+  - issue: 28
+    spec: docs/recursive-self-improvement-governance-v0.1.md
+  - issue: 29
+    spec: docs/self-generated-governed-task-creation-v0.1.md

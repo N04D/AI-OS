@@ -1,4 +1,5 @@
 import json
+import hashlib
 import time
 import urllib.request
 import urllib.error
@@ -47,6 +48,24 @@ except ImportError:
         write_gate_artifact,
     )
 from supervisor.environment_validation import validate_environment
+try:
+    from ledger import (
+        compute_run_id,
+        ingest_evaluation_record_linked,
+        is_run_committed,
+        mark_run_committed,
+    )
+except ImportError:
+    from supervisor.ledger import (
+        compute_run_id,
+        ingest_evaluation_record_linked,
+        is_run_committed,
+        mark_run_committed,
+    )
+try:
+    from results import find_run_by_id, ingest_run_record
+except ImportError:
+    from supervisor.results import find_run_by_id, ingest_run_record
 from executor.dispatch import DispatchFailure, dispatch_task_once
 from executor.secure_execution_layer.canonical_hash import (
     build_request_fingerprint_input,
@@ -330,6 +349,32 @@ def _append_execution_log(entry):
     os.makedirs("logs", exist_ok=True)
     with open("logs/execution_cycle.log", "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, sort_keys=True) + "\n")
+
+
+def _dispatch_run_identity(dispatch_input):
+    task_id = dispatch_input.get("task_id")
+    if task_id is None or str(task_id).strip() == "":
+        raise ValueError("missing task_id for run identity")
+    task_id = str(task_id)
+    task_spec_hash = hashlib.sha256(
+        str(dispatch_input.get("instruction", "")).encode("utf-8")
+    ).hexdigest()
+    # TODO(supervisor/supervisor.py): replace placeholder with a real environment fingerprint source.
+    env_fingerprint = "TODO_ENV_FINGERPRINT"
+    # TODO(supervisor/supervisor.py): plumb deterministic attempt_no from dispatcher metadata.
+    attempt_no = int(dispatch_input.get("attempt_no", 1))
+    run_id = compute_run_id(task_id, task_spec_hash, env_fingerprint, attempt_no)
+    return {
+        "run_id": run_id,
+        "task_id": task_id,
+        "attempt_no": attempt_no,
+        "env_fingerprint": env_fingerprint,
+        "task_spec_hash": task_spec_hash,
+    }
+
+
+def _compute_dispatch_run_id(dispatch_input):
+    return _dispatch_run_identity(dispatch_input)["run_id"]
 
 def _extract_allowed_files(instruction_text):
     return sorted(set(re.findall(r"`([A-Za-z0-9_./-]+)`", instruction_text)))
@@ -1304,6 +1349,7 @@ def main():
                     files_committed = []
 
                     try:
+                        execution_start_ms = int(time.time() * 1000)
                         try:
                             result, dispatch_meta = dispatch_task_with_supervisor_permit_or_halt(
                                 dispatch_input,
@@ -1318,6 +1364,60 @@ def main():
                         execution_dispatched = True
                         write_permit_usage_audit_artifact_or_halt(dispatch_meta, repo_root=".")
                         result = ingest_executor_result(result, dispatch_input)
+                        execution_end_ms = int(time.time() * 1000)
+                        run_record_ingested = False
+                        run_identity = None
+                        try:
+                            run_identity = _dispatch_run_identity(dispatch_input)
+                            run_record = {
+                                "version": "v0.1",
+                                "run_id": run_identity["run_id"],
+                                "task_id": run_identity["task_id"],
+                                "attempt_no": run_identity["attempt_no"],
+                                "env_fingerprint": run_identity["env_fingerprint"],
+                                "task_spec_hash": run_identity["task_spec_hash"],
+                                "status": result.status,
+                                "stdout": result.stdout or "",
+                                "stderr": result.stderr or "",
+                                "ts_start_ms": execution_start_ms,
+                                "ts_end_ms": execution_end_ms,
+                            }
+                            ingest_run_record("ledger/runs.jsonl", run_record)
+                            run_record_ingested = True
+                        except ValueError as exc:
+                            task_id = run_identity["task_id"] if run_identity else dispatch_input.get("task_id")
+                            run_id = run_identity["run_id"] if run_identity else None
+                            if run_id and task_id is not None and str(task_id).strip():
+                                linkage_result = ingest_evaluation_record_linked(
+                                    "ledger/evaluations.jsonl",
+                                    "ledger/runs.jsonl",
+                                    {
+                                        "run_id": run_id,
+                                        "task_id": str(task_id),
+                                        "evaluation_result": "internal_error",
+                                        "timestamp": _utc_iso8601(),
+                                        "reason": f"execresult_ingestion_failed:{exc}",
+                                    },
+                                )
+                                if linkage_result.get("status") == "missing_run":
+                                    _append_execution_log(
+                                        {
+                                            "task_id": task_id,
+                                            "run_id": run_id,
+                                            "evaluation_result": "internal_error",
+                                            "reason": "missing_run_record_for_evaluation",
+                                            "timestamp": _utc_iso8601(),
+                                        }
+                                    )
+                            _append_execution_log(
+                                {
+                                    "task_id": task_id,
+                                    "run_id": run_id,
+                                    "evaluation_result": "internal_error",
+                                    "reason": f"execresult_ingestion_failed:{exc}",
+                                    "timestamp": _utc_iso8601(),
+                                }
+                            )
                         verification = verify_executor_result(
                             result, dispatch_input, max_duration_seconds
                         )
@@ -1326,6 +1426,7 @@ def main():
 
                         commit_attempt_eligible = (
                             execution_verified
+                            and run_record_ingested
                             and result.status == "success"
                             and result.tests_passed is True
                             and set(result.changed_files).issubset(set(dispatch_input["allowed_files"]))
@@ -1335,13 +1436,94 @@ def main():
 
                         if commit_attempt_eligible and requires_commit:
                             commit_message = f"feat(task-{dispatch_input['task_id']}): governed executor result"
+                            run_id = _compute_dispatch_run_id(dispatch_input)
+                            ledger_path = "ledger/evaluations.jsonl"
+                            task_id = dispatch_input.get("task_id")
                             try:
                                 enforcer.validate_commit_policy(
                                     instruction_text=instruction_text,
                                     changed_files=result.changed_files,
                                     commit_message=commit_message,
                                 )
-                                commit_result = create_governed_commit(result, dispatch_input)
+                                if not run_id or task_id is None or str(task_id).strip() == "":
+                                    _append_execution_log(
+                                        {
+                                            "task_id": task_id,
+                                            "run_id": run_id,
+                                            "evaluation_result": "internal_error",
+                                            "reason": "missing_run_id_or_task_id_for_commit_guard",
+                                            "timestamp": _utc_iso8601(),
+                                        }
+                                    )
+                                    commit_result = {
+                                        "commit_created": False,
+                                        "commit_hash": None,
+                                        "files_committed": [],
+                                    }
+                                elif find_run_by_id("ledger/runs.jsonl", run_id) is None:
+                                    _append_execution_log(
+                                        {
+                                            "task_id": task_id,
+                                            "run_id": run_id,
+                                            "evaluation_result": "rejected",
+                                            "reason": "missing_run_record_for_evaluation",
+                                            "timestamp": _utc_iso8601(),
+                                        }
+                                    )
+                                    commit_result = {
+                                        "commit_created": False,
+                                        "commit_hash": None,
+                                        "files_committed": [],
+                                    }
+                                elif is_run_committed(ledger_path, run_id):
+                                    rejection_record = {
+                                        "run_id": run_id,
+                                        "task_id": str(task_id),
+                                        "evaluation_result": "rejected",
+                                        "commit_performed": False,
+                                        "rejection_reason": "duplicate_run_id_committed",
+                                        "violations": [],
+                                        "timestamp": _utc_iso8601(),
+                                    }
+                                    linkage_result = ingest_evaluation_record_linked(
+                                        ledger_path, "ledger/runs.jsonl", rejection_record
+                                    )
+                                    if linkage_result.get("status") == "missing_run":
+                                        _append_execution_log(
+                                            {
+                                                "task_id": task_id,
+                                                "run_id": run_id,
+                                                "evaluation_result": "rejected",
+                                                "reason": "missing_run_record_for_evaluation",
+                                                "timestamp": _utc_iso8601(),
+                                            }
+                                        )
+                                    commit_result = {
+                                        "commit_created": False,
+                                        "commit_hash": None,
+                                        "files_committed": [],
+                                    }
+                                else:
+                                    commit_result = create_governed_commit(result, dispatch_input)
+                                    if commit_result["commit_created"]:
+                                        success_record = {
+                                            "run_id": run_id,
+                                            "task_id": str(task_id),
+                                            "evaluation_result": "success",
+                                            "timestamp": _utc_iso8601(),
+                                            "commit_sha": commit_result["commit_hash"],
+                                        }
+                                        linkage_result = mark_run_committed(ledger_path, success_record)
+                                        if linkage_result.get("status") == "missing_run":
+                                            _append_execution_log(
+                                                {
+                                                    "task_id": task_id,
+                                                    "run_id": run_id,
+                                                    "evaluation_result": "internal_error",
+                                                    "reason": "missing_run_record_for_evaluation",
+                                                    "timestamp": _utc_iso8601(),
+                                                }
+                                            )
                             except GovernanceViolation:
                                 commit_result = {
                                     "commit_created": False,
