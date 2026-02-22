@@ -55,6 +55,10 @@ Reports are written to:
 
 `state/night-reports/night-report.<UTC>.json`
 
+Night mode can place runtime ledgers outside the repository by setting
+`LEDGER_DIR` (or `--ledger-dir`), so `runs.jsonl` and `evaluations.jsonl`
+do not dirty the git working tree during strict preflight checks.
+
 Report top-level fields:
 
 - `version`

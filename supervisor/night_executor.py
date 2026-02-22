@@ -281,11 +281,31 @@ def _run_preflight() -> dict[str, Any]:
     return preflight
 
 
+def _resolve_ledger_paths(
+    *,
+    ledger_dir: str | os.PathLike[str] | None,
+    runs_path: str | os.PathLike[str] | None,
+    evaluations_path: str | os.PathLike[str] | None,
+) -> tuple[str, str]:
+    resolved_ledger_dir = str(
+        ledger_dir
+        or os.environ.get("LEDGER_DIR", "").strip()
+        or "ledger"
+    )
+    Path(resolved_ledger_dir).mkdir(parents=True, exist_ok=True)
+    resolved_runs_path = str(runs_path or (Path(resolved_ledger_dir) / "runs.jsonl"))
+    resolved_evaluations_path = str(
+        evaluations_path or (Path(resolved_ledger_dir) / "evaluations.jsonl")
+    )
+    return resolved_runs_path, resolved_evaluations_path
+
+
 def run_night_executor(
     *,
     queue_path: str,
-    runs_path: str = "ledger/runs.jsonl",
-    evaluations_path: str = "ledger/evaluations.jsonl",
+    ledger_dir: str | os.PathLike[str] | None = None,
+    runs_path: str | os.PathLike[str] | None = None,
+    evaluations_path: str | os.PathLike[str] | None = None,
     report_dir: str = "state/night-reports",
     run_preflight: bool = True,
 ) -> tuple[int, dict[str, Any], Path]:
@@ -312,6 +332,14 @@ def run_night_executor(
     exit_code = 1
 
     try:
+        resolved_runs_path, resolved_evaluations_path = _resolve_ledger_paths(
+            ledger_dir=ledger_dir,
+            runs_path=runs_path,
+            evaluations_path=evaluations_path,
+        )
+        report["runs_path"] = resolved_runs_path
+        report["evaluations_path"] = resolved_evaluations_path
+
         queue = load_queue(queue_path)
         report["queue_mode"] = queue["mode"]
         report["summary"]["tasks_total"] = min(
@@ -383,7 +411,7 @@ def run_night_executor(
                     "ts_start_ms": execution["ts_start_ms"],
                     "ts_end_ms": execution["ts_end_ms"],
                 }
-                run_ingest = ingest_run_record(runs_path, run_record)
+                run_ingest = ingest_run_record(resolved_runs_path, run_record)
 
                 changed_files = [f for f in execution["changed_files"] if isinstance(f, str)]
                 commit_eligible = bool(changed_files) and bool(execution["tests_passed"]) and all(
@@ -426,7 +454,7 @@ def run_night_executor(
                         "timestamp": _utc_iso8601(),
                         "commit_sha": commit_result["commit_hash"],
                     }
-                    eval_ingest = mark_run_committed(evaluations_path, eval_record)
+                    eval_ingest = mark_run_committed(resolved_evaluations_path, eval_record)
                 else:
                     eval_record = {
                         "run_id": run_id,
@@ -439,7 +467,7 @@ def run_night_executor(
                     if execution["status"] != "success":
                         eval_record["rejection_reason"] = execution["reason"]
                     eval_ingest = ingest_evaluation_record_linked(
-                        evaluations_path, runs_path, eval_record
+                        resolved_evaluations_path, resolved_runs_path, eval_record
                     )
 
                 attempt_report = {
@@ -498,9 +526,17 @@ def main(argv: list[str] | None = None) -> int:
         required=True,
         help="Path to governance night queue YAML (example: governance/night-queue.yaml)",
     )
+    parser.add_argument(
+        "--ledger-dir",
+        default=os.environ.get("LEDGER_DIR", "").strip() or None,
+        help="Directory for runs/evaluations ledgers (default: $LEDGER_DIR or ./ledger)",
+    )
     args = parser.parse_args(argv)
 
-    exit_code, report, report_path = run_night_executor(queue_path=args.queue)
+    exit_code, report, report_path = run_night_executor(
+        queue_path=args.queue,
+        ledger_dir=args.ledger_dir,
+    )
     print(json.dumps({"report_path": str(report_path), "overall_status": report["overall_status"]}))
     return exit_code
 
