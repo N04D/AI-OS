@@ -15,5 +15,10 @@ if [ -z "${GITEA_BASE_URL:-}" ]; then
   exit 1
 fi
 
+HOST_STATE_DIR="${HOST_STATE_DIR:-/home/infra/night/state}"
+LEDGER_DIR="${LEDGER_DIR:-$HOST_STATE_DIR/ledger}"
+mkdir -p "$LEDGER_DIR"
+export LEDGER_DIR
+
 QUEUE_PATH="${1:-governance/night-queue.yaml}"
-python -m supervisor.night_executor --queue "${QUEUE_PATH}"
+python -m supervisor.night_executor --queue "${QUEUE_PATH}" --ledger-dir "${LEDGER_DIR}"

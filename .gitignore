@@ -35,3 +35,4 @@ venv.bak/
 scripts/*
 !scripts/.keep
 *.log
+state/night-reports/
