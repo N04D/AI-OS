@@ -81,10 +81,13 @@ else
 fi
 
 # --------------------------------------------
-# 4. Determinism Smoke Test (optional hook)
+# 4. Determinism Gate (required, fail-closed)
 # --------------------------------------------
 
-if [ -f "./scripts/determinism-check.sh" ]; then
+if [ ! -f "./scripts/determinism-check.sh" ]; then
+  echo "[determinism] FAILED (missing ./scripts/determinism-check.sh)"
+  FAIL=1
+else
   echo "[determinism] running..."
   if [ -x "./scripts/determinism-check.sh" ]; then
     if ! ./scripts/determinism-check.sh; then
@@ -101,8 +104,6 @@ if [ -f "./scripts/determinism-check.sh" ]; then
       echo "[determinism] OK"
     fi
   fi
-else
-  echo "[determinism] skipped"
 fi
 
 # --------------------------------------------
