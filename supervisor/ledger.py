@@ -55,3 +55,15 @@ def ingest_evaluation_record(path: str | os.PathLike[str], record: dict[str, Any
 
     return {"status": "ingested", "record": record}
 
+
+def is_run_committed(path: str | os.PathLike[str], run_id: str) -> bool:
+    record = find_evaluation_by_run_id(path, run_id)
+    if record is None:
+        return False
+    return bool(record.get("commit_performed") is True)
+
+
+def mark_run_committed(path: str | os.PathLike[str], record: dict[str, Any]) -> dict[str, Any]:
+    committed_record = dict(record)
+    committed_record["commit_performed"] = True
+    return ingest_evaluation_record(path, committed_record)

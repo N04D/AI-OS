@@ -1,4 +1,5 @@
 import json
+import hashlib
 import time
 import urllib.request
 import urllib.error
@@ -47,6 +48,15 @@ except ImportError:
         write_gate_artifact,
     )
 from supervisor.environment_validation import validate_environment
+try:
+    from ledger import compute_run_id, ingest_evaluation_record, is_run_committed, mark_run_committed
+except ImportError:
+    from supervisor.ledger import (
+        compute_run_id,
+        ingest_evaluation_record,
+        is_run_committed,
+        mark_run_committed,
+    )
 from executor.dispatch import DispatchFailure, dispatch_task_once
 from orchestrator.git import create_governed_commit
 
@@ -308,6 +318,18 @@ def _append_execution_log(entry):
     os.makedirs("logs", exist_ok=True)
     with open("logs/execution_cycle.log", "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, sort_keys=True) + "\n")
+
+
+def _compute_dispatch_run_id(dispatch_input):
+    task_id = str(dispatch_input.get("task_id"))
+    task_spec_hash = hashlib.sha256(
+        str(dispatch_input.get("instruction", "")).encode("utf-8")
+    ).hexdigest()
+    # TODO(supervisor/supervisor.py): replace placeholder with a real environment fingerprint source.
+    env_fingerprint = "TODO_ENV_FINGERPRINT"
+    # TODO(supervisor/supervisor.py): plumb deterministic attempt_no from dispatcher metadata.
+    attempt_no = int(dispatch_input.get("attempt_no", 1))
+    return compute_run_id(task_id, task_spec_hash, env_fingerprint, attempt_no)
 
 def _extract_allowed_files(instruction_text):
     return sorted(set(re.findall(r"`([A-Za-z0-9_./-]+)`", instruction_text)))
@@ -1156,13 +1178,40 @@ def main():
 
                         if commit_attempt_eligible and requires_commit:
                             commit_message = f"feat(task-{dispatch_input['task_id']}): governed executor result"
+                            run_id = _compute_dispatch_run_id(dispatch_input)
+                            ledger_path = "ledger/evaluations.jsonl"
                             try:
                                 enforcer.validate_commit_policy(
                                     instruction_text=instruction_text,
                                     changed_files=result.changed_files,
                                     commit_message=commit_message,
                                 )
-                                commit_result = create_governed_commit(result, dispatch_input)
+                                if is_run_committed(ledger_path, run_id):
+                                    rejection_record = {
+                                        "run_id": run_id,
+                                        "task_id": str(dispatch_input["task_id"]),
+                                        "evaluation_result": "rejected",
+                                        "timestamp": _utc_iso8601(),
+                                        "commit_performed": False,
+                                        "rejection_reason": "commit_already_performed_for_run_id",
+                                    }
+                                    ingest_evaluation_record(ledger_path, rejection_record)
+                                    commit_result = {
+                                        "commit_created": False,
+                                        "commit_hash": None,
+                                        "files_committed": [],
+                                    }
+                                else:
+                                    commit_result = create_governed_commit(result, dispatch_input)
+                                    if commit_result["commit_created"]:
+                                        success_record = {
+                                            "run_id": run_id,
+                                            "task_id": str(dispatch_input["task_id"]),
+                                            "evaluation_result": "success",
+                                            "timestamp": _utc_iso8601(),
+                                            "commit_sha": commit_result["commit_hash"],
+                                        }
+                                        mark_run_committed(ledger_path, success_record)
                             except GovernanceViolation:
                                 commit_result = {
                                     "commit_created": False,
