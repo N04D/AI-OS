@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -114,6 +116,120 @@ task_sources:
             attempt = report["tasks"][0]["attempts"][0]
             self.assertEqual(attempt["run_status"], "failure")
             self.assertEqual(attempt["run_reason"], "null_execution")
+
+    def test_autonomy_dryrun_generates_deterministic_proposals_and_skips_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            runs_path = tmp_root / "runs.jsonl"
+            evaluations_path = tmp_root / "evaluations.jsonl"
+            runs_path.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "run_id": "r1",
+                                "task_id": "task-a",
+                                "status": "failure",
+                                "reason": "timeout",
+                                "ts_start_ms": 0,
+                                "ts_end_ms": 100,
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "run_id": "r2",
+                                "task_id": "task-b",
+                                "status": "failure",
+                                "reason": "timeout",
+                                "ts_start_ms": 0,
+                                "ts_end_ms": 120,
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "run_id": "r3",
+                                "task_id": "task-c",
+                                "status": "failure",
+                                "reason": "timeout",
+                                "ts_start_ms": 0,
+                                "ts_end_ms": 130,
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "run_id": "r4",
+                                "task_id": "task-d",
+                                "status": "success",
+                                "ts_start_ms": 0,
+                                "ts_end_ms": 1000,
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            evaluations_path.write_text("", encoding="utf-8")
+            queue_path = tmp_root / "night-queue.yaml"
+            queue_path.write_text(
+                """\
+mode: night-autonomy-dryrun-v0.1
+max_tasks: 3
+max_commits: 1
+max_attempts_per_task: 1
+stop_on_first_failure: true
+allowed_paths:
+  - supervisor/
+forbidden_paths:
+  - executor/runtime/
+task_sources: []
+""",
+                encoding="utf-8",
+            )
+            report_dir = tmp_root / "reports"
+            before_runs = runs_path.read_text(encoding="utf-8")
+            before_evaluations = evaluations_path.read_text(encoding="utf-8")
+
+            original_cwd = os.getcwd()
+            os.chdir(tmp_root)
+            try:
+                exit_code, report_a, _ = run_night_executor(
+                    queue_path=str(queue_path),
+                    runs_path=str(runs_path),
+                    evaluations_path=str(evaluations_path),
+                    report_dir=str(report_dir),
+                    run_preflight=False,
+                )
+                proposals_a = report_a["autonomy"]["proposals_generated"]
+                contents_a = {
+                    p["filename"]: Path(p["path"]).read_text(encoding="utf-8")
+                    for p in proposals_a
+                }
+                exit_code_b, report_b, _ = run_night_executor(
+                    queue_path=str(queue_path),
+                    runs_path=str(runs_path),
+                    evaluations_path=str(evaluations_path),
+                    report_dir=str(report_dir),
+                    run_preflight=False,
+                )
+                proposals_b = report_b["autonomy"]["proposals_generated"]
+                contents_b = {
+                    p["filename"]: Path(p["path"]).read_text(encoding="utf-8")
+                    for p in proposals_b
+                }
+            finally:
+                os.chdir(original_cwd)
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(exit_code_b, 0)
+            self.assertEqual(report_a["overall_status"], "dryrun_complete")
+            self.assertEqual(report_a["summary"]["tasks_attempted"], 0)
+            self.assertEqual(report_a["summary"]["commits_performed"], 0)
+            self.assertGreater(len(report_a["autonomy"]["proposals_generated"]), 0)
+            self.assertEqual(proposals_a, proposals_b)
+            self.assertEqual(contents_a, contents_b)
+            self.assertEqual(before_runs, runs_path.read_text(encoding="utf-8"))
+            self.assertEqual(before_evaluations, evaluations_path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
