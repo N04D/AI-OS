@@ -73,7 +73,7 @@ fi
 # --------------------------------------------
 
 if [ -f "./scripts/determinism-check.sh" ]; then
-  if git diff --quiet && git diff --cached --quiet; then
+  if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
     echo "[determinism] running..."
     if [ -x "./scripts/determinism-check.sh" ]; then
       if ! ./scripts/determinism-check.sh; then
