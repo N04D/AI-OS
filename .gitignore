@@ -35,3 +35,6 @@ venv.bak/
 scripts/*
 !scripts/.keep
 *.log
+
+artifacts/*
+!ledger/evaluations.jsonl
