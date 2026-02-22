@@ -23,6 +23,11 @@ When such a record exists, future commit attempts for that same `run_id` are blo
 `runs.jsonl` captures what happened during execution for a specific `run_id`.  
 `evaluations.jsonl` captures what governance decided for that same `run_id` (success/rejection/internal_error).
 
+## Linkage Invariant
+
+Every `evaluations.jsonl` entry must reference an existing `run_id` in `runs.jsonl`.  
+If the run record is missing, evaluation ingestion is rejected with `missing_run_record_for_evaluation`.
+
 ## Tracking policy
 
 `ledger/evaluations.jsonl` is tracked in git to preserve governed evaluation history.  
