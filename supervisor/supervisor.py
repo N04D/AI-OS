@@ -57,6 +57,10 @@ except ImportError:
         is_run_committed,
         mark_run_committed,
     )
+try:
+    from results import ingest_run_record
+except ImportError:
+    from supervisor.results import ingest_run_record
 from executor.dispatch import DispatchFailure, dispatch_task_once
 from orchestrator.git import create_governed_commit
 
@@ -320,8 +324,11 @@ def _append_execution_log(entry):
         f.write(json.dumps(entry, sort_keys=True) + "\n")
 
 
-def _compute_dispatch_run_id(dispatch_input):
-    task_id = str(dispatch_input.get("task_id"))
+def _dispatch_run_identity(dispatch_input):
+    task_id = dispatch_input.get("task_id")
+    if task_id is None or str(task_id).strip() == "":
+        raise ValueError("missing task_id for run identity")
+    task_id = str(task_id)
     task_spec_hash = hashlib.sha256(
         str(dispatch_input.get("instruction", "")).encode("utf-8")
     ).hexdigest()
@@ -329,7 +336,18 @@ def _compute_dispatch_run_id(dispatch_input):
     env_fingerprint = "TODO_ENV_FINGERPRINT"
     # TODO(supervisor/supervisor.py): plumb deterministic attempt_no from dispatcher metadata.
     attempt_no = int(dispatch_input.get("attempt_no", 1))
-    return compute_run_id(task_id, task_spec_hash, env_fingerprint, attempt_no)
+    run_id = compute_run_id(task_id, task_spec_hash, env_fingerprint, attempt_no)
+    return {
+        "run_id": run_id,
+        "task_id": task_id,
+        "attempt_no": attempt_no,
+        "env_fingerprint": env_fingerprint,
+        "task_spec_hash": task_spec_hash,
+    }
+
+
+def _compute_dispatch_run_id(dispatch_input):
+    return _dispatch_run_identity(dispatch_input)["run_id"]
 
 def _extract_allowed_files(instruction_text):
     return sorted(set(re.findall(r"`([A-Za-z0-9_./-]+)`", instruction_text)))
@@ -1154,6 +1172,7 @@ def main():
                     files_committed = []
 
                     try:
+                        execution_start_ms = int(time.time() * 1000)
                         result, dispatch_meta = dispatch_task_once(
                             dispatch_input,
                             start_timeout_seconds=5,
@@ -1161,6 +1180,49 @@ def main():
                         )
                         execution_dispatched = True
                         result = ingest_executor_result(result, dispatch_input)
+                        execution_end_ms = int(time.time() * 1000)
+                        run_record_ingested = False
+                        run_identity = None
+                        try:
+                            run_identity = _dispatch_run_identity(dispatch_input)
+                            run_record = {
+                                "version": "v0.1",
+                                "run_id": run_identity["run_id"],
+                                "task_id": run_identity["task_id"],
+                                "attempt_no": run_identity["attempt_no"],
+                                "env_fingerprint": run_identity["env_fingerprint"],
+                                "task_spec_hash": run_identity["task_spec_hash"],
+                                "status": result.status,
+                                "stdout": result.stdout or "",
+                                "stderr": result.stderr or "",
+                                "ts_start_ms": execution_start_ms,
+                                "ts_end_ms": execution_end_ms,
+                            }
+                            ingest_run_record("ledger/runs.jsonl", run_record)
+                            run_record_ingested = True
+                        except ValueError as exc:
+                            task_id = run_identity["task_id"] if run_identity else dispatch_input.get("task_id")
+                            run_id = run_identity["run_id"] if run_identity else None
+                            if run_id and task_id is not None and str(task_id).strip():
+                                ingest_evaluation_record(
+                                    "ledger/evaluations.jsonl",
+                                    {
+                                        "run_id": run_id,
+                                        "task_id": str(task_id),
+                                        "evaluation_result": "internal_error",
+                                        "timestamp": _utc_iso8601(),
+                                        "reason": f"execresult_ingestion_failed:{exc}",
+                                    },
+                                )
+                            _append_execution_log(
+                                {
+                                    "task_id": task_id,
+                                    "run_id": run_id,
+                                    "evaluation_result": "internal_error",
+                                    "reason": f"execresult_ingestion_failed:{exc}",
+                                    "timestamp": _utc_iso8601(),
+                                }
+                            )
                         verification = verify_executor_result(
                             result, dispatch_input, max_duration_seconds
                         )
@@ -1169,6 +1231,7 @@ def main():
 
                         commit_attempt_eligible = (
                             execution_verified
+                            and run_record_ingested
                             and result.status == "success"
                             and result.tests_passed is True
                             and set(result.changed_files).issubset(set(dispatch_input["allowed_files"]))
