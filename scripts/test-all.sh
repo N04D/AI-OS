@@ -13,6 +13,16 @@ echo "Timestamp: $START_TS"
 FAIL=0
 
 # --------------------------------------------
+# 0. Working Tree Must Be Clean (fail-closed)
+# --------------------------------------------
+
+if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+  echo "[precheck] FAILED (working tree dirty)"
+  echo "=== TEST HARNESS FAILED ==="
+  exit 1
+fi
+
+# --------------------------------------------
 # 1. Lint / Static Checks
 # --------------------------------------------
 
@@ -32,20 +42,22 @@ fi
 # 2. Unit Tests
 # --------------------------------------------
 
-if [ -f "pytest.ini" ] || [ -d "tests" ]; then
-  if command -v pytest >/dev/null 2>&1; then
-    echo "[tests] running pytest..."
-    if ! pytest -q; then
-      echo "[tests] FAILED"
-      FAIL=1
-    else
-      echo "[tests] OK"
-    fi
+if command -v pytest >/dev/null 2>&1; then
+  echo "[tests] running pytest..."
+  if ! pytest -q; then
+    echo "[tests] FAILED"
+    FAIL=1
   else
-    echo "[tests] skipped (pytest not installed)"
+    echo "[tests] OK"
   fi
 else
-  echo "[tests] skipped (no pytest config)"
+  echo "[tests] pytest unavailable, running unittest fallback..."
+  if ! python -m unittest discover -s supervisor/tests -p "test_*.py"; then
+    echo "[tests] FAILED"
+    FAIL=1
+  else
+    echo "[tests] OK"
+  fi
 fi
 
 # --------------------------------------------
@@ -73,25 +85,21 @@ fi
 # --------------------------------------------
 
 if [ -f "./scripts/determinism-check.sh" ]; then
-  if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
-    echo "[determinism] running..."
-    if [ -x "./scripts/determinism-check.sh" ]; then
-      if ! ./scripts/determinism-check.sh; then
-        echo "[determinism] FAILED"
-        FAIL=1
-      else
-        echo "[determinism] OK"
-      fi
+  echo "[determinism] running..."
+  if [ -x "./scripts/determinism-check.sh" ]; then
+    if ! ./scripts/determinism-check.sh; then
+      echo "[determinism] FAILED"
+      FAIL=1
     else
-      if ! bash ./scripts/determinism-check.sh; then
-        echo "[determinism] FAILED"
-        FAIL=1
-      else
-        echo "[determinism] OK"
-      fi
+      echo "[determinism] OK"
     fi
   else
-    echo "[determinism] skipped (working tree dirty)"
+    if ! bash ./scripts/determinism-check.sh; then
+      echo "[determinism] FAILED"
+      FAIL=1
+    else
+      echo "[determinism] OK"
+    fi
   fi
 else
   echo "[determinism] skipped"
