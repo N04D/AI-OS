@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "policy-to-capability-mapping-v0.1.schema.json",
+  "title": "Policy-to-Capability Deterministic Mapping Result v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "policy_hash",
+    "request_fingerprint",
+    "matched_rule_id",
+    "conflict_resolution_mode",
+    "final_severity",
+    "final_gating",
+    "capability_descriptor"
+  ],
+  "properties": {
+    "policy_hash": { "type": "string", "minLength": 1 },
+    "request_fingerprint": { "type": "string", "minLength": 1 },
+    "matched_rule_id": { "type": "string", "minLength": 1 },
+    "conflict_resolution_mode": {
+      "type": "string",
+      "enum": ["deny_wins", "most_specific", "explicit_priority"]
+    },
+    "final_severity": {
+      "type": "string",
+      "enum": ["allow", "warn", "block", "review"]
+    },
+    "final_gating": {
+      "type": "string",
+      "enum": ["permit_allow", "permit_warn", "permit_block", "permit_review"]
+    },
+    "capability_descriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "selector"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["tool", "net_egress", "secret_use"]
+        },
+        "selector": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

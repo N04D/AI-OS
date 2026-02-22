@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "execution-permit-attestation-contract-v0.1.schema.json",
+  "title": "Execution Permit Attestation Contract v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "permit_id",
+    "policy_hash",
+    "request_fingerprint",
+    "capability",
+    "decision",
+    "severity_to_gating",
+    "issued_by",
+    "issued_at_sequence",
+    "stream_id",
+    "prev_event_hash",
+    "permit_scope",
+    "expiry_condition"
+  ],
+  "properties": {
+    "permit_id": { "type": "string", "minLength": 1 },
+    "policy_hash": { "type": "string", "minLength": 1 },
+    "request_fingerprint": { "type": "string", "minLength": 1 },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "selector"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["tool", "net_egress", "secret_use"] },
+        "selector": { "type": "string", "minLength": 1 }
+      }
+    },
+    "decision": { "type": "string", "enum": ["allow", "warn", "block", "review"] },
+    "severity_to_gating": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allow", "warn", "block", "review"],
+      "properties": {
+        "allow": { "const": "proceed" },
+        "warn": { "const": "proceed_emit_audit" },
+        "block": { "const": "deny_emit_audit" },
+        "review": { "const": "pause_pending_ledger" }
+      }
+    },
+    "issued_by": { "type": "string", "minLength": 1 },
+    "issued_at_sequence": { "type": "integer", "minimum": 0 },
+    "stream_id": { "type": "string", "minLength": 1 },
+    "prev_event_hash": { "type": "string" },
+    "permit_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "selector"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["one_shot", "bounded"] },
+        "selector": { "type": "string", "minLength": 1 }
+      }
+    },
+    "expiry_condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["valid_for_sequence_range", "valid_for_commit"]
+        },
+        "sequence_range": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "commit_sha": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{7,40}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "valid_for_sequence_range" } }, "required": ["type"] },
+          "then": { "required": ["sequence_range"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "valid_for_commit" } }, "required": ["type"] },
+          "then": { "required": ["commit_sha"] }
+        }
+      ]
+    },
+    "review_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_id", "review_type"],
+      "properties": {
+        "review_id": { "type": "string", "minLength": 1 },
+        "review_type": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "decision": { "const": "review" } }, "required": ["decision"] },
+      "then": { "required": ["review_ref"] }
+    }
+  ]
+}
