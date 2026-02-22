@@ -48,6 +48,8 @@ python -m supervisor.night_executor --queue governance/night-queue.yaml
    - On success + commit eligible + commit budget remaining, performs governed
      commit and marks run committed with `mark_run_committed`.
    - Honors `stop_on_first_failure`.
+   - Uses `supervisor.night_task_runner.execute_night_task` adapter, which
+     returns a deterministic structured result for every task attempt.
 
 ## Night Compliance Report
 

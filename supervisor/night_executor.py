@@ -6,17 +6,17 @@ import json
 import os
 import platform
 import subprocess
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Callable
+from typing import Any
 
 import yaml
 
 from supervisor.ledger import compute_run_id
 from supervisor.ledger import ingest_evaluation_record_linked
 from supervisor.ledger import mark_run_committed
+from supervisor.night_task_runner import execute_night_task
 from supervisor.results import ingest_run_record
 
 QUEUE_REQUIRED_KEYS = {
@@ -175,72 +175,6 @@ def _path_allowed(path: str, allowed_prefixes: list[str], forbidden_prefixes: li
     return allowed and not forbidden
 
 
-def _discover_run_spec_entrypoint() -> tuple[str, Callable[..., Any]] | None:
-    # Keep discovery conservative to avoid importing heavyweight modules by default.
-    try:
-        from supervisor import spec_runner  # type: ignore
-
-        fn = getattr(spec_runner, "run_spec", None)
-        if callable(fn):
-            return ("supervisor.spec_runner.run_spec", fn)
-    except Exception:
-        return None
-    return None
-
-
-def _execute_task_once(
-    *,
-    entrypoint: tuple[str, Callable[..., Any]] | None,
-    issue: str,
-    spec_path: str,
-    run_id: str,
-    attempt_no: int,
-) -> dict[str, Any]:
-    ts_start_ms = int(_utc_now().timestamp() * 1000)
-    if entrypoint is None:
-        ts_end_ms = int(_utc_now().timestamp() * 1000)
-        return {
-            "status": "rejected",
-            "reason": "executor_not_wired",
-            "stdout": "",
-            "stderr": "",
-            "changed_files": [],
-            "tests_passed": False,
-            "ts_start_ms": ts_start_ms,
-            "ts_end_ms": ts_end_ms,
-        }
-
-    _, fn = entrypoint
-    try:
-        raw = fn(spec_path=spec_path, issue=issue, run_id=run_id, attempt_no=attempt_no)
-        if not isinstance(raw, dict):
-            raise ValueError("run_spec entrypoint must return dict")
-        status = str(raw.get("status", "failure"))
-        ts_end_ms = int(_utc_now().timestamp() * 1000)
-        return {
-            "status": status,
-            "reason": raw.get("reason", ""),
-            "stdout": str(raw.get("stdout", "")),
-            "stderr": str(raw.get("stderr", "")),
-            "changed_files": list(raw.get("changed_files", [])),
-            "tests_passed": bool(raw.get("tests_passed", False)),
-            "ts_start_ms": ts_start_ms,
-            "ts_end_ms": ts_end_ms,
-        }
-    except Exception as exc:
-        ts_end_ms = int(_utc_now().timestamp() * 1000)
-        return {
-            "status": "rejected",
-            "reason": f"executor_entrypoint_error:{exc}",
-            "stdout": "",
-            "stderr": "",
-            "changed_files": [],
-            "tests_passed": False,
-            "ts_start_ms": ts_start_ms,
-            "ts_end_ms": ts_end_ms,
-        }
-
-
 def _build_report_path(report_dir: str | os.PathLike[str], report_ts: datetime) -> Path:
     folder = Path(report_dir)
     folder.mkdir(parents=True, exist_ok=True)
@@ -300,6 +234,42 @@ def _resolve_ledger_paths(
     return resolved_runs_path, resolved_evaluations_path
 
 
+def _normalize_execution(execution: dict[str, Any] | None) -> dict[str, Any]:
+    if execution is None:
+        ts_now = int(_utc_now().timestamp() * 1000)
+        return {
+            "status": "failure",
+            "reason": "null_execution",
+            "stdout": "",
+            "stderr": "",
+            "changed_files": [],
+            "tests_passed": False,
+            "ts_start_ms": ts_now,
+            "ts_end_ms": ts_now,
+        }
+
+    status = str(execution.get("status", "failure"))
+    if not status:
+        status = "failure"
+    reason = execution.get("reason")
+    normalized_reason = None if status == "success" else (
+        str(reason) if reason is not None and str(reason) else "execution_failed"
+    )
+    ts_start_ms = execution.get("ts_start_ms")
+    ts_end_ms = execution.get("ts_end_ms")
+    ts_now = int(_utc_now().timestamp() * 1000)
+    return {
+        "status": status,
+        "reason": normalized_reason,
+        "stdout": str(execution.get("stdout", "")),
+        "stderr": str(execution.get("stderr", "")),
+        "changed_files": [x for x in execution.get("changed_files", []) if isinstance(x, str)],
+        "tests_passed": bool(execution.get("tests_passed", False)),
+        "ts_start_ms": ts_start_ms if isinstance(ts_start_ms, int) else ts_now,
+        "ts_end_ms": ts_end_ms if isinstance(ts_end_ms, int) else ts_now,
+    }
+
+
 def run_night_executor(
     *,
     queue_path: str,
@@ -353,8 +323,7 @@ def run_night_executor(
 
         env_fingerprint = compute_env_fingerprint()
         report["env_fingerprint"] = env_fingerprint
-        entrypoint = _discover_run_spec_entrypoint()
-        report["entrypoint"] = entrypoint[0] if entrypoint is not None else None
+        report["entrypoint"] = "supervisor.night_task_runner.execute_night_task"
 
         commits_done = 0
         should_stop = False
@@ -390,12 +359,11 @@ def run_night_executor(
             task_succeeded = False
             for attempt_no in range(1, queue["max_attempts_per_task"] + 1):
                 run_id = compute_run_id(task_id, task_spec_hash, env_fingerprint, attempt_no)
-                execution = _execute_task_once(
-                    entrypoint=entrypoint,
-                    issue=task_source["issue"],
-                    spec_path=spec_path,
-                    run_id=run_id,
-                    attempt_no=attempt_no,
+                execution = _normalize_execution(
+                    execute_night_task(
+                        int(task_source["issue"]),
+                        spec_path,
+                    )
                 )
 
                 run_record = {
