@@ -100,3 +100,12 @@ Each `attempts[]` entry includes:
 - `commit_eligible`
 - `commit_created`
 - `commit_sha`
+
+## Secret Handling
+
+Night Executor loads `GITEA_TOKEN` from:
+- Environment variable (preferred)
+- Fallback file: `/home/infra/.secrets/gitea_token`
+
+Tokens are never logged or stored in repository.
+Missing token causes fail-closed termination.
