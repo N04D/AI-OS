@@ -8,6 +8,7 @@ from pathlib import Path
 from supervisor.ledger import compute_run_id
 from supervisor.ledger import find_evaluation_by_run_id
 from supervisor.ledger import ingest_evaluation_record
+from supervisor.ledger import is_run_committed
 
 
 class LedgerIngestionTests(unittest.TestCase):
@@ -52,7 +53,52 @@ class LedgerIngestionTests(unittest.TestCase):
             self.assertEqual(found, record)
             self.assertIsNone(missing)
 
+    def test_is_run_committed_false_when_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            ledger_path = Path(tmp_dir) / "evaluations.jsonl"
+            run_id = compute_run_id("task-u4", "spec-a", "env-a", 1)
+            self.assertFalse(is_run_committed(ledger_path, run_id))
+
+    def test_is_run_committed_true_when_commit_performed_true(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            ledger_path = Path(tmp_dir) / "evaluations.jsonl"
+            run_id = compute_run_id("task-u5", "spec-a", "env-a", 1)
+            record = {
+                "run_id": run_id,
+                "task_id": "task-u5",
+                "evaluation_result": "success",
+                "timestamp": "2026-02-22T00:00:00Z",
+                "commit_performed": True,
+            }
+            ingest_evaluation_record(ledger_path, record)
+            self.assertTrue(is_run_committed(ledger_path, run_id))
+
+    def test_commit_guard_blocks_second_commit_attempt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            ledger_path = Path(tmp_dir) / "evaluations.jsonl"
+            run_id = compute_run_id("task-u6", "spec-a", "env-a", 1)
+            first_success = {
+                "run_id": run_id,
+                "task_id": "task-u6",
+                "evaluation_result": "success",
+                "timestamp": "2026-02-22T00:00:01Z",
+                "commit_performed": True,
+                "commit_sha": "deadbee",
+            }
+            ingest_evaluation_record(ledger_path, first_success)
+            self.assertTrue(is_run_committed(ledger_path, run_id))
+
+            second_attempt_rejection = {
+                "run_id": run_id,
+                "task_id": "task-u6",
+                "evaluation_result": "rejected",
+                "timestamp": "2026-02-22T00:00:02Z",
+                "commit_performed": False,
+            }
+            second = ingest_evaluation_record(ledger_path, second_attempt_rejection)
+            self.assertEqual(second["status"], "duplicate")
+            self.assertEqual(second["existing"]["evaluation_result"], "success")
+
 
 if __name__ == "__main__":
     unittest.main()
-
