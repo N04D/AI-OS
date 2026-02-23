@@ -218,6 +218,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", help="Emit raw JSON output")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    subparsers.add_parser("console", help="Launch interactive aiosctl console")
+
     autonomy = subparsers.add_parser("autonomy", help="Autonomy control commands")
     autonomy_sub = autonomy.add_subparsers(dest="autonomy_command", required=True)
 
@@ -273,6 +275,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     try:
         args = parser.parse_args(argv)
+        if args.command == "console":
+            from supervisor import console
+
+            return int(console.main())
         handler = getattr(args, "handler", None)
         if handler is None:
             parser.print_help()
