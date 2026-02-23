@@ -143,3 +143,24 @@ Promotion gate is fail-closed when:
 
 Branch names are deterministic and derived from `sha256(proposal_content)`.
 Existing open PRs for the same deterministic branch are reused (idempotent).
+
+## Autonomy Task Materialization Gate v0.1
+
+`supervisor.autonomy_task_materializer` converts intake-approved autonomy proposal PRs
+into deterministic host-side task files:
+
+- Inbox path: `/home/infra/night/state/autonomy/inbox/tasks/<task_id>.json`
+- Intake log: `/home/infra/night/state/autonomy/intake-log.jsonl`
+
+Gate checks are fail-closed:
+
+- `GITEA_TOKEN` must be present.
+- Git worktree must be clean.
+- PR must keep `intake-processed` label.
+- PR must have at least one non-bot `APPROVED` review.
+- `proposal_hash` in PR body must match the branch hash prefix.
+- Existing task-file content mismatch aborts materialization.
+
+CLI groundwork is available through:
+
+`./scripts/aiosctl autonomy materialize`

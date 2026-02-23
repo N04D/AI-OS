@@ -34,5 +34,6 @@ venv.bak/
 # Project Specific
 scripts/*
 !scripts/.keep
+!scripts/aiosctl
 *.log
 state/night-reports/

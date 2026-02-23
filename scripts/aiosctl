@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ -z "${GITEA_TOKEN:-}" ]; then
+  if [ -f /home/infra/.secrets/gitea_token ]; then
+    export GITEA_TOKEN="$(cat /home/infra/.secrets/gitea_token)"
+  fi
+fi
+
+if [ -z "${GITEA_BASE_URL:-}" ]; then
+  if [ -f /home/infra/.secrets/gitea_base_url ]; then
+    export GITEA_BASE_URL="$(cat /home/infra/.secrets/gitea_base_url)"
+  fi
+fi
+
+HOST_STATE_DIR="${HOST_STATE_DIR:-/home/infra/night/state}"
+LEDGER_DIR="${LEDGER_DIR:-$HOST_STATE_DIR/ledger}"
+export HOST_STATE_DIR
+export LEDGER_DIR
+
+exec python -m supervisor.cli "$@"
