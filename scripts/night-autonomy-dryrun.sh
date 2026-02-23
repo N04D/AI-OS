@@ -2,8 +2,17 @@
 set -euo pipefail
 
 TMP_QUEUE="$(mktemp)"
+HAD_PROPOSALS_DIR=0
+if [ -d "docs/autonomy/proposals" ]; then
+  HAD_PROPOSALS_DIR=1
+fi
 cleanup() {
   rm -f "$TMP_QUEUE"
+  if [ "$HAD_PROPOSALS_DIR" -eq 0 ] && [ -d "docs/autonomy/proposals" ]; then
+    rm -rf "docs/autonomy/proposals"
+    rmdir "docs/autonomy" 2>/dev/null || true
+    rmdir "docs" 2>/dev/null || true
+  fi
 }
 trap cleanup EXIT
 
