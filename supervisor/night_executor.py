@@ -368,8 +368,12 @@ def run_night_executor(
             return exit_code, report, report_path
         if queue["mode"] == "night-autonomy-promote-v0.1":
             opportunities = analyze_ledger(resolved_runs_path, resolved_evaluations_path)
-            proposals = generate_proposals(opportunities, "docs/autonomy/proposals")
-            promotion = create_draft_proposals_prs("docs/autonomy/proposals")
+            proposals = generate_proposals(
+                opportunities,
+                "docs/autonomy/proposals",
+                write_files=False,
+            )
+            promotion = create_draft_proposals_prs(proposals=proposals)
             report["autonomy"] = {
                 "opportunities": opportunities,
                 "proposals_generated": proposals,

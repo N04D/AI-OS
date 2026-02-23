@@ -102,6 +102,41 @@ class AutonomyPromotionGateTests(unittest.TestCase):
                 )
             self.assertIn("proposal_hash_mismatch", str(ctx.exception))
 
+    def test_inline_proposals_are_supported(self) -> None:
+        content = "# Autonomy Proposal\n\ncontent\n"
+        digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        inline = [
+            {
+                "type": "repeated_failure",
+                "hash": digest,
+                "filename": f"proposal.repeated_failure.{digest[:12]}.md",
+                "path": f"docs/autonomy/proposals/proposal.repeated_failure.{digest[:12]}.md",
+                "content": content,
+                "branch_name": f"autonomy/proposal-{digest[:16]}",
+            }
+        ]
+
+        with (
+            patch("supervisor.autonomy_promotion_gate._git_is_clean", return_value=True),
+            patch(
+                "supervisor.autonomy_promotion_gate._api_json_request",
+                return_value=(200, [{"number": 99, "html_url": "http://example/pr/99", "head": {"ref": f"autonomy/proposal-{digest[:16]}"}}]),
+            ),
+            patch(
+                "supervisor.autonomy_promotion_gate.check_and_consume",
+                return_value={"allowed": True, "reason": "allowed"},
+            ),
+        ):
+            result = create_draft_proposals_prs(
+                proposals_dir=None,
+                gitea_base_url="http://gitea.local",
+                gitea_token="token",
+                proposals=inline,
+            )
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["status"], "existing")
+
 
 if __name__ == "__main__":
     unittest.main()
