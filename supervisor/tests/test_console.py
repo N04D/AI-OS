@@ -10,9 +10,11 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import Mock
 from unittest.mock import patch
 
 from supervisor import cli
+from supervisor import console
 
 
 class ConsoleIntegrationTests(unittest.TestCase):
@@ -75,6 +77,38 @@ exit 0
 
             self.assertEqual(proc.returncode, 0)
             self.assertEqual(observed.read_text(encoding="utf-8").strip(), "-m supervisor.console")
+
+    def test_readline_history_load_and_write_when_tty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            history_file = Path(tmp_dir) / "aiosctl" / "history"
+            history_file.parent.mkdir(parents=True, exist_ok=True)
+            history_file.write_text("help\n", encoding="utf-8")
+
+            mock_readline = Mock()
+            with patch.dict(os.environ, {"HOST_STATE_DIR": tmp_dir}, clear=False):
+                with patch("supervisor.console._READLINE", mock_readline):
+                    with patch("supervisor.console.sys.stdin.isatty", return_value=True):
+                        with patch("builtins.input", side_effect=["help", "exit"]):
+                            code = console.main()
+
+        self.assertEqual(code, 0)
+        mock_readline.read_history_file.assert_called_once_with(str(history_file))
+        mock_readline.write_history_file.assert_called_once_with(str(history_file))
+        self.assertEqual(mock_readline.add_history.call_count, 2)
+
+    def test_history_filter_blocks_sensitive_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            history_file = Path(tmp_dir) / "aiosctl" / "history"
+            mock_readline = Mock()
+            with patch.dict(os.environ, {"HOST_STATE_DIR": tmp_dir}, clear=False):
+                with patch("supervisor.console._READLINE", mock_readline):
+                    with patch("supervisor.console.sys.stdin.isatty", return_value=True):
+                        with patch("builtins.input", side_effect=["run autonomy promote --token abc", "exit"]):
+                            code = console.main()
+
+        self.assertEqual(code, 0)
+        mock_readline.write_history_file.assert_called_once_with(str(history_file))
+        mock_readline.add_history.assert_called_once_with("exit")
 
 
 if __name__ == "__main__":

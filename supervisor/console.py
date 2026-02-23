@@ -10,12 +10,19 @@ import time
 from pathlib import Path
 from typing import TextIO
 
+try:
+    import readline as _READLINE
+except ImportError:  # pragma: no cover - platform dependent
+    _READLINE = None
+
 
 REPORTS_DIR = Path("state/night-reports")
 HOST_STATE_DIR = Path(os.environ.get("HOST_STATE_DIR", "").strip() or "/home/infra/night/state")
 BUDGET_LOG_PATH = HOST_STATE_DIR / "autonomy" / "budget-log.jsonl"
 INTAKE_LOG_PATH = HOST_STATE_DIR / "autonomy" / "intake-log.jsonl"
 TASKS_DIR = HOST_STATE_DIR / "autonomy" / "inbox" / "tasks"
+DEFAULT_HISTORY_PATH = Path("/home/infra/night/state/aiosctl/history")
+SENSITIVE_HISTORY_SUBSTRINGS = ("gitea_token", "token", "--token", "authorization", "bearer")
 
 
 def _is_json_line(line: str) -> bool:
@@ -133,6 +140,31 @@ def _print_help() -> None:
     print("  show report <path>")
 
 
+def _history_path() -> Path:
+    host_state_dir = os.environ.get("HOST_STATE_DIR", "").strip()
+    if host_state_dir:
+        return Path(host_state_dir) / "aiosctl" / "history"
+    return DEFAULT_HISTORY_PATH
+
+
+def _should_store_history(command: str) -> bool:
+    lower = command.lower()
+    return not any(pattern in lower for pattern in SENSITIVE_HISTORY_SUBSTRINGS)
+
+
+def _load_history(readline_module: object, history_path: Path) -> None:
+    set_auto_history = getattr(readline_module, "set_auto_history", None)
+    if callable(set_auto_history):
+        set_auto_history(False)
+    if history_path.is_file():
+        readline_module.read_history_file(str(history_path))
+
+
+def _save_history(readline_module: object, history_path: Path) -> None:
+    history_path.parent.mkdir(parents=True, exist_ok=True)
+    readline_module.write_history_file(str(history_path))
+
+
 def main(argv: list[str] | None = None) -> int:
     if argv:
         print("console does not accept positional arguments")
@@ -140,95 +172,108 @@ def main(argv: list[str] | None = None) -> int:
 
     watcher: _Watcher | None = None
     interactive = sys.stdin.isatty()
+    readline_module: object | None = _READLINE if interactive else None
+    history_path: Path | None = _history_path() if readline_module is not None else None
+    if readline_module is not None and history_path is not None:
+        _load_history(readline_module, history_path)
 
-    while True:
-        try:
-            if interactive:
-                raw = input("aios> ")
-            else:
-                raw = sys.stdin.readline()
-                if raw == "":
-                    return 0
-        except EOFError:
-            return 0
+    try:
+        while True:
+            try:
+                if interactive:
+                    raw = input("aios> ")
+                else:
+                    raw = sys.stdin.readline()
+                    if raw == "":
+                        return 0
+            except EOFError:
+                return 0
 
-        command = raw.strip()
-        if not command:
-            continue
-
-        parts = shlex.split(command)
-        if parts == ["help"]:
-            _print_help()
-            continue
-        if parts == ["exit"]:
-            if watcher is not None:
-                watcher.stop()
-            return 0
-        if parts == ["stop"]:
-            if watcher is not None:
-                watcher.stop()
-                watcher = None
-                print("watchers stopped")
-            else:
-                print("no active watchers")
-            continue
-        if parts[:2] == ["watch", "reports"] and len(parts) == 2:
-            if watcher is not None:
-                watcher.stop()
-            watcher = _Watcher("reports")
-            watcher.start()
-            print("watching reports")
-            continue
-        if parts[:2] == ["watch", "budget"] and len(parts) == 2:
-            if watcher is not None:
-                watcher.stop()
-            watcher = _Watcher("budget")
-            watcher.start()
-            print("watching budget")
-            continue
-        if parts[:2] == ["watch", "intake"] and len(parts) == 2:
-            if watcher is not None:
-                watcher.stop()
-            watcher = _Watcher("intake")
-            watcher.start()
-            print("watching intake")
-            continue
-        if parts[:2] == ["watch", "tasks"] and len(parts) == 2:
-            if watcher is not None:
-                watcher.stop()
-            watcher = _Watcher("tasks")
-            watcher.start()
-            print("watching tasks")
-            continue
-        if parts == ["last", "report"]:
-            report = _latest_report_path()
-            if report is None:
-                print("no reports found")
-            else:
-                print(str(report))
-            continue
-        if len(parts) == 3 and parts[0] == "show" and parts[1] == "report":
-            report_path = Path(parts[2])
-            if not report_path.is_file():
-                print(f"report not found: {report_path}")
+            command = raw.strip()
+            if not command:
                 continue
-            with report_path.open("r", encoding="utf-8") as fh:
-                sys.stdout.write(fh.read())
-            sys.stdout.flush()
-            continue
-        if parts == ["run", "night"]:
-            _run_streaming(["./scripts/night-executor.sh"])
-            continue
-        if len(parts) == 3 and parts[:2] == ["run", "autonomy"] and parts[2] in {
-            "promote",
-            "intake",
-            "materialize",
-            "dryrun",
-        }:
-            _run_streaming(["./scripts/aiosctl", "autonomy", parts[2]])
-            continue
 
-        print("unknown command; run 'help'")
+            if readline_module is not None and _should_store_history(command):
+                add_history = getattr(readline_module, "add_history", None)
+                if callable(add_history):
+                    add_history(command)
+
+            parts = shlex.split(command)
+            if parts == ["help"]:
+                _print_help()
+                continue
+            if parts == ["exit"]:
+                if watcher is not None:
+                    watcher.stop()
+                return 0
+            if parts == ["stop"]:
+                if watcher is not None:
+                    watcher.stop()
+                    watcher = None
+                    print("watchers stopped")
+                else:
+                    print("no active watchers")
+                continue
+            if parts[:2] == ["watch", "reports"] and len(parts) == 2:
+                if watcher is not None:
+                    watcher.stop()
+                watcher = _Watcher("reports")
+                watcher.start()
+                print("watching reports")
+                continue
+            if parts[:2] == ["watch", "budget"] and len(parts) == 2:
+                if watcher is not None:
+                    watcher.stop()
+                watcher = _Watcher("budget")
+                watcher.start()
+                print("watching budget")
+                continue
+            if parts[:2] == ["watch", "intake"] and len(parts) == 2:
+                if watcher is not None:
+                    watcher.stop()
+                watcher = _Watcher("intake")
+                watcher.start()
+                print("watching intake")
+                continue
+            if parts[:2] == ["watch", "tasks"] and len(parts) == 2:
+                if watcher is not None:
+                    watcher.stop()
+                watcher = _Watcher("tasks")
+                watcher.start()
+                print("watching tasks")
+                continue
+            if parts == ["last", "report"]:
+                report = _latest_report_path()
+                if report is None:
+                    print("no reports found")
+                else:
+                    print(str(report))
+                continue
+            if len(parts) == 3 and parts[0] == "show" and parts[1] == "report":
+                report_path = Path(parts[2])
+                if not report_path.is_file():
+                    print(f"report not found: {report_path}")
+                    continue
+                with report_path.open("r", encoding="utf-8") as fh:
+                    sys.stdout.write(fh.read())
+                sys.stdout.flush()
+                continue
+            if parts == ["run", "night"]:
+                _run_streaming(["./scripts/night-executor.sh"])
+                continue
+            if len(parts) == 3 and parts[:2] == ["run", "autonomy"] and parts[2] in {
+                "promote",
+                "intake",
+                "materialize",
+                "dryrun",
+            }:
+                _run_streaming(["./scripts/aiosctl", "autonomy", parts[2]])
+                continue
+
+            print("unknown command; run 'help'")
+    finally:
+        if readline_module is not None and history_path is not None:
+            _save_history(readline_module, history_path)
 
 
 if __name__ == "__main__":
