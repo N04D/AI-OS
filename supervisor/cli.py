@@ -6,6 +6,10 @@ import os
 import tempfile
 from pathlib import Path
 
+from supervisor.autonomy_budget_gate import DEFAULT_HOST_STATE_DIR
+from supervisor.autonomy_budget_gate import append_budget_event_log
+from supervisor.autonomy_budget_gate import load_or_init_budget_state
+from supervisor.autonomy_budget_gate import roll_window_if_needed
 from supervisor.autonomy_promotion_gate import create_draft_proposals_prs
 from supervisor.autonomy_review_intake_gate import intake_approved_autonomy_proposals
 from supervisor.autonomy_task_materializer import materialize_autonomy_tasks
@@ -98,6 +102,37 @@ def _cmd_autonomy_dryrun(_args: argparse.Namespace) -> int:
                 docs_dir.rmdir()
 
 
+def _cmd_autonomy_budget_status(args: argparse.Namespace) -> int:
+    state, _ = load_or_init_budget_state(host_state_dir=args.host_state_dir)
+    print(json.dumps(state, sort_keys=True))
+    return 0
+
+
+def _cmd_autonomy_budget_reset(args: argparse.Namespace) -> int:
+    if not args.force:
+        raise SystemExit("budget reset requires --force")
+
+    state, state_path = load_or_init_budget_state(host_state_dir=args.host_state_dir)
+    state, _ = roll_window_if_needed(state)
+    state["counts"] = {k: 0 for k in sorted(state.get("counts", {}).keys())}
+    state["last_action_epoch_s"] = {k: 0 for k in sorted(state.get("last_action_epoch_s", {}).keys())}
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    with state_path.open("w", encoding="utf-8") as fh:
+        fh.write(json.dumps(state, indent=2, sort_keys=True, ensure_ascii=True) + "\n")
+        fh.flush()
+        os.fsync(fh.fileno())
+    append_budget_event_log(
+        {
+            "event": "budget_reset",
+            "window_utc_day": state["window_utc_day"],
+            "reason": "operator_force_reset",
+        },
+        host_state_dir=args.host_state_dir,
+    )
+    print(json.dumps({"status": "ok", "window_utc_day": state["window_utc_day"]}, sort_keys=True))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="aiosctl", description="AI-OS control CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -131,6 +166,24 @@ def build_parser() -> argparse.ArgumentParser:
 
     dryrun = autonomy_sub.add_parser("dryrun", help="Run night autonomy dry-run mode")
     dryrun.set_defaults(handler=_cmd_autonomy_dryrun)
+
+    budget = autonomy_sub.add_parser("budget", help="Autonomy budget control")
+    budget_sub = budget.add_subparsers(dest="budget_command", required=True)
+
+    budget_status = budget_sub.add_parser("status", help="Show budget state")
+    budget_status.add_argument(
+        "--host-state-dir",
+        default=os.environ.get("HOST_STATE_DIR", "").strip() or DEFAULT_HOST_STATE_DIR,
+    )
+    budget_status.set_defaults(handler=_cmd_autonomy_budget_status)
+
+    budget_reset = budget_sub.add_parser("reset", help="Reset budget state for current UTC window")
+    budget_reset.add_argument("--force", action="store_true")
+    budget_reset.add_argument(
+        "--host-state-dir",
+        default=os.environ.get("HOST_STATE_DIR", "").strip() or DEFAULT_HOST_STATE_DIR,
+    )
+    budget_reset.set_defaults(handler=_cmd_autonomy_budget_reset)
 
     return parser
 

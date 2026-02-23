@@ -36,6 +36,10 @@ class AutonomyReviewIntakeGateTests(unittest.TestCase):
         with (
             patch("supervisor.autonomy_review_intake_gate._git_is_clean", return_value=True),
             patch("supervisor.autonomy_review_intake_gate._api_json_request", side_effect=fake_api),
+            patch(
+                "supervisor.autonomy_review_intake_gate.check_and_consume",
+                return_value={"allowed": True, "reason": "allowed"},
+            ),
         ):
             results = intake_approved_autonomy_proposals(
                 gitea_base_url="http://gitea.local",
@@ -63,6 +67,10 @@ class AutonomyReviewIntakeGateTests(unittest.TestCase):
         with (
             patch("supervisor.autonomy_review_intake_gate._git_is_clean", return_value=True),
             patch("supervisor.autonomy_review_intake_gate._api_json_request", side_effect=fake_api),
+            patch(
+                "supervisor.autonomy_review_intake_gate.check_and_consume",
+                return_value={"allowed": True, "reason": "allowed"},
+            ),
         ):
             results = intake_approved_autonomy_proposals(
                 gitea_base_url="http://gitea.local",

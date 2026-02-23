@@ -48,6 +48,10 @@ class AutonomyPromotionGateTests(unittest.TestCase):
             patch("supervisor.autonomy_promotion_gate._git_is_clean", return_value=True),
             patch("supervisor.autonomy_promotion_gate._load_proposal_files", return_value=[proposal]),
             patch("supervisor.autonomy_promotion_gate._api_json_request", side_effect=fake_api),
+            patch(
+                "supervisor.autonomy_promotion_gate.check_and_consume",
+                return_value={"allowed": True, "reason": "allowed"},
+            ),
         ):
             result = create_draft_proposals_prs(
                 "docs/autonomy/proposals",
