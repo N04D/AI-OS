@@ -109,8 +109,9 @@ def _load_proposal_files(proposals_dir: str) -> list[dict[str, str]]:
 
 
 def create_draft_proposals_prs(
-    proposals_dir: str,
+    proposals_dir: str | None = None,
     *,
+    proposals: list[dict[str, Any]] | None = None,
     repo_owner: str = "N04D",
     repo_name: str = "AI-OS",
     base_branch: str = "dev",
@@ -123,8 +124,38 @@ def create_draft_proposals_prs(
     if not _git_is_clean():
         raise AutonomyPromotionGateError("dirty_worktree")
 
-    proposals = _load_proposal_files(proposals_dir)
-    if not proposals:
+    resolved_proposals: list[dict[str, str]]
+    if proposals is not None:
+        resolved_proposals = []
+        for item in proposals:
+            if not isinstance(item, dict):
+                continue
+            content = str(item.get("content") or "")
+            content_hash = str(item.get("hash") or "")
+            filename = str(item.get("filename") or "")
+            branch = str(item.get("branch_name") or "")
+            if not content or not content_hash or not filename or not branch:
+                continue
+            actual_hash = proposal_content_sha256(content)
+            if actual_hash != content_hash:
+                raise AutonomyPromotionGateError(f"proposal_hash_mismatch:inline:{filename}")
+            if branch != deterministic_branch_name(content):
+                raise AutonomyPromotionGateError(f"proposal_branch_mismatch:inline:{filename}")
+            resolved_proposals.append(
+                {
+                    "path": str(item.get("path") or f"docs/autonomy/proposals/{filename}"),
+                    "content": content,
+                    "content_hash": content_hash,
+                    "branch": branch,
+                    "type": str(item.get("type") or "unknown"),
+                }
+            )
+    else:
+        if not proposals_dir:
+            raise AutonomyPromotionGateError("missing_proposals_input")
+        resolved_proposals = _load_proposal_files(proposals_dir)
+
+    if not resolved_proposals:
         return []
 
     api_base = _normalize_api_base(
@@ -142,7 +173,7 @@ def create_draft_proposals_prs(
             existing_by_head[head_ref] = pr
 
     created: list[dict[str, Any]] = []
-    for proposal in proposals:
+    for proposal in resolved_proposals:
         branch = proposal["branch"]
         if branch in existing_by_head:
             existing = existing_by_head[branch]

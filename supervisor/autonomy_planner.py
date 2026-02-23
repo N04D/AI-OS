@@ -48,9 +48,19 @@ def _proposal_markdown(opportunity: dict[str, Any]) -> str:
     )
 
 
-def generate_proposals(opportunities: list[dict], output_dir: str) -> list[dict]:
+def _branch_name_from_hash(digest: str) -> str:
+    return f"autonomy/proposal-{digest[:16]}"
+
+
+def generate_proposals(
+    opportunities: list[dict],
+    output_dir: str,
+    *,
+    write_files: bool = True,
+) -> list[dict]:
     target_dir = Path(output_dir)
-    target_dir.mkdir(parents=True, exist_ok=True)
+    if write_files:
+        target_dir.mkdir(parents=True, exist_ok=True)
 
     normalized: list[dict[str, Any]] = []
     for item in opportunities:
@@ -67,13 +77,16 @@ def generate_proposals(opportunities: list[dict], output_dir: str) -> list[dict]
         digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
         filename = f"proposal.{op_type}.{digest[:12]}.md"
         path = target_dir / filename
-        path.write_text(content, encoding="utf-8")
+        if write_files:
+            path.write_text(content, encoding="utf-8")
         generated.append(
             {
                 "type": op_type,
                 "hash": digest,
                 "filename": filename,
                 "path": str(path),
+                "content": content,
+                "branch_name": _branch_name_from_hash(digest),
             }
         )
 

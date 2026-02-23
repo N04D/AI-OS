@@ -353,6 +353,15 @@ task_sources: []
                 encoding="utf-8",
             )
             report_dir = tmp_root / "reports"
+            report_dir.mkdir(parents=True, exist_ok=True)
+            (tmp_root / "ledger").mkdir(parents=True, exist_ok=True)
+            root_before = sorted(p.name for p in tmp_root.iterdir())
+
+            captured_proposals: list[dict] = []
+
+            def _fake_promote(*_args, **kwargs):  # type: ignore[no-untyped-def]
+                captured_proposals.extend(kwargs.get("proposals", []))
+                return [{"status": "existing", "pr_number": 10}]
 
             with (
                 patch(
@@ -360,21 +369,22 @@ task_sources: []
                     return_value=[{"type": "repeated_failure", "reason": "timeout", "count": 3}],
                 ),
                 patch(
-                    "supervisor.night_executor.generate_proposals",
-                    return_value=[{"path": "docs/autonomy/proposals/proposal.repeated_failure.abc.md"}],
-                ),
-                patch(
                     "supervisor.night_executor.create_draft_proposals_prs",
-                    return_value=[{"status": "existing", "pr_number": 10}],
+                    side_effect=_fake_promote,
                 ),
             ):
-                exit_code, report, _ = run_night_executor(
-                    queue_path=str(queue_path),
-                    runs_path=str(runs_path),
-                    evaluations_path=str(evaluations_path),
-                    report_dir=str(report_dir),
-                    run_preflight=False,
-                )
+                original_cwd = os.getcwd()
+                os.chdir(tmp_root)
+                try:
+                    exit_code, report, _ = run_night_executor(
+                        queue_path=str(queue_path),
+                        runs_path=str(runs_path),
+                        evaluations_path=str(evaluations_path),
+                        report_dir=str(report_dir),
+                        run_preflight=False,
+                    )
+                finally:
+                    os.chdir(original_cwd)
 
             self.assertEqual(exit_code, 0)
             self.assertEqual(report["overall_status"], "promote_complete")
@@ -382,6 +392,10 @@ task_sources: []
             self.assertEqual(report["summary"]["commits_performed"], 0)
             self.assertEqual(len(report["autonomy"]["proposals_generated"]), 1)
             self.assertEqual(len(report["autonomy"]["promotion"]), 1)
+            self.assertGreater(len(captured_proposals), 0)
+            self.assertFalse((tmp_root / "docs").exists())
+            root_after = sorted(p.name for p in tmp_root.iterdir())
+            self.assertEqual(root_before, root_after)
 
     def test_autonomy_intake_mode_runs_review_intake_and_skips_task_execution(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

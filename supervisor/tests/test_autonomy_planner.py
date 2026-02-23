@@ -48,6 +48,20 @@ class AutonomyPlannerTests(unittest.TestCase):
             meta_b = generate_proposals(reversed_ops, tmp_b)
             self.assertEqual([m["filename"] for m in meta_a], [m["filename"] for m in meta_b])
 
+    def test_write_files_false_returns_inline_proposals_without_writing(self) -> None:
+        opportunities = self._sample_opportunities()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            output_dir = root / "docs" / "autonomy" / "proposals"
+            meta = generate_proposals(opportunities, str(output_dir), write_files=False)
+            self.assertFalse(output_dir.exists())
+            self.assertGreater(len(meta), 0)
+            for item in meta:
+                self.assertIn("content", item)
+                self.assertIn("hash", item)
+                self.assertIn("filename", item)
+                self.assertIn("branch_name", item)
+
 
 if __name__ == "__main__":
     unittest.main()
