@@ -18,4 +18,8 @@ LEDGER_DIR="${LEDGER_DIR:-$HOST_STATE_DIR/ledger}"
 export HOST_STATE_DIR
 export LEDGER_DIR
 
+if [ "$#" -eq 0 ] && [ -t 0 ]; then
+  exec python -m supervisor.console
+fi
+
 exec python -m supervisor.cli "$@"
