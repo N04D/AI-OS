@@ -126,3 +126,20 @@ To run autonomy dry-run safely without modifying queue files:
 `./scripts/night-autonomy-dryrun.sh`
 
 This preserves the clean-tree invariant.
+
+## Autonomy Promotion Mode
+
+Queue mode `night-autonomy-promote-v0.1` runs:
+
+1. Preflight checks (clean git tree + test harness).
+2. Ledger opportunity analysis and deterministic proposal generation.
+3. Deterministic draft PR promotion via `supervisor.autonomy_promotion_gate`.
+
+Promotion gate is fail-closed when:
+
+- `GITEA_TOKEN` is missing.
+- the git working tree is dirty.
+- a proposal filename hash prefix does not match the proposal content hash.
+
+Branch names are deterministic and derived from `sha256(proposal_content)`.
+Existing open PRs for the same deterministic branch are reused (idempotent).

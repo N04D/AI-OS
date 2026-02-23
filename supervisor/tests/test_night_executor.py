@@ -58,6 +58,28 @@ task_sources: []
             self.assertEqual(queue["max_tasks"], 0)
             self.assertEqual(queue["max_commits"], 0)
 
+    def test_promote_queue_allows_zero_task_and_commit_limits(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            queue_path = Path(tmp_dir) / "night-queue.yaml"
+            queue_path.write_text(
+                """\
+mode: night-autonomy-promote-v0.1
+max_tasks: 0
+max_commits: 0
+max_attempts_per_task: 1
+stop_on_first_failure: true
+allowed_paths:
+  - supervisor/
+forbidden_paths:
+  - executor/runtime/
+task_sources: []
+""",
+                encoding="utf-8",
+            )
+            queue = load_queue(queue_path)
+            self.assertEqual(queue["max_tasks"], 0)
+            self.assertEqual(queue["max_commits"], 0)
+
     def test_report_generation_includes_required_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_root = Path(tmp_dir)
@@ -252,6 +274,60 @@ task_sources: []
             self.assertEqual(contents_a, contents_b)
             self.assertEqual(before_runs, runs_path.read_text(encoding="utf-8"))
             self.assertEqual(before_evaluations, evaluations_path.read_text(encoding="utf-8"))
+
+    def test_autonomy_promote_mode_generates_proposals_and_skips_task_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            runs_path = tmp_root / "runs.jsonl"
+            evaluations_path = tmp_root / "evaluations.jsonl"
+            runs_path.write_text("", encoding="utf-8")
+            evaluations_path.write_text("", encoding="utf-8")
+            queue_path = tmp_root / "night-queue.yaml"
+            queue_path.write_text(
+                """\
+mode: night-autonomy-promote-v0.1
+max_tasks: 0
+max_commits: 0
+max_attempts_per_task: 1
+stop_on_first_failure: true
+allowed_paths:
+  - supervisor/
+forbidden_paths:
+  - executor/runtime/
+task_sources: []
+""",
+                encoding="utf-8",
+            )
+            report_dir = tmp_root / "reports"
+
+            with (
+                patch(
+                    "supervisor.night_executor.analyze_ledger",
+                    return_value=[{"type": "repeated_failure", "reason": "timeout", "count": 3}],
+                ),
+                patch(
+                    "supervisor.night_executor.generate_proposals",
+                    return_value=[{"path": "docs/autonomy/proposals/proposal.repeated_failure.abc.md"}],
+                ),
+                patch(
+                    "supervisor.night_executor.create_draft_proposals_prs",
+                    return_value=[{"status": "existing", "pr_number": 10}],
+                ),
+            ):
+                exit_code, report, _ = run_night_executor(
+                    queue_path=str(queue_path),
+                    runs_path=str(runs_path),
+                    evaluations_path=str(evaluations_path),
+                    report_dir=str(report_dir),
+                    run_preflight=False,
+                )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(report["overall_status"], "promote_complete")
+            self.assertEqual(report["summary"]["tasks_attempted"], 0)
+            self.assertEqual(report["summary"]["commits_performed"], 0)
+            self.assertEqual(len(report["autonomy"]["proposals_generated"]), 1)
+            self.assertEqual(len(report["autonomy"]["promotion"]), 1)
 
 
 if __name__ == "__main__":
