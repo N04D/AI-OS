@@ -49,8 +49,12 @@ class AutonomyPromotionGateTests(unittest.TestCase):
             patch("supervisor.autonomy_promotion_gate._load_proposal_files", return_value=[proposal]),
             patch("supervisor.autonomy_promotion_gate._api_json_request", side_effect=fake_api),
             patch(
-                "supervisor.autonomy_promotion_gate.check_and_consume",
-                return_value={"allowed": True, "reason": "allowed"},
+                "supervisor.autonomy_promotion_gate.check_budget",
+                return_value={"allowed": True, "reason": "allowed", "state": {}},
+            ),
+            patch(
+                "supervisor.autonomy_promotion_gate.consume_budget",
+                return_value={"consumed": True, "reason": "consumed", "state": {}},
             ),
         ):
             result = create_draft_proposals_prs(
@@ -93,6 +97,14 @@ class AutonomyPromotionGateTests(unittest.TestCase):
 
             with (
                 patch("supervisor.autonomy_promotion_gate._git_is_clean", return_value=True),
+                patch(
+                    "supervisor.autonomy_promotion_gate.check_budget",
+                    return_value={"allowed": True, "reason": "allowed", "state": {}},
+                ),
+                patch(
+                    "supervisor.autonomy_promotion_gate.consume_budget",
+                    return_value={"consumed": True, "reason": "consumed", "state": {}},
+                ),
                 self.assertRaises(AutonomyPromotionGateError) as ctx,
             ):
                 create_draft_proposals_prs(
@@ -123,8 +135,12 @@ class AutonomyPromotionGateTests(unittest.TestCase):
                 return_value=(200, [{"number": 99, "html_url": "http://example/pr/99", "head": {"ref": f"autonomy/proposal-{digest[:16]}"}}]),
             ),
             patch(
-                "supervisor.autonomy_promotion_gate.check_and_consume",
-                return_value={"allowed": True, "reason": "allowed"},
+                "supervisor.autonomy_promotion_gate.check_budget",
+                return_value={"allowed": True, "reason": "allowed", "state": {}},
+            ),
+            patch(
+                "supervisor.autonomy_promotion_gate.consume_budget",
+                return_value={"consumed": True, "reason": "consumed", "state": {}},
             ),
         ):
             result = create_draft_proposals_prs(
@@ -136,6 +152,26 @@ class AutonomyPromotionGateTests(unittest.TestCase):
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["status"], "existing")
+
+    def test_budget_rejection_skips_network(self) -> None:
+        with (
+            patch("supervisor.autonomy_promotion_gate._git_is_clean", return_value=True),
+            patch(
+                "supervisor.autonomy_promotion_gate.check_budget",
+                return_value={"allowed": False, "reason": "budget_exceeded", "state": {"counts": {"promotion": 10}}},
+            ),
+            patch("supervisor.autonomy_promotion_gate._api_json_request") as api_mock,
+        ):
+            result = create_draft_proposals_prs(
+                proposals=[],
+                proposals_dir=None,
+                gitea_base_url="http://gitea.local",
+                gitea_token="token",
+            )
+
+        self.assertEqual(result[0]["status"], "rejected")
+        self.assertEqual(result[0]["reason"], "budget_exceeded")
+        api_mock.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -6,10 +6,10 @@ import os
 import tempfile
 from pathlib import Path
 
-from supervisor.autonomy_budget_gate import DEFAULT_HOST_STATE_DIR
-from supervisor.autonomy_budget_gate import append_budget_event_log
-from supervisor.autonomy_budget_gate import load_or_init_budget_state
-from supervisor.autonomy_budget_gate import roll_window_if_needed
+from supervisor.autonomy_budget import DEFAULT_HOST_STATE_DIR
+from supervisor.autonomy_budget import append_budget_event_log
+from supervisor.autonomy_budget import load_or_init_budget_state
+from supervisor.autonomy_budget import roll_window_if_needed
 from supervisor.autonomy_promotion_gate import create_draft_proposals_prs
 from supervisor.autonomy_review_intake_gate import intake_approved_autonomy_proposals
 from supervisor.autonomy_task_materializer import materialize_autonomy_tasks
@@ -30,6 +30,15 @@ task_sources: []
 """
 
 
+def _budget_rejection(results: list[dict]) -> dict | None:
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+        if item.get("status") == "rejected" and "budget" in item:
+            return item
+    return None
+
+
 def _cmd_autonomy_promote(args: argparse.Namespace) -> int:
     results = create_draft_proposals_prs(
         proposals_dir=args.proposals_dir,
@@ -37,6 +46,10 @@ def _cmd_autonomy_promote(args: argparse.Namespace) -> int:
         repo_name=args.repo_name,
         base_branch=args.base_branch,
     )
+    rejected = _budget_rejection(results)
+    if rejected is not None:
+        print(json.dumps({"status": "rejected", "reason": rejected.get("reason"), "budget": rejected.get("budget"), "promotion": results}, sort_keys=True))
+        return 1
     print(json.dumps({"promotion": results}, sort_keys=True))
     return 0
 
@@ -47,6 +60,10 @@ def _cmd_autonomy_intake(args: argparse.Namespace) -> int:
         repo_name=args.repo_name,
         base_branch=args.base_branch,
     )
+    rejected = _budget_rejection(results)
+    if rejected is not None:
+        print(json.dumps({"status": "rejected", "reason": rejected.get("reason"), "budget": rejected.get("budget"), "intake": results}, sort_keys=True))
+        return 1
     print(json.dumps({"intake": results}, sort_keys=True))
     return 0
 
@@ -59,6 +76,10 @@ def _cmd_autonomy_materialize(args: argparse.Namespace) -> int:
         intake_label=args.intake_label,
         host_state_dir=args.host_state_dir,
     )
+    rejected = _budget_rejection(results)
+    if rejected is not None:
+        print(json.dumps({"status": "rejected", "reason": rejected.get("reason"), "budget": rejected.get("budget"), "materialized": results}, sort_keys=True))
+        return 1
     print(json.dumps({"materialized": results}, sort_keys=True))
     return 0
 
