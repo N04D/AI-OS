@@ -120,3 +120,9 @@ Night Executor loads `GITEA_TOKEN` from:
 
 Tokens are never logged or stored in repository.
 Missing token causes fail-closed termination.
+
+To run autonomy dry-run safely without modifying queue files:
+
+`./scripts/night-autonomy-dryrun.sh`
+
+This preserves the clean-tree invariant.
