@@ -8,8 +8,9 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from supervisor.autonomy_budget_gate import DEFAULT_HOST_STATE_DIR
-from supervisor.autonomy_budget_gate import check_and_consume
+from supervisor.autonomy_budget import DEFAULT_HOST_STATE_DIR
+from supervisor.autonomy_budget import check_budget
+from supervisor.autonomy_budget import consume_budget
 
 
 class AutonomyReviewIntakeGateError(RuntimeError):
@@ -114,6 +115,25 @@ def intake_approved_autonomy_proposals(
         raise AutonomyReviewIntakeGateError("missing_gitea_token")
     if not _git_is_clean():
         raise AutonomyReviewIntakeGateError("dirty_worktree")
+    host_state_dir = os.environ.get("HOST_STATE_DIR", "").strip() or DEFAULT_HOST_STATE_DIR
+    budget_check = check_budget("intake", context_id="gate:intake", host_state_dir=host_state_dir)
+    if not budget_check.get("allowed", False):
+        return [
+            {
+                "status": "rejected",
+                "reason": budget_check.get("reason", "budget_rejected"),
+                "budget": budget_check.get("state", {}),
+            }
+        ]
+    budget_consume = consume_budget("intake", context_id="gate:intake", host_state_dir=host_state_dir)
+    if not budget_consume.get("consumed", False):
+        return [
+            {
+                "status": "rejected",
+                "reason": budget_consume.get("reason", "budget_consume_failed"),
+                "budget": budget_consume.get("state", {}),
+            }
+        ]
 
     api_base = _normalize_api_base(
         (gitea_base_url or os.environ.get("GITEA_BASE_URL", "")).strip()
@@ -178,14 +198,6 @@ def intake_approved_autonomy_proposals(
                 }
             )
             continue
-
-        budget = check_and_consume(
-            "intake",
-            subject_id=f"pr:{pr_number}",
-            host_state_dir=os.environ.get("HOST_STATE_DIR", "").strip() or DEFAULT_HOST_STATE_DIR,
-        )
-        if not budget.get("allowed", False):
-            raise AutonomyReviewIntakeGateError(f"budget_blocked:{budget.get('reason')}")
 
         labels_url = f"{api_base}/repos/{repo_owner}/{repo_name}/issues/{pr_number}/labels"
         label_status, label_data = _api_json_request(

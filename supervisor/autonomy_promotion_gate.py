@@ -9,8 +9,9 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from supervisor.autonomy_budget_gate import DEFAULT_HOST_STATE_DIR
-from supervisor.autonomy_budget_gate import check_and_consume
+from supervisor.autonomy_budget import DEFAULT_HOST_STATE_DIR
+from supervisor.autonomy_budget import check_budget
+from supervisor.autonomy_budget import consume_budget
 
 
 class AutonomyPromotionGateError(RuntimeError):
@@ -123,6 +124,25 @@ def create_draft_proposals_prs(
         raise AutonomyPromotionGateError("missing_gitea_token")
     if not _git_is_clean():
         raise AutonomyPromotionGateError("dirty_worktree")
+    host_state_dir = os.environ.get("HOST_STATE_DIR", "").strip() or DEFAULT_HOST_STATE_DIR
+    budget_check = check_budget("promotion", context_id="gate:promotion", host_state_dir=host_state_dir)
+    if not budget_check.get("allowed", False):
+        return [
+            {
+                "status": "rejected",
+                "reason": budget_check.get("reason", "budget_rejected"),
+                "budget": budget_check.get("state", {}),
+            }
+        ]
+    budget_consume = consume_budget("promotion", context_id="gate:promotion", host_state_dir=host_state_dir)
+    if not budget_consume.get("consumed", False):
+        return [
+            {
+                "status": "rejected",
+                "reason": budget_consume.get("reason", "budget_consume_failed"),
+                "budget": budget_consume.get("state", {}),
+            }
+        ]
 
     resolved_proposals: list[dict[str, str]]
     if proposals is not None:
@@ -203,13 +223,6 @@ def create_draft_proposals_prs(
             "body": body,
             "draft": True,
         }
-        budget = check_and_consume(
-            "promotion",
-            subject_id=f"proposal:{proposal['content_hash'][:16]}",
-            host_state_dir=os.environ.get("HOST_STATE_DIR", "").strip() or DEFAULT_HOST_STATE_DIR,
-        )
-        if not budget.get("allowed", False):
-            raise AutonomyPromotionGateError(f"budget_blocked:{budget.get('reason')}")
         create_url = f"{api_base}/repos/{repo_owner}/{repo_name}/pulls"
         create_status, created_data = _api_json_request("POST", create_url, token, payload=payload)
         if create_status not in (200, 201) or not isinstance(created_data, dict):

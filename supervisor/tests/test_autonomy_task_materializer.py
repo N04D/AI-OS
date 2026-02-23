@@ -51,8 +51,12 @@ class AutonomyTaskMaterializerTests(unittest.TestCase):
                 patch("supervisor.autonomy_task_materializer._git_is_clean", return_value=True),
                 patch("supervisor.autonomy_task_materializer._api_json_request", side_effect=fake_api),
                 patch(
-                    "supervisor.autonomy_task_materializer.check_and_consume",
-                    return_value={"allowed": True, "reason": "allowed"},
+                    "supervisor.autonomy_task_materializer.check_budget",
+                    return_value={"allowed": True, "reason": "allowed", "state": {}},
+                ),
+                patch(
+                    "supervisor.autonomy_task_materializer.consume_budget",
+                    return_value={"consumed": True, "reason": "consumed", "state": {}},
                 ),
             ):
                 first = materialize_autonomy_tasks(
@@ -98,8 +102,12 @@ class AutonomyTaskMaterializerTests(unittest.TestCase):
                 patch("supervisor.autonomy_task_materializer._git_is_clean", return_value=True),
                 patch("supervisor.autonomy_task_materializer._api_json_request", side_effect=fake_api),
                 patch(
-                    "supervisor.autonomy_task_materializer.check_and_consume",
-                    return_value={"allowed": True, "reason": "allowed"},
+                    "supervisor.autonomy_task_materializer.check_budget",
+                    return_value={"allowed": True, "reason": "allowed", "state": {}},
+                ),
+                patch(
+                    "supervisor.autonomy_task_materializer.consume_budget",
+                    return_value={"consumed": True, "reason": "consumed", "state": {}},
                 ),
                 self.assertRaises(AutonomyTaskMaterializerError) as ctx,
             ):
@@ -131,8 +139,12 @@ class AutonomyTaskMaterializerTests(unittest.TestCase):
                 patch("supervisor.autonomy_task_materializer._git_is_clean", return_value=True),
                 patch("supervisor.autonomy_task_materializer._api_json_request", side_effect=fake_api),
                 patch(
-                    "supervisor.autonomy_task_materializer.check_and_consume",
-                    return_value={"allowed": True, "reason": "allowed"},
+                    "supervisor.autonomy_task_materializer.check_budget",
+                    return_value={"allowed": True, "reason": "allowed", "state": {}},
+                ),
+                patch(
+                    "supervisor.autonomy_task_materializer.consume_budget",
+                    return_value={"consumed": True, "reason": "consumed", "state": {}},
                 ),
                 self.assertRaises(AutonomyTaskMaterializerError) as ctx,
             ):
@@ -168,6 +180,25 @@ class AutonomyTaskMaterializerTests(unittest.TestCase):
                     gitea_token="token",
                 )
             self.assertIn("hash_mismatch", str(ctx.exception))
+
+    def test_budget_rejection_skips_network(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with (
+                patch("supervisor.autonomy_task_materializer._git_is_clean", return_value=True),
+                patch(
+                    "supervisor.autonomy_task_materializer.check_budget",
+                    return_value={"allowed": False, "reason": "budget_exceeded", "state": {"counts": {"materialize": 20}}},
+                ),
+                patch("supervisor.autonomy_task_materializer._api_json_request") as api_mock,
+            ):
+                result = materialize_autonomy_tasks(
+                    host_state_dir=tmp_dir,
+                    gitea_base_url="http://gitea.local",
+                    gitea_token="token",
+                )
+            self.assertEqual(result[0]["status"], "rejected")
+            self.assertEqual(result[0]["reason"], "budget_exceeded")
+            api_mock.assert_not_called()
 
 
 if __name__ == "__main__":

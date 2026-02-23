@@ -9,12 +9,9 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from supervisor.autonomy_budget_gate import DEFAULT_HOST_STATE_DIR
-from supervisor.autonomy_budget_gate import check_and_consume
-
-
-DEFAULT_HOST_STATE_DIR = "/home/infra/night/state"
-
+from supervisor.autonomy_budget import DEFAULT_HOST_STATE_DIR
+from supervisor.autonomy_budget import check_budget
+from supervisor.autonomy_budget import consume_budget
 
 class AutonomyTaskMaterializerError(RuntimeError):
     pass
@@ -144,6 +141,24 @@ def materialize_autonomy_tasks(
         raise AutonomyTaskMaterializerError("missing_gitea_token")
     if not _git_is_clean():
         raise AutonomyTaskMaterializerError("dirty_worktree")
+    budget_check = check_budget("materialize", context_id="gate:materialize", host_state_dir=host_state_dir)
+    if not budget_check.get("allowed", False):
+        return [
+            {
+                "status": "rejected",
+                "reason": budget_check.get("reason", "budget_rejected"),
+                "budget": budget_check.get("state", {}),
+            }
+        ]
+    budget_consume = consume_budget("materialize", context_id="gate:materialize", host_state_dir=host_state_dir)
+    if not budget_consume.get("consumed", False):
+        return [
+            {
+                "status": "rejected",
+                "reason": budget_consume.get("reason", "budget_consume_failed"),
+                "budget": budget_consume.get("state", {}),
+            }
+        ]
 
     api_base = _normalize_api_base(
         (gitea_base_url or os.environ.get("GITEA_BASE_URL", "")).strip()
@@ -214,14 +229,6 @@ def materialize_autonomy_tasks(
                 }
             )
             continue
-
-        budget = check_and_consume(
-            "materialize",
-            subject_id=f"proposal:{proposal_hash[:16]}",
-            host_state_dir=host_state_dir or os.environ.get("HOST_STATE_DIR", "").strip() or DEFAULT_HOST_STATE_DIR,
-        )
-        if not budget.get("allowed", False):
-            raise AutonomyTaskMaterializerError(f"budget_blocked:{budget.get('reason')}")
 
         task_path.write_text(
             json.dumps(task_payload, sort_keys=True, indent=2, ensure_ascii=True) + "\n",
