@@ -8,6 +8,9 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from supervisor.autonomy_budget_gate import DEFAULT_HOST_STATE_DIR
+from supervisor.autonomy_budget_gate import check_and_consume
+
 
 class AutonomyReviewIntakeGateError(RuntimeError):
     pass
@@ -175,6 +178,14 @@ def intake_approved_autonomy_proposals(
                 }
             )
             continue
+
+        budget = check_and_consume(
+            "intake",
+            subject_id=f"pr:{pr_number}",
+            host_state_dir=os.environ.get("HOST_STATE_DIR", "").strip() or DEFAULT_HOST_STATE_DIR,
+        )
+        if not budget.get("allowed", False):
+            raise AutonomyReviewIntakeGateError(f"budget_blocked:{budget.get('reason')}")
 
         labels_url = f"{api_base}/repos/{repo_owner}/{repo_name}/issues/{pr_number}/labels"
         label_status, label_data = _api_json_request(

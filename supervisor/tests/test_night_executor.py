@@ -169,7 +169,13 @@ task_sources:
                 encoding="utf-8",
             )
 
-            with patch("supervisor.night_executor.execute_night_task", return_value=None):
+            with (
+                patch("supervisor.night_executor.execute_night_task", return_value=None),
+                patch(
+                    "supervisor.night_executor.check_and_consume",
+                    return_value={"allowed": True, "reason": "allowed"},
+                ),
+            ):
                 exit_code, report, _ = run_night_executor(
                     queue_path=str(queue_path),
                     runs_path=str(tmp_root / "runs.jsonl"),

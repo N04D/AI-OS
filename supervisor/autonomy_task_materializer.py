@@ -9,6 +9,9 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from supervisor.autonomy_budget_gate import DEFAULT_HOST_STATE_DIR
+from supervisor.autonomy_budget_gate import check_and_consume
+
 
 DEFAULT_HOST_STATE_DIR = "/home/infra/night/state"
 
@@ -211,6 +214,14 @@ def materialize_autonomy_tasks(
                 }
             )
             continue
+
+        budget = check_and_consume(
+            "materialize",
+            subject_id=f"proposal:{proposal_hash[:16]}",
+            host_state_dir=host_state_dir or os.environ.get("HOST_STATE_DIR", "").strip() or DEFAULT_HOST_STATE_DIR,
+        )
+        if not budget.get("allowed", False):
+            raise AutonomyTaskMaterializerError(f"budget_blocked:{budget.get('reason')}")
 
         task_path.write_text(
             json.dumps(task_payload, sort_keys=True, indent=2, ensure_ascii=True) + "\n",

@@ -18,6 +18,8 @@ from supervisor.ledger import ingest_evaluation_record_linked
 from supervisor.ledger import mark_run_committed
 from supervisor.autonomy_observer import analyze_ledger
 from supervisor.autonomy_planner import generate_proposals
+from supervisor.autonomy_budget_gate import DEFAULT_HOST_STATE_DIR
+from supervisor.autonomy_budget_gate import check_and_consume
 from supervisor.autonomy_promotion_gate import create_draft_proposals_prs
 from supervisor.autonomy_review_intake_gate import intake_approved_autonomy_proposals
 from supervisor.night_task_runner import execute_night_task
@@ -347,6 +349,7 @@ def run_night_executor(
 
         commits_done = 0
         should_stop = False
+        budget_host_state_dir = os.environ.get("HOST_STATE_DIR", "").strip() or DEFAULT_HOST_STATE_DIR
         if queue["mode"] == "night-autonomy-dryrun-v0.1":
             opportunities = analyze_ledger(resolved_runs_path, resolved_evaluations_path)
             proposals = generate_proposals(opportunities, "docs/autonomy/proposals")
@@ -412,12 +415,32 @@ def run_night_executor(
             task_succeeded = False
             for attempt_no in range(1, queue["max_attempts_per_task"] + 1):
                 run_id = compute_run_id(task_id, task_spec_hash, env_fingerprint, attempt_no)
-                execution = _normalize_execution(
-                    execute_night_task(
-                        int(task_source["issue"]),
-                        spec_path,
-                    )
+                attempt_budget = check_and_consume(
+                    "exec_attempt",
+                    subject_id=f"{task_id}#{attempt_no}",
+                    host_state_dir=budget_host_state_dir,
                 )
+                if not attempt_budget.get("allowed", False):
+                    ts_now = int(_utc_now().timestamp() * 1000)
+                    execution = _normalize_execution(
+                        {
+                            "status": "failure",
+                            "reason": f"budget_blocked:{attempt_budget.get('reason')}",
+                            "stdout": "",
+                            "stderr": "",
+                            "changed_files": [],
+                            "tests_passed": False,
+                            "ts_start_ms": ts_now,
+                            "ts_end_ms": ts_now,
+                        }
+                    )
+                else:
+                    execution = _normalize_execution(
+                        execute_night_task(
+                            int(task_source["issue"]),
+                            spec_path,
+                        )
+                    )
 
                 run_record = {
                     "version": "v0.1",
@@ -444,6 +467,17 @@ def run_night_executor(
                     and commit_eligible
                     and commits_done < queue["max_commits"]
                 )
+
+                commit_budget_reason = None
+                if can_commit:
+                    commit_budget = check_and_consume(
+                        "commit",
+                        subject_id=task_id,
+                        host_state_dir=budget_host_state_dir,
+                    )
+                    if not commit_budget.get("allowed", False):
+                        can_commit = False
+                        commit_budget_reason = str(commit_budget.get("reason"))
 
                 if can_commit:
                     try:
@@ -502,6 +536,7 @@ def run_night_executor(
                     "commit_eligible": commit_eligible,
                     "commit_created": bool(commit_result["commit_created"]),
                     "commit_sha": commit_result["commit_hash"],
+                    "budget_commit_reason": commit_budget_reason,
                 }
                 task_report["attempts"].append(attempt_report)
 

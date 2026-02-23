@@ -9,6 +9,9 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from supervisor.autonomy_budget_gate import DEFAULT_HOST_STATE_DIR
+from supervisor.autonomy_budget_gate import check_and_consume
+
 
 class AutonomyPromotionGateError(RuntimeError):
     pass
@@ -169,6 +172,13 @@ def create_draft_proposals_prs(
             "body": body,
             "draft": True,
         }
+        budget = check_and_consume(
+            "promotion",
+            subject_id=f"proposal:{proposal['content_hash'][:16]}",
+            host_state_dir=os.environ.get("HOST_STATE_DIR", "").strip() or DEFAULT_HOST_STATE_DIR,
+        )
+        if not budget.get("allowed", False):
+            raise AutonomyPromotionGateError(f"budget_blocked:{budget.get('reason')}")
         create_url = f"{api_base}/repos/{repo_owner}/{repo_name}/pulls"
         create_status, created_data = _api_json_request("POST", create_url, token, payload=payload)
         if create_status not in (200, 201) or not isinstance(created_data, dict):

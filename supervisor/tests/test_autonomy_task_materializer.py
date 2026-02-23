@@ -50,6 +50,10 @@ class AutonomyTaskMaterializerTests(unittest.TestCase):
             with (
                 patch("supervisor.autonomy_task_materializer._git_is_clean", return_value=True),
                 patch("supervisor.autonomy_task_materializer._api_json_request", side_effect=fake_api),
+                patch(
+                    "supervisor.autonomy_task_materializer.check_and_consume",
+                    return_value={"allowed": True, "reason": "allowed"},
+                ),
             ):
                 first = materialize_autonomy_tasks(
                     host_state_dir=tmp_dir,
@@ -93,6 +97,10 @@ class AutonomyTaskMaterializerTests(unittest.TestCase):
             with (
                 patch("supervisor.autonomy_task_materializer._git_is_clean", return_value=True),
                 patch("supervisor.autonomy_task_materializer._api_json_request", side_effect=fake_api),
+                patch(
+                    "supervisor.autonomy_task_materializer.check_and_consume",
+                    return_value={"allowed": True, "reason": "allowed"},
+                ),
                 self.assertRaises(AutonomyTaskMaterializerError) as ctx,
             ):
                 materialize_autonomy_tasks(
@@ -122,6 +130,10 @@ class AutonomyTaskMaterializerTests(unittest.TestCase):
             with (
                 patch("supervisor.autonomy_task_materializer._git_is_clean", return_value=True),
                 patch("supervisor.autonomy_task_materializer._api_json_request", side_effect=fake_api),
+                patch(
+                    "supervisor.autonomy_task_materializer.check_and_consume",
+                    return_value={"allowed": True, "reason": "allowed"},
+                ),
                 self.assertRaises(AutonomyTaskMaterializerError) as ctx,
             ):
                 materialize_autonomy_tasks(

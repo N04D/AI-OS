@@ -164,3 +164,53 @@ Gate checks are fail-closed:
 CLI groundwork is available through:
 
 `./scripts/aiosctl autonomy materialize`
+
+## Execution Budgeting + Rate Limiter v0.1
+
+Budget gate module: `supervisor.autonomy_budget_gate`
+
+Host-state files (outside repository):
+
+- `/home/infra/night/state/autonomy/budget.json`
+- `/home/infra/night/state/autonomy/budget-log.jsonl`
+
+Windowing and counters are deterministic:
+
+- window = UTC day (`YYYY-MM-DD`)
+- stable action keys and limits
+- append-only JSONL event log with stable key ordering
+
+Default daily limits:
+
+- `promotion`: 10
+- `intake`: 20
+- `materialize`: 20
+- `exec_attempt`: 30
+- `commit`: 5
+
+Default cooldowns:
+
+- `promotion`: 60s
+- `intake`: 15s
+- `materialize`: 15s
+- `exec_attempt`: 5s
+- `commit`: 0s
+
+Fail-closed behavior:
+
+- unknown action type -> blocked
+- cooldown active -> blocked
+- daily limit exhausted -> blocked
+- budget state/log I/O failure -> blocked (`budget_internal_error`)
+
+Budget checks are wired into:
+
+- `supervisor.autonomy_promotion_gate` (`promotion`)
+- `supervisor.autonomy_review_intake_gate` (`intake`)
+- `supervisor.autonomy_task_materializer` (`materialize`)
+- `supervisor.night_executor` attempts (`exec_attempt`) and commits (`commit`)
+
+CLI commands:
+
+- `./scripts/aiosctl autonomy budget status`
+- `./scripts/aiosctl autonomy budget reset --force`
