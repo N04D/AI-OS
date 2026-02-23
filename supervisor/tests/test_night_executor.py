@@ -80,6 +80,28 @@ task_sources: []
             self.assertEqual(queue["max_tasks"], 0)
             self.assertEqual(queue["max_commits"], 0)
 
+    def test_intake_queue_allows_zero_task_and_commit_limits(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            queue_path = Path(tmp_dir) / "night-queue.yaml"
+            queue_path.write_text(
+                """\
+mode: night-autonomy-intake-v0.1
+max_tasks: 0
+max_commits: 0
+max_attempts_per_task: 1
+stop_on_first_failure: true
+allowed_paths:
+  - supervisor/
+forbidden_paths:
+  - executor/runtime/
+task_sources: []
+""",
+                encoding="utf-8",
+            )
+            queue = load_queue(queue_path)
+            self.assertEqual(queue["max_tasks"], 0)
+            self.assertEqual(queue["max_commits"], 0)
+
     def test_report_generation_includes_required_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_root = Path(tmp_dir)
@@ -328,6 +350,49 @@ task_sources: []
             self.assertEqual(report["summary"]["commits_performed"], 0)
             self.assertEqual(len(report["autonomy"]["proposals_generated"]), 1)
             self.assertEqual(len(report["autonomy"]["promotion"]), 1)
+
+    def test_autonomy_intake_mode_runs_review_intake_and_skips_task_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            runs_path = tmp_root / "runs.jsonl"
+            evaluations_path = tmp_root / "evaluations.jsonl"
+            runs_path.write_text("", encoding="utf-8")
+            evaluations_path.write_text("", encoding="utf-8")
+            queue_path = tmp_root / "night-queue.yaml"
+            queue_path.write_text(
+                """\
+mode: night-autonomy-intake-v0.1
+max_tasks: 0
+max_commits: 0
+max_attempts_per_task: 1
+stop_on_first_failure: true
+allowed_paths:
+  - supervisor/
+forbidden_paths:
+  - executor/runtime/
+task_sources: []
+""",
+                encoding="utf-8",
+            )
+            report_dir = tmp_root / "reports"
+
+            with patch(
+                "supervisor.night_executor.intake_approved_autonomy_proposals",
+                return_value=[{"pr_number": 11, "status": "intake_processed"}],
+            ):
+                exit_code, report, _ = run_night_executor(
+                    queue_path=str(queue_path),
+                    runs_path=str(runs_path),
+                    evaluations_path=str(evaluations_path),
+                    report_dir=str(report_dir),
+                    run_preflight=False,
+                )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(report["overall_status"], "intake_complete")
+            self.assertEqual(report["summary"]["tasks_attempted"], 0)
+            self.assertEqual(report["summary"]["commits_performed"], 0)
+            self.assertEqual(len(report["autonomy"]["intake"]), 1)
 
 
 if __name__ == "__main__":

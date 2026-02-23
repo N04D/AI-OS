@@ -19,6 +19,7 @@ from supervisor.ledger import mark_run_committed
 from supervisor.autonomy_observer import analyze_ledger
 from supervisor.autonomy_planner import generate_proposals
 from supervisor.autonomy_promotion_gate import create_draft_proposals_prs
+from supervisor.autonomy_review_intake_gate import intake_approved_autonomy_proposals
 from supervisor.night_task_runner import execute_night_task
 from supervisor.results import ingest_run_record
 
@@ -37,6 +38,7 @@ SUPPORTED_QUEUE_MODES = {
     "night-v0.1",
     "night-autonomy-dryrun-v0.1",
     "night-autonomy-promote-v0.1",
+    "night-autonomy-intake-v0.1",
 }
 
 
@@ -83,7 +85,11 @@ def load_queue(queue_path: str | os.PathLike[str]) -> dict[str, Any]:
     for key in int_keys:
         value = parsed.get(key)
         min_value = 1
-        if mode in ("night-autonomy-dryrun-v0.1", "night-autonomy-promote-v0.1") and key in (
+        if mode in (
+            "night-autonomy-dryrun-v0.1",
+            "night-autonomy-promote-v0.1",
+            "night-autonomy-intake-v0.1",
+        ) and key in (
             "max_tasks",
             "max_commits",
         ):
@@ -363,6 +369,15 @@ def run_night_executor(
             }
             report["summary"]["commits_performed"] = 0
             report["overall_status"] = "promote_complete"
+            exit_code = 0
+            return exit_code, report, report_path
+        if queue["mode"] == "night-autonomy-intake-v0.1":
+            intake = intake_approved_autonomy_proposals()
+            report["autonomy"] = {
+                "intake": intake,
+            }
+            report["summary"]["commits_performed"] = 0
+            report["overall_status"] = "intake_complete"
             exit_code = 0
             return exit_code, report, report_path
 
