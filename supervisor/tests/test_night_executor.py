@@ -5,9 +5,11 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from supervisor.night_executor import load_queue
+from supervisor.night_executor import _run_preflight
 from supervisor.night_executor import run_night_executor
 
 
@@ -29,6 +31,30 @@ task_sources:
 
 
 class NightExecutorTests(unittest.TestCase):
+    def test_preflight_scrubs_gitea_secrets_from_harness_env(self) -> None:
+        captured_env: dict[str, str] = {}
+
+        def fake_subprocess_run(*_args, **kwargs):  # type: ignore[no-untyped-def]
+            env = kwargs.get("env")
+            if isinstance(env, dict):
+                captured_env.update(env)
+            return SimpleNamespace(returncode=0, stdout="ok\n", stderr="")
+
+        with (
+            patch.dict(
+                os.environ,
+                {"GITEA_TOKEN": "secret-token", "GITEA_BASE_URL": "http://secret-base"},
+                clear=False,
+            ),
+            patch("supervisor.night_executor._run_checked", return_value=""),
+            patch("supervisor.night_executor.subprocess.run", side_effect=fake_subprocess_run),
+        ):
+            result = _run_preflight()
+
+        self.assertTrue(result["tests_passed"])
+        self.assertNotIn("GITEA_TOKEN", captured_env)
+        self.assertNotIn("GITEA_BASE_URL", captured_env)
+
     def test_queue_schema_validation_rejects_missing_required_keys(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             queue_path = Path(tmp_dir) / "night-queue.yaml"
