@@ -62,11 +62,11 @@ def generate_proposals(opportunities: list[dict], output_dir: str) -> list[dict]
 
     generated: list[dict[str, Any]] = []
     for opportunity in sorted_ops:
-        digest = _stable_hash(opportunity)
         op_type = str(opportunity.get("type", "unknown"))
+        content = _proposal_markdown(opportunity)
+        digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
         filename = f"proposal.{op_type}.{digest[:12]}.md"
         path = target_dir / filename
-        content = _proposal_markdown(opportunity)
         path.write_text(content, encoding="utf-8")
         generated.append(
             {

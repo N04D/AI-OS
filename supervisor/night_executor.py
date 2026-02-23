@@ -18,6 +18,7 @@ from supervisor.ledger import ingest_evaluation_record_linked
 from supervisor.ledger import mark_run_committed
 from supervisor.autonomy_observer import analyze_ledger
 from supervisor.autonomy_planner import generate_proposals
+from supervisor.autonomy_promotion_gate import create_draft_proposals_prs
 from supervisor.night_task_runner import execute_night_task
 from supervisor.results import ingest_run_record
 
@@ -32,7 +33,11 @@ QUEUE_REQUIRED_KEYS = {
     "task_sources",
 }
 TASK_SOURCE_REQUIRED_KEYS = {"issue", "spec"}
-SUPPORTED_QUEUE_MODES = {"night-v0.1", "night-autonomy-dryrun-v0.1"}
+SUPPORTED_QUEUE_MODES = {
+    "night-v0.1",
+    "night-autonomy-dryrun-v0.1",
+    "night-autonomy-promote-v0.1",
+}
 
 
 def _utc_now() -> datetime:
@@ -78,7 +83,10 @@ def load_queue(queue_path: str | os.PathLike[str]) -> dict[str, Any]:
     for key in int_keys:
         value = parsed.get(key)
         min_value = 1
-        if mode == "night-autonomy-dryrun-v0.1" and key in ("max_tasks", "max_commits"):
+        if mode in ("night-autonomy-dryrun-v0.1", "night-autonomy-promote-v0.1") and key in (
+            "max_tasks",
+            "max_commits",
+        ):
             min_value = 0
         if not isinstance(value, int) or value < min_value:
             raise ValueError(f"queue key '{key}' must be an integer >= {min_value}")
@@ -342,6 +350,19 @@ def run_night_executor(
             }
             report["summary"]["commits_performed"] = 0
             report["overall_status"] = "dryrun_complete"
+            exit_code = 0
+            return exit_code, report, report_path
+        if queue["mode"] == "night-autonomy-promote-v0.1":
+            opportunities = analyze_ledger(resolved_runs_path, resolved_evaluations_path)
+            proposals = generate_proposals(opportunities, "docs/autonomy/proposals")
+            promotion = create_draft_proposals_prs("docs/autonomy/proposals")
+            report["autonomy"] = {
+                "opportunities": opportunities,
+                "proposals_generated": proposals,
+                "promotion": promotion,
+            }
+            report["summary"]["commits_performed"] = 0
+            report["overall_status"] = "promote_complete"
             exit_code = 0
             return exit_code, report, report_path
 
