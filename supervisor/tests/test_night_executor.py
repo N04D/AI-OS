@@ -36,6 +36,28 @@ class NightExecutorTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 load_queue(queue_path)
 
+    def test_dryrun_queue_allows_zero_task_and_commit_limits(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            queue_path = Path(tmp_dir) / "night-queue.yaml"
+            queue_path.write_text(
+                """\
+mode: night-autonomy-dryrun-v0.1
+max_tasks: 0
+max_commits: 0
+max_attempts_per_task: 1
+stop_on_first_failure: true
+allowed_paths:
+  - supervisor/
+forbidden_paths:
+  - executor/runtime/
+task_sources: []
+""",
+                encoding="utf-8",
+            )
+            queue = load_queue(queue_path)
+            self.assertEqual(queue["max_tasks"], 0)
+            self.assertEqual(queue["max_commits"], 0)
+
     def test_report_generation_includes_required_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_root = Path(tmp_dir)

@@ -77,8 +77,11 @@ def load_queue(queue_path: str | os.PathLike[str]) -> dict[str, Any]:
     int_keys = ("max_tasks", "max_commits", "max_attempts_per_task")
     for key in int_keys:
         value = parsed.get(key)
-        if not isinstance(value, int) or value < 1:
-            raise ValueError(f"queue key '{key}' must be an integer >= 1")
+        min_value = 1
+        if mode == "night-autonomy-dryrun-v0.1" and key in ("max_tasks", "max_commits"):
+            min_value = 0
+        if not isinstance(value, int) or value < min_value:
+            raise ValueError(f"queue key '{key}' must be an integer >= {min_value}")
 
     stop_on_first_failure = parsed.get("stop_on_first_failure")
     if not isinstance(stop_on_first_failure, bool):
