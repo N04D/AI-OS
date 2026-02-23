@@ -223,10 +223,15 @@ def _run_preflight() -> dict[str, Any]:
         raise RuntimeError("preflight_failed:git_worktree_dirty")
     preflight["git_clean"] = True
 
+    harness_env = os.environ.copy()
+    harness_env.pop("GITEA_TOKEN", None)
+    harness_env.pop("GITEA_BASE_URL", None)
+
     harness = subprocess.run(
         ["./scripts/test-all.sh"],
         capture_output=True,
         text=True,
+        env=harness_env,
     )
     preflight["test_harness_exit_code"] = harness.returncode
     preflight["test_harness_stdout"] = harness.stdout
