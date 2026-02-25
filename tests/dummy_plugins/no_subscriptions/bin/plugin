@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+import json
+import sys
+
+line = sys.stdin.buffer.readline()
+if not line:
+    raise SystemExit(1)
+req = json.loads(line.decode("utf-8"))
+resp = {
+    "type": "response",
+    "id": req.get("id", ""),
+    "ok": True,
+    "result": {"ignored": True},
+    "error": None,
+}
+sys.stdout.write(json.dumps(resp) + "\n")
+sys.stdout.flush()

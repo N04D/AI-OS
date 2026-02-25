@@ -31,10 +31,12 @@ def test_distinct_reviewer_pass_when_non_author_approves():
     reviews = [{"state": "APPROVED", "submitted_at": "2026-01-01T00:00:00Z", "user": {"login": "reviewer", "type": "User"}}]
     result = evaluate_pr(_policy(), _pr(), [], [], reviews, [])
     assert "distinct_reviewer_required" not in result["failed_gates"]
+    assert result["primary_failed_gate"] is None
 
 
 def test_distinct_reviewer_fail_when_only_author_approves():
     reviews = [{"state": "APPROVED", "submitted_at": "2026-01-01T00:00:00Z", "user": {"login": "author", "type": "User"}}]
     result = evaluate_pr(_policy(), _pr(), [], [], reviews, [])
     assert "distinct_reviewer_required" in result["failed_gates"]
+    assert result["primary_failed_gate"] == "distinct_reviewer_required"
     assert any("approvers=" in reason for reason in result["failed_reasons"])

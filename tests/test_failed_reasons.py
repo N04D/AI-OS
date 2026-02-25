@@ -5,7 +5,7 @@ def _policy():
     return {
         "branch_rules": {"feature_to_develop_only": True, "patterns": {"feature": {"regex": r"^feature/.+$"}}},
         "approvals": {"disallow_self_approval": False, "develop": {"min_approvals": 1, "require_distinct_reviewer": True}},
-        "issue_link": {"required": True, "patterns": [r"(^|\\s)#([0-9]+)(\\s|$)"]},
+        "issue_link": {"required": True, "patterns": [r"(^|\s)#([0-9]+)(\s|$)"]},
         "pr_template": {"required_sections": ["Subsystem"], "reject_placeholders": ["TBD"], "min_section_length": 5},
         "high_risk_paths": ["supervisor/"],
         "locks": {"required_on_high_risk": True, "exclusive": True, "allowed": ["LOCK:supervisor/"]},

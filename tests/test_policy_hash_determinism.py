@@ -8,11 +8,12 @@ def test_policy_hash_stable_then_changes(tmp_path, monkeypatch):
         "\n".join(
             [
                 'version: "v0.2"',
+                'targets: {allowed_base_branches: ["develop"]}',
                 "branch_rules: {}",
                 "approvals: {}",
                 "high_risk_paths: []",
-                "commit_signing: {required: false}",
-                "ci: {required_checks: []}",
+                "commit_signing: {required: false, mode: all_commits, accepted_types: [gpg]}",
+                "ci: {required: true, required_checks: []}",
             ]
         )
         + "\n",
@@ -27,11 +28,12 @@ def test_policy_hash_stable_then_changes(tmp_path, monkeypatch):
         "\n".join(
             [
                 'version: "v0.2"',
+                'targets: {allowed_base_branches: ["develop"]}',
                 "branch_rules: {feature_to_develop_only: true}",
                 "approvals: {}",
                 "high_risk_paths: []",
-                "commit_signing: {required: false}",
-                "ci: {required_checks: []}",
+                "commit_signing: {required: false, mode: all_commits, accepted_types: [gpg]}",
+                "ci: {required: true, required_checks: []}",
             ]
         )
         + "\n",

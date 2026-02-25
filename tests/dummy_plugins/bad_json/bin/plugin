@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+import sys
+
+_ = sys.stdin.buffer.readline()
+sys.stdout.write("{invalid-json\n")
+sys.stdout.flush()

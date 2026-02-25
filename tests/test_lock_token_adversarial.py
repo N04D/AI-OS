@@ -31,6 +31,7 @@ def test_embedded_token_not_accepted_if_no_word_boundary():
     body = "prefixXLOCK:supervisor/"
     result = evaluate_pr(_policy(), _pr(body), [], ["supervisor/supervisor.py"], [], [])
     assert "lock_required" in result["failed_gates"]
+    assert result["primary_failed_gate"] == "lock_required"
 
 
 def test_token_with_punctuation_is_accepted():
@@ -43,6 +44,7 @@ def test_multiple_tokens_fail_lock_exclusive():
     body = "LOCK:supervisor/ LOCK:supervisor/"
     result = evaluate_pr(_policy(), _pr(body), [], ["supervisor/supervisor.py"], [], [])
     assert "lock_exclusive" in result["failed_gates"]
+    assert result["primary_failed_gate"] == "lock_exclusive"
 
 
 def test_conflict_with_adversarial_other_pr_body():
@@ -50,3 +52,4 @@ def test_conflict_with_adversarial_other_pr_body():
     other = [{"number": 2, "title": "x", "body": "> LOCK:supervisor/"}]
     result = evaluate_pr(_policy(), _pr(body, open_prs=other), [], ["supervisor/supervisor.py"], [], [])
     assert "lock_exclusive" in result["failed_gates"]
+    assert result["primary_failed_gate"] == "lock_exclusive"

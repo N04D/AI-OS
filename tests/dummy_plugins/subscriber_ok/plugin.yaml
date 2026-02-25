@@ -1,0 +1,15 @@
+plugin_id: subscriber-ok
+version: 1.0.0
+api_version: 1
+entrypoint:
+  command:
+    - bin/plugin
+  protocol: stdin_stdout_json
+runtime:
+  mode: subprocess
+  timeout_seconds: 2
+permissions:
+  capabilities:
+    - plugin:test
+subscriptions:
+  - test.event

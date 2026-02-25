@@ -36,6 +36,7 @@ def test_system_evolution_bot_only_fails_human_approval():
     statuses = [{"context": "lint", "state": "success"}]
     result = evaluate_pr(_policy(), _pr(), [], ["supervisor/supervisor.py"], reviews, statuses)
     assert "human_approval_required" in result["failed_gates"]
+    assert result["primary_failed_gate"] == "system_evolution_escalation"
     assert any("required=True" in reason for reason in result["failed_reasons"])
 
 
@@ -44,3 +45,4 @@ def test_normal_scenario_user_reviewer_passes_human_approval():
     statuses = [{"context": "lint", "state": "success"}]
     result = evaluate_pr(_policy(), _pr(), [], [], reviews, statuses)
     assert "human_approval_required" not in result["failed_gates"]
+    assert result["primary_failed_gate"] is None

@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+import sys
+import time
+
+_ = sys.stdin.buffer.readline()
+while True:
+    time.sleep(60)
