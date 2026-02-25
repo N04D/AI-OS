@@ -4,7 +4,7 @@
 
 Exact pytest summary line:
 
-`330 passed, 2 warnings in 5.16s`
+`330 passed, 2 warnings in 5.22s`
 
 ## Included Autonomy Phases
 
