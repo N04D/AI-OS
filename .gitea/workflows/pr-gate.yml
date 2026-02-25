@@ -1,0 +1,104 @@
+name: PR Gate Path Allowlist
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  contracts:
+    name: pr-gate/path-allowlist-contracts
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.11-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install deterministic dependencies
+        run: |
+          python -m pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run Milestone 1 contract suite
+        run: |
+          set -euo pipefail
+          bash scripts/test-pr-gate-m1.sh
+
+  path-allowlist:
+    name: pr-gate/path-allowlist
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.11-slim
+    env:
+      PR_GATE_TOKEN: ${{ secrets.PR_GATE_TOKEN }}
+      PR_GATE_API_BASE: ${{ vars.PR_GATE_API_BASE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install deterministic dependencies
+        run: |
+          python -m pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Evaluate path allowlist
+        run: |
+          set -euo pipefail
+
+          write_workflow_deny() {
+            reason="$1"
+            ts="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            REASON="$reason" TS="$ts" python -c '
+import os, pathlib
+payload = """{
+  "allow": false,
+  "reason_code": "${reason}",
+  "violations": [],
+  "matched_rule_ids": [],
+  "policy_sha": "",
+  "evaluated_at": "${ts}"
+}"""
+payload = payload.replace("${reason}", os.environ["REASON"]).replace("${ts}", os.environ["TS"])
+pathlib.Path("gate-verdict.json").write_text(payload + "\n", encoding="utf-8")
+'
+          }
+
+          if [ -z "${PR_GATE_TOKEN:-}" ]; then
+            echo "Missing required secret: PR_GATE_TOKEN"
+            write_workflow_deny "DENY_WORKFLOW_MISSING_TOKEN"
+            exit 1
+          fi
+
+          if [ -n "${PR_GATE_API_BASE:-}" ]; then
+            API_BASE="${PR_GATE_API_BASE}"
+          elif [ -n "${GITEA_SERVER_URL:-}" ]; then
+            API_BASE="${GITEA_SERVER_URL%/}/api/v1"
+          else
+            echo "Missing API base: set vars.PR_GATE_API_BASE or provide GITEA_SERVER_URL"
+            write_workflow_deny "DENY_WORKFLOW_MISSING_API_BASE"
+            exit 1
+          fi
+
+          PR_NUMBER="$(python -c 'import json, os, sys; p=os.environ.get("GITHUB_EVENT_PATH");if not p: print("Missing GITHUB_EVENT_PATH", file=sys.stderr) or sys.exit(1); ev=json.load(open(p, "r", encoding="utf-8")); pr=ev.get("pull_request") or {}; num=pr.get("number") or ev.get("number");if not num: print("Could not determine PR number from event payload", file=sys.stderr) or sys.exit(1); print(num)')"
+
+          REPO_FULL_NAME="${GITHUB_REPOSITORY:-}"
+          if [ -z "${REPO_FULL_NAME}" ]; then
+            REPO_FULL_NAME="$(python -c 'import re, subprocess, sys; url=subprocess.check_output(["git", "config", "--get", "remote.origin.url"], text=True).strip(); m=re.search(r"[:/]([^/:]+/[^/]+?)(?:\\.git)?$", url);if not m: print(f"Failed to parse owner/repo from remote URL: {url}", file=sys.stderr) or sys.exit(1); print(m.group(1))')"
+          fi
+
+          python scripts/pr_gate_path_allowlist.py \
+            --repo "${REPO_FULL_NAME}" \
+            --pr-number "${PR_NUMBER}" \
+            --token "${PR_GATE_TOKEN}" \
+            --policy ".gitea/governance/path-allowlist.v1.yaml" \
+            --output "gate-verdict.json" \
+            --api-base "${API_BASE}"
+
+      - name: Emit gate verdict
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          if [ ! -f gate-verdict.json ]; then
+            echo "gate-verdict.json was not produced"
+            exit 1
+          fi
+          echo "==== gate-verdict.json ===="
+          cat gate-verdict.json
