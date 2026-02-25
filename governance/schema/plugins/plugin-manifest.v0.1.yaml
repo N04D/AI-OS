@@ -1,0 +1,73 @@
+version: 1
+schema_id: plugin-manifest.v0.1
+allow_unknown_top_level: false
+required_top_level:
+  - plugin_id
+  - version
+  - api_version
+  - entrypoint
+  - runtime
+  - permissions
+optional_top_level:
+  - subscriptions
+  - methods
+fields:
+  plugin_id:
+    type: string
+    pattern: "^[a-z0-9-]+$"
+  version:
+    type: string
+    pattern: "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+  api_version:
+    type: integer
+  entrypoint:
+    type: object
+    allow_unknown: false
+    required:
+      - command
+      - protocol
+    properties:
+      command:
+        type: array
+        item_type: string
+        min_items: 1
+      protocol:
+        type: string
+        const: stdin_stdout_json
+  runtime:
+    type: object
+    allow_unknown: false
+    required:
+      - mode
+      - timeout_seconds
+    properties:
+      mode:
+        type: string
+        const: subprocess
+      timeout_seconds:
+        type: integer
+        minimum: 1
+  permissions:
+    type: object
+    allow_unknown: false
+    required:
+      - capabilities
+    properties:
+      capabilities:
+        type: array
+        item_type: string
+        min_items: 1
+      filesystem:
+        type: any
+      network:
+        type: any
+      secrets:
+        type: any
+  subscriptions:
+    type: array
+    item_type: string
+    min_items: 1
+  methods:
+    type: array
+    item_type: string
+    min_items: 1

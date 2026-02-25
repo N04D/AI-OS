@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+PYTHON_BIN=""
+if command -v python >/dev/null 2>&1; then
+  PYTHON_BIN="python"
+elif command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+else
+  echo "ERROR: python3/python not found" >&2
+  exit 22
+fi
+
 if [ -z "${GITEA_TOKEN:-}" ]; then
   if [ -f /home/infra/.secrets/gitea_token ]; then
     export GITEA_TOKEN="$(cat /home/infra/.secrets/gitea_token)"
@@ -19,7 +29,7 @@ export HOST_STATE_DIR
 export LEDGER_DIR
 
 if [ "$#" -eq 0 ] && [ -t 0 ]; then
-  exec python -m supervisor.console
+  exec "$PYTHON_BIN" -m supervisor.console
 fi
 
-exec python -m supervisor.cli "$@"
+exec "$PYTHON_BIN" -m supervisor.cli "$@"

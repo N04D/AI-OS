@@ -43,6 +43,14 @@ SUPPORTED_QUEUE_MODES = {
     "night-autonomy-intake-v0.1",
 }
 
+TEST_HARNESS_EXIT_CATEGORY = {
+    0: "success",
+    20: "git_untrusted",
+    21: "git_dirty",
+    22: "runner_missing",
+    23: "tests_failed",
+}
+
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -214,6 +222,7 @@ def _run_preflight() -> dict[str, Any]:
         "git_clean": False,
         "tests_passed": False,
         "test_harness_exit_code": None,
+        "test_harness_exit_category": "unknown",
         "test_harness_stdout": "",
         "test_harness_stderr": "",
     }
@@ -234,11 +243,17 @@ def _run_preflight() -> dict[str, Any]:
         env=harness_env,
     )
     preflight["test_harness_exit_code"] = harness.returncode
+    preflight["test_harness_exit_category"] = TEST_HARNESS_EXIT_CATEGORY.get(
+        harness.returncode,
+        "unknown",
+    )
     preflight["test_harness_stdout"] = harness.stdout
     preflight["test_harness_stderr"] = harness.stderr
     preflight["tests_passed"] = harness.returncode == 0
     if harness.returncode != 0:
-        raise RuntimeError("preflight_failed:test_harness_failed")
+        raise RuntimeError(
+            f"preflight_failed:test_harness_failed:{preflight['test_harness_exit_category']}"
+        )
     return preflight
 
 

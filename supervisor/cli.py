@@ -15,6 +15,13 @@ from supervisor.autonomy_promotion_gate import create_draft_proposals_prs
 from supervisor.autonomy_review_intake_gate import intake_approved_autonomy_proposals
 from supervisor.autonomy_task_materializer import materialize_autonomy_tasks
 from supervisor.night_executor import run_night_executor
+from supervisor.plugin_loader import DEFAULT_POLICY_PATH as PLUGIN_POLICY_PATH
+from supervisor.plugin_loader import DEFAULT_REGISTRY_PATH as PLUGIN_REGISTRY_PATH
+from supervisor.plugin_loader import DEFAULT_SCHEMA_PATH as PLUGIN_SCHEMA_PATH
+from supervisor.plugin_loader import PluginLoaderError
+from supervisor.plugin_loader import discover_plugins
+from supervisor.plugin_loader import load_registry
+from supervisor.plugin_loader import set_plugin_enabled
 
 
 DRYRUN_QUEUE_YAML = """\
@@ -82,6 +89,20 @@ def _print_materialize_result(data: dict[str, Any]) -> None:
         for item in items:
             if isinstance(item, dict) and item.get("task_path"):
                 print(f"  task_path={item['task_path']}")
+
+
+def _print_plugin_result(data: dict[str, Any]) -> None:
+    plugins = data.get("plugins") or []
+    print(f"plugins: {len(plugins) if isinstance(plugins, list) else 0}")
+    if not isinstance(plugins, list):
+        return
+    for plugin in plugins:
+        if not isinstance(plugin, dict):
+            continue
+        print(
+            f"- id={plugin.get('plugin_id','')} enabled={plugin.get('enabled',False)} "
+            f"source={plugin.get('source','')} reason={plugin.get('reason_code','')}"
+        )
 
 
 def _cmd_autonomy_promote(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]:
@@ -213,6 +234,37 @@ def _cmd_autonomy_budget_reset(args: argparse.Namespace) -> tuple[int, dict[str,
     return 0, {"status": "ok", "window_utc_day": state["window_utc_day"]}, "budget_reset"
 
 
+def _cmd_plugin_validate(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]:
+    try:
+        payload = discover_plugins(
+            scan_dirs=(args.repo_plugins_dir, args.external_plugins_dir),
+            schema_path=args.schema,
+            policy_path=args.policy,
+            registry_path=Path(args.registry_path),
+        )
+        denied = [p for p in payload.get("plugins", []) if isinstance(p, dict) and not p.get("valid", False)]
+        if denied:
+            return 2, payload, "plugins"
+        return 0, payload, "plugins"
+    except PluginLoaderError as exc:
+        return 2, {"status": "rejected", "reason": str(exc), "plugins": []}, "plugins"
+
+
+def _cmd_plugin_list(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]:
+    payload = load_registry(registry_path=Path(args.registry_path))
+    return 0, payload, "plugins"
+
+
+def _cmd_plugin_enable(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]:
+    payload = set_plugin_enabled(args.plugin_id, True, registry_path=Path(args.registry_path))
+    return 0, payload, "plugins"
+
+
+def _cmd_plugin_disable(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]:
+    payload = set_plugin_enabled(args.plugin_id, False, registry_path=Path(args.registry_path))
+    return 0, payload, "plugins"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="aiosctl", description="AI-OS control CLI")
     parser.add_argument("--json", action="store_true", help="Emit raw JSON output")
@@ -268,6 +320,39 @@ def build_parser() -> argparse.ArgumentParser:
     )
     budget_reset.set_defaults(handler=_cmd_autonomy_budget_reset)
 
+    plugin = subparsers.add_parser("plugin", help="Plugin loader commands")
+    plugin_sub = plugin.add_subparsers(dest="plugin_command", required=True)
+
+    plugin_common = {
+        "registry_path": str(PLUGIN_REGISTRY_PATH),
+        "schema": PLUGIN_SCHEMA_PATH,
+        "policy": PLUGIN_POLICY_PATH,
+        "repo_plugins_dir": "plugins",
+        "external_plugins_dir": "/var/lib/ai-os/plugins",
+    }
+
+    plugin_validate = plugin_sub.add_parser("validate", help="Discover and validate plugins")
+    plugin_validate.add_argument("--registry-path", default=plugin_common["registry_path"])
+    plugin_validate.add_argument("--schema", default=plugin_common["schema"])
+    plugin_validate.add_argument("--policy", default=plugin_common["policy"])
+    plugin_validate.add_argument("--repo-plugins-dir", default=plugin_common["repo_plugins_dir"])
+    plugin_validate.add_argument("--external-plugins-dir", default=plugin_common["external_plugins_dir"])
+    plugin_validate.set_defaults(handler=_cmd_plugin_validate)
+
+    plugin_list = plugin_sub.add_parser("list", help="List plugin registry")
+    plugin_list.add_argument("--registry-path", default=plugin_common["registry_path"])
+    plugin_list.set_defaults(handler=_cmd_plugin_list)
+
+    plugin_enable = plugin_sub.add_parser("enable", help="Enable plugin by id")
+    plugin_enable.add_argument("plugin_id")
+    plugin_enable.add_argument("--registry-path", default=plugin_common["registry_path"])
+    plugin_enable.set_defaults(handler=_cmd_plugin_enable)
+
+    plugin_disable = plugin_sub.add_parser("disable", help="Disable plugin by id")
+    plugin_disable.add_argument("plugin_id")
+    plugin_disable.add_argument("--registry-path", default=plugin_common["registry_path"])
+    plugin_disable.set_defaults(handler=_cmd_plugin_disable)
+
     return parser
 
 
@@ -301,6 +386,8 @@ def main(argv: list[str] | None = None) -> int:
             elif kind == "budget_reset":
                 print(f"budget reset: {payload.get('status', '')}")
                 print(f"window_utc_day: {payload.get('window_utc_day', '')}")
+            elif kind == "plugins":
+                _print_plugin_result(payload)
             else:
                 print(json.dumps(payload, sort_keys=True))
         return int(exit_code)

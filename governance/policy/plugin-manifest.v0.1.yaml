@@ -1,0 +1,142 @@
+version: 1
+schema_id: plugin-manifest-v0.1
+type: object
+required:
+  - manifest_version
+  - plugin_id
+  - plugin_version
+  - api_version
+  - publisher
+  - entrypoint
+  - permissions
+  - runtime
+additionalProperties: false
+
+properties:
+  manifest_version:
+    type: integer
+    enum: [1]
+
+  plugin_id:
+    type: string
+    pattern: "^[a-z0-9][a-z0-9-_]{2,63}$"
+
+  plugin_version:
+    type: string
+    pattern: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+
+  api_version:
+    type: integer
+    enum: [1]
+
+  description:
+    type: string
+    maxLength: 240
+
+  publisher:
+    type: object
+    required: [publisher_id, trust_tier]
+    additionalProperties: false
+    properties:
+      publisher_id:
+        type: string
+        pattern: "^[A-Za-z0-9._-]{3,64}$"
+      trust_tier:
+        type: string
+        enum: ["official", "community", "local"]
+      source_repo:
+        type: string
+        maxLength: 200
+
+  entrypoint:
+    type: object
+    required: [command]
+    additionalProperties: false
+    properties:
+      command:
+        type: array
+        minItems: 1
+        items: { type: string }
+      working_dir:
+        type: string
+      protocol:
+        type: string
+        enum: ["stdin_stdout_json", "http_local", "unix_socket"]
+
+  runtime:
+    type: object
+    required: [mode]
+    additionalProperties: false
+    properties:
+      mode:
+        type: string
+        enum: ["subprocess", "container", "sidecar_service"]
+      container_image:
+        type: string
+        maxLength: 200
+      user:
+        type: string
+        description: "Non-root recommended"
+      timeout_seconds:
+        type: integer
+        minimum: 1
+        maximum: 600
+
+  permissions:
+    type: object
+    required: [capabilities, filesystem, network, secrets]
+    additionalProperties: false
+    properties:
+      capabilities:
+        type: array
+        items:
+          type: string
+          enum:
+            - "notify:escalation"
+            - "notify:job_failed"
+            - "notify:job_complete"
+            - "export:artifact"
+            - "import:signal"
+            - "observe:metrics"
+      filesystem:
+        type: object
+        required: [read, write]
+        additionalProperties: false
+        properties:
+          read:
+            type: array
+            items: { type: string }
+          write:
+            type: array
+            items: { type: string }
+      network:
+        type: object
+        required: [allow]
+        additionalProperties: false
+        properties:
+          allow:
+            type: array
+            items:
+              type: object
+              required: [host, port]
+              additionalProperties: false
+              properties:
+                host: { type: string }
+                port: { type: integer, minimum: 1, maximum: 65535 }
+      secrets:
+        type: object
+        required: [grants]
+        additionalProperties: false
+        properties:
+          grants:
+            type: array
+            items:
+              type: object
+              required: [name, tier, exposure]
+              additionalProperties: false
+              properties:
+                name: { type: string }
+                tier: { type: string, enum: ["task_secrets"] }
+                exposure:
+                  type: string
+                  enum: ["plugin_env", "plugin_file"]
