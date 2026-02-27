@@ -2,7 +2,7 @@
 
 Status: active
 Current Phase: 1 (Runtime Consolidation)
-Current Focus: Remove `autonomy_budget_gate.py` in separate commit
+Current Focus: Remove legacy budget overlap (`supervisor/autonomy_budget.py`)
 
 ## 2026-02-27
 
@@ -36,6 +36,9 @@ Current Focus: Remove `autonomy_budget_gate.py` in separate commit
     - `docs/roadmap/autonomy_budget_gate_redundancy_proof.md`
     - dependency scan confirms no runtime imports
     - behavior equivalence check captured for compatibility API
+  - Removed redundant compatibility module and module-specific test:
+    - removed `supervisor/autonomy_budget_gate.py`
+    - removed `supervisor/tests/test_autonomy_budget_gate.py`
   - Added UTC enforcement regression tests:
     - `tests/test_utc_enforcement.py`
   - Added tests for remote/staging behavior:
@@ -45,9 +48,9 @@ Current Focus: Remove `autonomy_budget_gate.py` in separate commit
 - Validation notes:
   - `pytest` is available via `/home/n04d/.local/bin/pytest`.
   - Targeted roadmap suite status:
-    - `56 passed` (including `tests/test_night_mode.py`, `supervisor/tests/test_autonomy_budget_gate.py`, `supervisor/tests/test_night_executor.py`)
+    - pending rerun after removal commit
   - Syntax checks passed with:
     - `PYTHONPYCACHEPREFIX=/tmp/aios-pyc python3 -m py_compile ...`
 
 - Next item in progress:
-  - `Remove autonomy_budget_gate.py in separate commit`
+  - `Remove legacy budget overlap (supervisor/autonomy_budget.py)`

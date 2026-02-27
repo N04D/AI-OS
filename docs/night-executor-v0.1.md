@@ -34,6 +34,14 @@ python -m supervisor.night_executor --queue governance/night-queue.yaml
      - Otherwise uses deterministic fallback hash of
        `git HEAD sha + OS uname + python version`.
 
+2.1 Canonical harness exit-code contract (`scripts/test-all.sh`):
+   - `0` => `success`
+   - `20` => `git_untrusted`
+   - `21` => `git_dirty`
+   - `22` => `runner_missing`
+   - `23` => `tests_failed`
+   - Night preflight records `test_harness_exit_code` and `test_harness_exit_category`.
+
 3. Task attempts:
    - `task_id = "issue:<issue>"`
    - `task_spec_hash = sha256(spec file bytes)`
@@ -167,7 +175,7 @@ CLI groundwork is available through:
 
 ## Execution Budgeting + Rate Limiter v0.1
 
-Budget gate module: `supervisor.autonomy_budget_gate`
+Budget gate module: `supervisor.autonomy_budget` (canonical runtime path)
 
 Host-state files (outside repository):
 
