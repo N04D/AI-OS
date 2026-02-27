@@ -455,28 +455,28 @@ This is a deterministic kernel-level integration test only.
 
 ## Execution Plan (Phase 5 Extension)
 
-- [ ] Step 1: Add deterministic local intake source from `state/issues/open/*.md` and `*.json`.
-- [ ] Step 2: Define explicit local issue schema requirements with fail-closed validation (no implicit defaults).
-- [ ] Step 3: Integrate local intake mode in night-run with strict deterministic ordering.
-- [ ] Step 4: Process local issues sequentially and re-check queue after each completed issue.
-- [ ] Step 5: Add explicit local capability registry load from `state/capabilities/enabled.json`.
-- [ ] Step 6: Enforce no implicit capability grants in local mode.
-- [ ] Step 7: Emit capability request artifacts to `state/capability_requests/` on missing capability.
-- [ ] Step 8: Deny execution on missing capability with deterministic reason code (no fallback).
-- [ ] Step 9: Add positive test: hello-world local issue creates `helloworld.txt` via governed flow.
-- [ ] Step 10: Add negative test: email capability missing -> request artifact + deny.
-- [ ] Step 11: Add completion test: queue empty after processing -> deterministic HALT.
-- [ ] Step 12: Run full `pytest -q`, update roadmap/progress with evidence, and enter HALT.
+- [x] Step 1: Add deterministic local intake source from `state/issues/open/*.md` and `*.json`.
+- [x] Step 2: Define explicit local issue schema requirements with fail-closed validation (no implicit defaults).
+- [x] Step 3: Integrate local intake mode in night-run with strict deterministic ordering.
+- [x] Step 4: Process local issues sequentially and re-check queue after each completed issue.
+- [x] Step 5: Add explicit local capability registry load from `state/capabilities/enabled.json`.
+- [x] Step 6: Enforce no implicit capability grants in local mode.
+- [x] Step 7: Emit capability request artifacts to `state/capability_requests/` on missing capability.
+- [x] Step 8: Deny execution on missing capability with deterministic reason code (no fallback).
+- [x] Step 9: Add positive test: hello-world local issue creates `helloworld.txt` via governed flow.
+- [x] Step 10: Add negative test: email capability missing -> request artifact + deny.
+- [x] Step 11: Add completion test: queue empty after processing -> deterministic HALT.
+- [x] Step 12: Run full `pytest -q`, update roadmap/progress with evidence, and enter HALT.
 
 ## Exit Condition
 
 Phase 5 Extension is complete only if:
 
-- [ ] Local issue intake works deterministically.
-- [ ] Capability request system enforced.
-- [ ] No silent privilege escalation possible.
-- [ ] Full test suite green.
-- [ ] HALT entered.
+- [x] Local issue intake works deterministically.
+- [x] Capability request system enforced.
+- [x] No silent privilege escalation possible.
+- [x] Full test suite green.
+- [x] HALT entered.
 
 ---
 
