@@ -1,26 +1,11 @@
 # Spec & Doc Inventory
 
-- total docs scanned: 87
-- total refs found: 1255
-- missing refs count: 257
+- total docs scanned: 76
+- total refs found: 1202
+- missing refs count: 251
 
 | Document | Type | Ref count | Missing refs count | Status |
 |---|---|---:|---:|---|
-| docs/Specifications AI-OS/.obsidian/app.json | spec | 0 | 0 | OK |
-| docs/Specifications AI-OS/.obsidian/appearance.json | spec | 0 | 0 | OK |
-| docs/Specifications AI-OS/.obsidian/core-plugins.json | spec | 0 | 0 | OK |
-| docs/Specifications AI-OS/.obsidian/graph.json | spec | 0 | 0 | OK |
-| docs/Specifications AI-OS/.obsidian/themes/AbsoluteGruv/manifest.json | spec | 0 | 0 | OK |
-| docs/Specifications AI-OS/.obsidian/themes/Apex/manifest.json | spec | 0 | 0 | OK |
-| docs/Specifications AI-OS/.obsidian/themes/Minimal/manifest.json | spec | 0 | 0 | OK |
-| docs/Specifications AI-OS/.obsidian/themes/Obsidian Nord/manifest.json | spec | 0 | 0 | OK |
-| docs/Specifications AI-OS/.obsidian/themes/Terminal/manifest.json | spec | 0 | 0 | OK |
-| docs/Specifications AI-OS/.obsidian/themes/WY Console/manifest.json | spec | 0 | 0 | OK |
-| docs/Specifications AI-OS/.obsidian/themes/flexcyon/manifest.json | spec | 1 | 1 | HAS_MISSING_REFS |
-| docs/Specifications AI-OS/.obsidian/workspace.json | spec | 0 | 0 | OK |
-| docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md | spec | 15 | 0 | OK |
-| docs/Specifications AI-OS/Notes 02162026.md | spec | 0 | 0 | OK |
-| docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md | spec | 73 | 5 | HAS_MISSING_REFS |
 | docs/adr/ADR-001-autonomy-budget-gate-redundancy-proof.md | other | 3 | 1 | HAS_MISSING_REFS |
 | docs/adr/ADR-002-phase-acceptance-rule-enforcement.md | other | 1 | 0 | OK |
 | docs/adr/ADR-003-high-risk-token-gate-scope.md | other | 1 | 0 | OK |
@@ -35,7 +20,7 @@
 | docs/archive/governance_versions/governance-invariants.v0.1.md | other | 15 | 7 | HAS_MISSING_REFS |
 | docs/autonomous-phase-transition-governance-v0.1.md | other | 1 | 0 | OK |
 | docs/channels/telegram.v0.1.md | other | 21 | 5 | HAS_MISSING_REFS |
-| docs/core_manifest.md | other | 12 | 0 | OK |
+| docs/core_manifest.md | other | 11 | 0 | OK |
 | docs/deterministic-executor-dispatch-and-result-ingestion-v0.1.md | other | 0 | 0 | OK |
 | docs/deterministic-supervisor-loop-v0.1.md | other | 0 | 0 | OK |
 | docs/dispatch-api.v0.1.md | other | 31 | 4 | HAS_MISSING_REFS |
@@ -50,6 +35,8 @@
 | docs/hardening/container-hardening.v0.1.md | other | 46 | 8 | HAS_MISSING_REFS |
 | docs/hardening/nginx-telegram-reverse-proxy.v0.1.md | other | 14 | 6 | HAS_MISSING_REFS |
 | docs/implementation-plan.v0.1.md | other | 39 | 24 | HAS_MISSING_REFS |
+| docs/index/spec_root_audit.md | spec | 8 | 0 | OK |
+| docs/index/vault_alignment.md | other | 6 | 0 | OK |
 | docs/ipc-runner.v0.1.md | other | 31 | 1 | HAS_MISSING_REFS |
 | docs/multi-cycle-deterministic-scheduler-v0.1.md | other | 3 | 0 | OK |
 | docs/night-executor-v0.1.md | other | 141 | 24 | HAS_MISSING_REFS |
@@ -65,11 +52,13 @@
 | docs/recursive-self-improvement-governance-v0.1.md | other | 1 | 0 | OK |
 | docs/roadmap/autonomy_budget_gate_redundancy_proof.md | roadmap | 9 | 3 | HAS_MISSING_REFS |
 | docs/roadmap/codex_autonomy_progress.md | roadmap | 230 | 43 | HAS_MISSING_REFS |
-| docs/roadmap/codex_autonomy_roadmap.md | roadmap | 29 | 7 | HAS_MISSING_REFS |
+| docs/roadmap/codex_autonomy_roadmap.md | roadmap | 37 | 7 | HAS_MISSING_REFS |
+| docs/roadmap/secure-execution-layer.md | roadmap | 0 | 0 | OK |
 | docs/safety-kernel-and-hard-kill-switch-architecture-v0.1.md | other | 0 | 0 | OK |
 | docs/self-generated-governed-task-creation-v0.1.md | other | 1 | 0 | OK |
 | docs/self-generated-task-planning-protocol-v0.1.md | other | 0 | 0 | OK |
 | docs/skills/skills.v0.1.md | other | 30 | 7 | HAS_MISSING_REFS |
+| docs/specs/agent-git-governance-spec.v0.2.md | spec | 15 | 0 | OK |
 | docs/specs/controlled-runtime-enforcement-plan-v0.1.md | spec | 22 | 9 | HAS_MISSING_REFS |
 | docs/specs/determinism_evidence.schema.v0.1.json | schema | 0 | 0 | OK |
 | docs/specs/execution-permit-attestation-contract-v0.1.md | spec | 42 | 4 | HAS_MISSING_REFS |
@@ -95,55 +84,6 @@
 | governance/schema/supervisor/capability-revoke.v0.1.json | schema | 1 | 1 | HAS_MISSING_REFS |
 
 ## Missing References Per Document
-
-### docs/Specifications AI-OS/.obsidian/app.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/appearance.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/core-plugins.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/graph.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/themes/AbsoluteGruv/manifest.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/themes/Apex/manifest.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/themes/Minimal/manifest.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/themes/Obsidian Nord/manifest.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/themes/Terminal/manifest.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/themes/WY Console/manifest.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/themes/flexcyon/manifest.json
-- docs/dark.png
-
-### docs/Specifications AI-OS/.obsidian/workspace.json
-- none
-
-### docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md
-- none
-
-### docs/Specifications AI-OS/Notes 02162026.md
-- none
-
-### docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md
-- docs/Specifications AI-OS/.gitea/pull_request_template.md
-- docs/Specifications AI-OS/All governance gates satisfied (policy v0.2, hash …
-- docs/Specifications AI-OS/artifacts/governance/pr-<num>-<headsha>.json
-- docs/Specifications AI-OS/environment.json
-- docs/Specifications AI-OS/git log --show-signature <base>..<head
 
 ### docs/adr/ADR-001-autonomy-budget-gate-redundancy-proof.md
 - supervisor/autonomy_budget_gate.py
@@ -296,6 +236,12 @@
 - supervisor/system_ops/executor.py
 - supervisor/system_ops/permit_gate.py
 
+### docs/index/spec_root_audit.md
+- none
+
+### docs/index/vault_alignment.md
+- none
+
 ### docs/ipc-runner.v0.1.md
 - docs/runtime.timeout_seconds
 
@@ -436,6 +382,9 @@
 - state/issues/open/*.md
 - state/issues/open/901-high-star.json
 
+### docs/roadmap/secure-execution-layer.md
+- none
+
 ### docs/safety-kernel-and-hard-kill-switch-architecture-v0.1.md
 - none
 
@@ -453,6 +402,9 @@
 - docs/skills/result.ok == true
 - state/plugins/config.json
 - state/plugins/registry.json
+
+### docs/specs/agent-git-governance-spec.v0.2.md
+- none
 
 ### docs/specs/controlled-runtime-enforcement-plan-v0.1.md
 - docs/specs/event_type=permit.issued

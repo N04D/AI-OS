@@ -28,21 +28,6 @@
 ### docs/NIGHT_BRANCH=dev ./scripts/night-bootstrap.sh
 - docs/night-mode.v0.1.md:10 — Example: `NIGHT_BRANCH=dev ./scripts/night-bootstrap.sh`
 
-### docs/Specifications AI-OS/.gitea/pull_request_template.md
-- docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md:357 — 3. Add PR template in `.gitea/pull_request_template.md` (or repo equivalent)
-
-### docs/Specifications AI-OS/All governance gates satisfied (policy v0.2, hash …
-- docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md:349 — * **PASS:** `All governance gates satisfied (policy v0.2, hash …)`
-
-### docs/Specifications AI-OS/artifacts/governance/pr-<num>-<headsha>.json
-- docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md:246 — `artifacts/governance/pr-<num>-<headsha>.json`
-
-### docs/Specifications AI-OS/environment.json
-- docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md:320 — * The Supervisor should derive `owner/repo` dynamically from `environment.json` or git remote (aligns with your backlog item: remove hard-coded owner/repo).
-
-### docs/Specifications AI-OS/git log --show-signature <base>..<head
-- docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md:166 — * `git log --show-signature <base>..<head>`
-
 ### docs/agents/state/environment.json
 - docs/governance.md:78 — `agents/state/environment.json`. Refer to those files for details.)
 - docs/supervisor-governance-enforcement-v0.1.md:47 — `docs/governance.md` and `agents/state/environment.json`
@@ -98,9 +83,6 @@
 - docs/plugins-ops.md:11 — `config.json` is operator-owned enablement state.
 - docs/plugins-ops.md:15 — - `config.json` canonical shape:
 - docs/plugins-ops.md:19 — Canonical `config.json`:
-
-### docs/dark.png
-- docs/Specifications AI-OS/.obsidian/themes/flexcyon/manifest.json:6 — "screenshot": "./docs/dark.png",
 
 ### docs/error.details[0
 - docs/dispatch-api.v0.1.md:64 — Runner reason codes are preserved in `error.details[0]`.
@@ -635,55 +617,6 @@
 
 ## Grouped By Document
 
-### docs/Specifications AI-OS/.obsidian/app.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/appearance.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/core-plugins.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/graph.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/themes/AbsoluteGruv/manifest.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/themes/Apex/manifest.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/themes/Minimal/manifest.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/themes/Obsidian Nord/manifest.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/themes/Terminal/manifest.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/themes/WY Console/manifest.json
-- none
-
-### docs/Specifications AI-OS/.obsidian/themes/flexcyon/manifest.json
-- docs/dark.png (docs/Specifications AI-OS/.obsidian/themes/flexcyon/manifest.json:6) — "screenshot": "./docs/dark.png",
-
-### docs/Specifications AI-OS/.obsidian/workspace.json
-- none
-
-### docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md
-- none
-
-### docs/Specifications AI-OS/Notes 02162026.md
-- none
-
-### docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md
-- docs/Specifications AI-OS/.gitea/pull_request_template.md (docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md:357) — 3. Add PR template in `.gitea/pull_request_template.md` (or repo equivalent)
-- docs/Specifications AI-OS/All governance gates satisfied (policy v0.2, hash … (docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md:349) — * **PASS:** `All governance gates satisfied (policy v0.2, hash …)`
-- docs/Specifications AI-OS/artifacts/governance/pr-<num>-<headsha>.json (docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md:246) — `artifacts/governance/pr-<num>-<headsha>.json`
-- docs/Specifications AI-OS/environment.json (docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md:320) — * The Supervisor should derive `owner/repo` dynamically from `environment.json` or git remote (aligns with your backlog item: remove hard-coded owner/repo).
-- docs/Specifications AI-OS/git log --show-signature <base>..<head (docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md:166) — * `git log --show-signature <base>..<head>`
-
 ### docs/adr/ADR-001-autonomy-budget-gate-redundancy-proof.md
 - supervisor/autonomy_budget_gate.py (docs/adr/ADR-001-autonomy-budget-gate-redundancy-proof.md:8) — Legacy compatibility layer `supervisor/autonomy_budget_gate.py` required proof of runtime redundancy before removal.
 
@@ -839,6 +772,12 @@
 - supervisor/skills/registry.py (docs/implementation-plan.v0.1.md:142) — - `supervisor/skills/registry.py`
 - supervisor/system_ops/executor.py (docs/implementation-plan.v0.1.md:187) — - `supervisor/system_ops/executor.py`
 - supervisor/system_ops/permit_gate.py (docs/implementation-plan.v0.1.md:188) — - `supervisor/system_ops/permit_gate.py`
+
+### docs/index/spec_root_audit.md
+- none
+
+### docs/index/vault_alignment.md
+- none
 
 ### docs/ipc-runner.v0.1.md
 - docs/runtime.timeout_seconds (docs/ipc-runner.v0.1.md:37) — - `runtime.timeout_seconds` must be present and > 0.
@@ -1011,6 +950,9 @@
 - state/issues/open/*.md (docs/roadmap/codex_autonomy_roadmap.md:458) — - [x] Step 1: Add deterministic local intake source from `state/issues/open/*.md` and `*.json`.
 - state/issues/open/901-high-star.json (docs/roadmap/codex_autonomy_roadmap.md:483) — - [x] Diagnosed `DENY_TOKEN_MISSING` on user machine as HIGH-risk input issue (`state/issues/open/901-high-star.json`), not branch mismatch.
 
+### docs/roadmap/secure-execution-layer.md
+- none
+
 ### docs/safety-kernel-and-hard-kill-switch-architecture-v0.1.md
 - none
 
@@ -1028,6 +970,9 @@
 - docs/skills/result.ok == true (docs/skills/skills.v0.1.md:105) — - Cooldown state is updated only after successful dispatch (`result.ok == true`).
 - state/plugins/config.json (docs/skills/skills.v0.1.md:85) — config_path="state/plugins/config.json",
 - state/plugins/registry.json (docs/skills/skills.v0.1.md:84) — registry_path="state/plugins/registry.json",
+
+### docs/specs/agent-git-governance-spec.v0.2.md
+- none
 
 ### docs/specs/controlled-runtime-enforcement-plan-v0.1.md
 - docs/specs/event_type=permit.issued (docs/specs/controlled-runtime-enforcement-plan-v0.1.md:31) — - issuance audit event proposal (`event_type=permit.issued`)

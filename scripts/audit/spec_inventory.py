@@ -17,6 +17,9 @@ GENERATED_OUTPUTS = {
     "docs/index/spec_inventory.json",
     "docs/index/dangling_refs.md",
 }
+EXCLUDED_PREFIXES = (
+    "docs/archive/legacy_specs/",
+)
 
 MD_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")
@@ -39,6 +42,8 @@ class RefHit:
 def _is_doc_path(path: Path) -> bool:
     rel = path.as_posix()
     if rel in GENERATED_OUTPUTS:
+        return False
+    if rel.startswith(EXCLUDED_PREFIXES):
         return False
     if path.suffix.lower() not in DOC_EXTENSIONS:
         return False

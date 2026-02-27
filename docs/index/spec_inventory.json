@@ -1,745 +1,6 @@
 {
   "docs": [
     {
-      "missing_refs": [],
-      "path": "docs/Specifications AI-OS/.obsidian/app.json",
-      "refs": [],
-      "status": "OK",
-      "type": "spec"
-    },
-    {
-      "missing_refs": [],
-      "path": "docs/Specifications AI-OS/.obsidian/appearance.json",
-      "refs": [],
-      "status": "OK",
-      "type": "spec"
-    },
-    {
-      "missing_refs": [],
-      "path": "docs/Specifications AI-OS/.obsidian/core-plugins.json",
-      "refs": [],
-      "status": "OK",
-      "type": "spec"
-    },
-    {
-      "missing_refs": [],
-      "path": "docs/Specifications AI-OS/.obsidian/graph.json",
-      "refs": [],
-      "status": "OK",
-      "type": "spec"
-    },
-    {
-      "missing_refs": [],
-      "path": "docs/Specifications AI-OS/.obsidian/themes/AbsoluteGruv/manifest.json",
-      "refs": [],
-      "status": "OK",
-      "type": "spec"
-    },
-    {
-      "missing_refs": [],
-      "path": "docs/Specifications AI-OS/.obsidian/themes/Apex/manifest.json",
-      "refs": [],
-      "status": "OK",
-      "type": "spec"
-    },
-    {
-      "missing_refs": [],
-      "path": "docs/Specifications AI-OS/.obsidian/themes/Minimal/manifest.json",
-      "refs": [],
-      "status": "OK",
-      "type": "spec"
-    },
-    {
-      "missing_refs": [],
-      "path": "docs/Specifications AI-OS/.obsidian/themes/Obsidian Nord/manifest.json",
-      "refs": [],
-      "status": "OK",
-      "type": "spec"
-    },
-    {
-      "missing_refs": [],
-      "path": "docs/Specifications AI-OS/.obsidian/themes/Terminal/manifest.json",
-      "refs": [],
-      "status": "OK",
-      "type": "spec"
-    },
-    {
-      "missing_refs": [],
-      "path": "docs/Specifications AI-OS/.obsidian/themes/WY Console/manifest.json",
-      "refs": [],
-      "status": "OK",
-      "type": "spec"
-    },
-    {
-      "missing_refs": [
-        "docs/dark.png"
-      ],
-      "path": "docs/Specifications AI-OS/.obsidian/themes/flexcyon/manifest.json",
-      "refs": [
-        {
-          "context": "\"screenshot\": \"./docs/dark.png\",",
-          "line": 6,
-          "normalized": "docs/dark.png",
-          "raw": "docs/dark.png",
-          "status": "missing"
-        }
-      ],
-      "status": "HAS_MISSING_REFS",
-      "type": "spec"
-    },
-    {
-      "missing_refs": [],
-      "path": "docs/Specifications AI-OS/.obsidian/workspace.json",
-      "refs": [],
-      "status": "OK",
-      "type": "spec"
-    },
-    {
-      "missing_refs": [],
-      "path": "docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md",
-      "refs": [
-        {
-          "context": "1. Issue must contain `LOCK:<path>`",
-          "line": 136,
-          "normalized": "docs/Specifications AI-OS/LOCK:<path",
-          "raw": "LOCK:<path>",
-          "status": "ambiguous"
-        },
-        {
-          "context": "1. Classified as `SYSTEM_EVOLUTION`",
-          "line": 194,
-          "normalized": "docs/Specifications AI-OS/SYSTEM_EVOLUTION",
-          "raw": "SYSTEM_EVOLUTION",
-          "status": "ambiguous"
-        },
-        {
-          "context": "2. No direct mutation of `develop`.",
-          "line": 23,
-          "normalized": "docs/Specifications AI-OS/develop",
-          "raw": "develop",
-          "status": "ambiguous"
-        },
-        {
-          "context": "| `develop` | Integration branch | No | Yes | No* |",
-          "line": 40,
-          "normalized": "docs/Specifications AI-OS/develop",
-          "raw": "develop",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `develop` must be frozen",
-          "line": 162,
-          "normalized": "docs/Specifications AI-OS/develop",
-          "raw": "develop",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* Immediate cherry-pick to `develop`",
-          "line": 219,
-          "normalized": "docs/Specifications AI-OS/develop",
-          "raw": "develop",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `environment/`",
-          "line": 131,
-          "normalized": "docs/Specifications AI-OS/environment",
-          "raw": "environment/",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `executor/`",
-          "line": 129,
-          "normalized": "docs/Specifications AI-OS/executor",
-          "raw": "executor/",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* Must live in `generated/`",
-          "line": 258,
-          "normalized": "docs/Specifications AI-OS/generated",
-          "raw": "generated/",
-          "status": "ambiguous"
-        },
-        {
-          "context": "1. No direct mutation of `main`.",
-          "line": 22,
-          "normalized": "docs/Specifications AI-OS/main",
-          "raw": "main",
-          "status": "ambiguous"
-        },
-        {
-          "context": "| `main` | Stable releases | No | Yes | Yes |",
-          "line": 39,
-          "normalized": "docs/Specifications AI-OS/main",
-          "raw": "main",
-          "status": "ambiguous"
-        },
-        {
-          "context": "Before merging into `main`:",
-          "line": 160,
-          "normalized": "docs/Specifications AI-OS/main",
-          "raw": "main",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* Direct PR to `main`",
-          "line": 217,
-          "normalized": "docs/Specifications AI-OS/main",
-          "raw": "main",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* Auto-commit from running agents to `main`",
-          "line": 249,
-          "normalized": "docs/Specifications AI-OS/main",
-          "raw": "main",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `orchestrator/`",
-          "line": 130,
-          "normalized": "docs/Specifications AI-OS/orchestrator",
-          "raw": "orchestrator/",
-          "status": "ambiguous"
-        }
-      ],
-      "status": "OK",
-      "type": "spec"
-    },
-    {
-      "missing_refs": [],
-      "path": "docs/Specifications AI-OS/Notes 02162026.md",
-      "refs": [],
-      "status": "OK",
-      "type": "spec"
-    },
-    {
-      "missing_refs": [
-        "docs/Specifications AI-OS/.gitea/pull_request_template.md",
-        "docs/Specifications AI-OS/All governance gates satisfied (policy v0.2, hash \u2026",
-        "docs/Specifications AI-OS/artifacts/governance/pr-<num>-<headsha>.json",
-        "docs/Specifications AI-OS/environment.json",
-        "docs/Specifications AI-OS/git log --show-signature <base>..<head"
-      ],
-      "path": "docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md",
-      "refs": [
-        {
-          "context": "* `(optional) comment_on_pr(pr_number, body)`",
-          "line": 339,
-          "normalized": "docs/Specifications AI-OS/(optional) comment_on_pr(pr_number, body",
-          "raw": "(optional) comment_on_pr(pr_number, body)",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `(optional) set_labels(pr_number, labels)`",
-          "line": 340,
-          "normalized": "docs/Specifications AI-OS/(optional) set_labels(pr_number, labels",
-          "raw": "(optional) set_labels(pr_number, labels)",
-          "status": "ambiguous"
-        },
-        {
-          "context": "3. Add PR template in `.gitea/pull_request_template.md` (or repo equivalent)",
-          "line": 357,
-          "normalized": "docs/Specifications AI-OS/.gitea/pull_request_template.md",
-          "raw": ".gitea/pull_request_template.md",
-          "status": "missing"
-        },
-        {
-          "context": "* **PASS:** `All governance gates satisfied (policy v0.2, hash \u2026)`",
-          "line": 349,
-          "normalized": "docs/Specifications AI-OS/All governance gates satisfied (policy v0.2, hash \u2026",
-          "raw": "All governance gates satisfied (policy v0.2, hash \u2026)",
-          "status": "missing"
-        },
-        {
-          "context": "* `Determinism Impact`",
-          "line": 149,
-          "normalized": "docs/Specifications AI-OS/Determinism Impact",
-          "raw": "Determinism Impact",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* **FAIL:** `High-risk path touched (supervisor/). LOCK:supervisor/ missing.`",
-          "line": 347,
-          "normalized": "docs/Specifications AI-OS/High-risk path touched (supervisor/). LOCK:supervisor/ missing",
-          "raw": "High-risk path touched (supervisor/). LOCK:supervisor/ missing.",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* Optional: labels (`governed`, `risk:*`, `LOCK:*`)",
-          "line": 238,
-          "normalized": "docs/Specifications AI-OS/LOCK:*",
-          "raw": "LOCK:*",
-          "status": "ambiguous"
-        },
-        {
-          "context": "1. PR must include lock declaration: `LOCK:<path>` in body or issue label",
-          "line": 194,
-          "normalized": "docs/Specifications AI-OS/LOCK:<path",
-          "raw": "LOCK:<path>",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `Lock Required?`",
-          "line": 150,
-          "normalized": "docs/Specifications AI-OS/Lock Required",
-          "raw": "Lock Required?",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* **FAIL:** `Missing required PR template fields: Rollback Plan, Determinism Impact`",
-          "line": 346,
-          "normalized": "docs/Specifications AI-OS/Missing required PR template fields: Rollback Plan, Determinism Impact",
-          "raw": "Missing required PR template fields: Rollback Plan, Determinism Impact",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `Risk Level`",
-          "line": 148,
-          "normalized": "docs/Specifications AI-OS/Risk Level",
-          "raw": "Risk Level",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `Rollback Plan`",
-          "line": 152,
-          "normalized": "docs/Specifications AI-OS/Rollback Plan",
-          "raw": "Rollback Plan",
-          "status": "ambiguous"
-        },
-        {
-          "context": "Then classify as `SYSTEM_EVOLUTION` and require:",
-          "line": 284,
-          "normalized": "docs/Specifications AI-OS/SYSTEM_EVOLUTION",
-          "raw": "SYSTEM_EVOLUTION",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `Subsystem`",
-          "line": 147,
-          "normalized": "docs/Specifications AI-OS/Subsystem",
-          "raw": "Subsystem",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `Tests Executed`",
-          "line": 151,
-          "normalized": "docs/Specifications AI-OS/Tests Executed",
-          "raw": "Tests Executed",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* **FAIL:** `Unsigned commit detected: <sha>`",
-          "line": 348,
-          "normalized": "docs/Specifications AI-OS/Unsigned commit detected: <sha",
-          "raw": "Unsigned commit detected: <sha>",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `[#42]` or `#42`",
-          "line": 139,
-          "normalized": "docs/Specifications AI-OS/[",
-          "raw": "[#42]",
-          "status": "ambiguous"
-        },
-        {
-          "context": "`^agent\\/[a-z0-9_-]+\\/(feat|fix|chore|docs|test)\\/[0-9]+-[a-z0-9-]+$`",
-          "line": 126,
-          "normalized": "docs/Specifications AI-OS/^agent\\/[a-z0-9_-]+\\/(feat|fix|chore|docs|test)\\/[0-9]+-[a-z0-9-]+$",
-          "raw": "^agent\\/[a-z0-9_-]+\\/(feat|fix|chore|docs|test)\\/[0-9]+-[a-z0-9-]+$",
-          "status": "ambiguous"
-        },
-        {
-          "context": "`^hotfix\\/[0-9]+-[a-z0-9-]+$`",
-          "line": 129,
-          "normalized": "docs/Specifications AI-OS/^hotfix\\/[0-9]+-[a-z0-9-]+$",
-          "raw": "^hotfix\\/[0-9]+-[a-z0-9-]+$",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `agent/*` PR targeting `main`",
-          "line": 116,
-          "normalized": "docs/Specifications AI-OS/agent/*",
-          "raw": "agent/*",
-          "status": "ambiguous"
-        },
-        {
-          "context": "`artifacts/governance/pr-<num>-<headsha>.json`",
-          "line": 246,
-          "normalized": "docs/Specifications AI-OS/artifacts/governance/pr-<num>-<headsha>.json",
-          "raw": "artifacts/governance/pr-<num>-<headsha>.json",
-          "status": "missing"
-        },
-        {
-          "context": "* Enforce governance rules on PRs targeting `develop` or `main`",
-          "line": 15,
-          "normalized": "docs/Specifications AI-OS/develop",
-          "raw": "develop",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* Protected branches: `main`, `develop`",
-          "line": 29,
-          "normalized": "docs/Specifications AI-OS/develop",
-          "raw": "develop",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* PR target must be `develop` or `main`",
-          "line": 110,
-          "normalized": "docs/Specifications AI-OS/develop",
-          "raw": "develop",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* Feature work must target `develop`",
-          "line": 111,
-          "normalized": "docs/Specifications AI-OS/develop",
-          "raw": "develop",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `develop`: \u22651 approval by *different principal* (agent or human)",
-          "line": 176,
-          "normalized": "docs/Specifications AI-OS/develop",
-          "raw": "develop",
-          "status": "ambiguous"
-        },
-        {
-          "context": "On `main` and `develop`:",
-          "line": 307,
-          "normalized": "docs/Specifications AI-OS/develop",
-          "raw": "develop",
-          "status": "ambiguous"
-        },
-        {
-          "context": "1. Enable branch protections (`main`, `develop`) with required check `supervisor/governance`",
-          "line": 355,
-          "normalized": "docs/Specifications AI-OS/develop",
-          "raw": "develop",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `environment/`",
-          "line": 190,
-          "normalized": "docs/Specifications AI-OS/environment",
-          "raw": "environment/",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* The Supervisor should derive `owner/repo` dynamically from `environment.json` or git remote (aligns with your backlog item: remove hard-coded owner/repo).",
-          "line": 320,
-          "normalized": "docs/Specifications AI-OS/environment.json",
-          "raw": "environment.json",
-          "status": "missing"
-        },
-        {
-          "context": "* `executor/`",
-          "line": 188,
-          "normalized": "docs/Specifications AI-OS/executor",
-          "raw": "executor/",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `failure` \u2192 merge blocked",
-          "line": 79,
-          "normalized": "docs/Specifications AI-OS/failure",
-          "raw": "failure",
-          "status": "ambiguous"
-        },
-        {
-          "context": "Supervisor must evaluate the following gates. Any failure \u21d2 status = `failure`.",
-          "line": 106,
-          "normalized": "docs/Specifications AI-OS/failure",
-          "raw": "failure",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* If Gitea API unreachable \u2192 set status `pending` (or `failure`) so merge is blocked",
-          "line": 296,
-          "normalized": "docs/Specifications AI-OS/failure",
-          "raw": "failure",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* If diff retrieval fails \u2192 `failure`",
-          "line": 297,
-          "normalized": "docs/Specifications AI-OS/failure",
-          "raw": "failure",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* If policy file missing \u2192 `failure`",
-          "line": 298,
-          "normalized": "docs/Specifications AI-OS/failure",
-          "raw": "failure",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* If signature verification cannot run \u2192 `failure` (strict) or `pending` (lenient)",
-          "line": 299,
-          "normalized": "docs/Specifications AI-OS/failure",
-          "raw": "failure",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `get_pr(pr_number)`",
-          "line": 334,
-          "normalized": "docs/Specifications AI-OS/get_pr(pr_number",
-          "raw": "get_pr(pr_number)",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `get_pr_commits(pr_number)`",
-          "line": 335,
-          "normalized": "docs/Specifications AI-OS/get_pr_commits(pr_number",
-          "raw": "get_pr_commits(pr_number)",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `get_pr_files(pr_number)`",
-          "line": 336,
-          "normalized": "docs/Specifications AI-OS/get_pr_files(pr_number",
-          "raw": "get_pr_files(pr_number)",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `get_pr_reviews(pr_number)`",
-          "line": 337,
-          "normalized": "docs/Specifications AI-OS/get_pr_reviews(pr_number",
-          "raw": "get_pr_reviews(pr_number)",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `git log --show-signature <base>..<head>`",
-          "line": 166,
-          "normalized": "docs/Specifications AI-OS/git log --show-signature <base>..<head",
-          "raw": "git log --show-signature <base>..<head>",
-          "status": "missing"
-        },
-        {
-          "context": "* Optional: labels (`governed`, `risk:*`, `LOCK:*`)",
-          "line": 238,
-          "normalized": "docs/Specifications AI-OS/governed",
-          "raw": "governed",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* Only `hotfix/*` may target `main` (unless release PR type)",
-          "line": 112,
-          "normalized": "docs/Specifications AI-OS/hotfix/*",
-          "raw": "hotfix/*",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `list_open_prs(base_branch in {develop, main})`",
-          "line": 333,
-          "normalized": "docs/Specifications AI-OS/list_open_prs(base_branch in {develop, main}",
-          "raw": "list_open_prs(base_branch in {develop, main})",
-          "status": "ambiguous"
-        },
-        {
-          "context": "4. Risk level cannot be `low`",
-          "line": 197,
-          "normalized": "docs/Specifications AI-OS/low",
-          "raw": "low",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* Enforce governance rules on PRs targeting `develop` or `main`",
-          "line": 15,
-          "normalized": "docs/Specifications AI-OS/main",
-          "raw": "main",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* Protected branches: `main`, `develop`",
-          "line": 29,
-          "normalized": "docs/Specifications AI-OS/main",
-          "raw": "main",
-          "status": "ambiguous"
-        },
-        {
-          "context": "Key idea: Supervisor reads the policy from the PR head SHA (not from `main`) so the policy itself can be updated via governed PRs, but:",
-          "line": 97,
-          "normalized": "docs/Specifications AI-OS/main",
-          "raw": "main",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* PR target must be `develop` or `main`",
-          "line": 110,
-          "normalized": "docs/Specifications AI-OS/main",
-          "raw": "main",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* Only `hotfix/*` may target `main` (unless release PR type)",
-          "line": 112,
-          "normalized": "docs/Specifications AI-OS/main",
-          "raw": "main",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `agent/*` PR targeting `main`",
-          "line": 116,
-          "normalized": "docs/Specifications AI-OS/main",
-          "raw": "main",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* random branch targeting `main`",
-          "line": 117,
-          "normalized": "docs/Specifications AI-OS/main",
-          "raw": "main",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `main`: human approval required",
-          "line": 177,
-          "normalized": "docs/Specifications AI-OS/main",
-          "raw": "main",
-          "status": "ambiguous"
-        },
-        {
-          "context": "On `main` and `develop`:",
-          "line": 307,
-          "normalized": "docs/Specifications AI-OS/main",
-          "raw": "main",
-          "status": "ambiguous"
-        },
-        {
-          "context": "1. Enable branch protections (`main`, `develop`) with required check `supervisor/governance`",
-          "line": 355,
-          "normalized": "docs/Specifications AI-OS/main",
-          "raw": "main",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `orchestrator/`",
-          "line": 189,
-          "normalized": "docs/Specifications AI-OS/orchestrator",
-          "raw": "orchestrator/",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* The Supervisor should derive `owner/repo` dynamically from `environment.json` or git remote (aligns with your backlog item: remove hard-coded owner/repo).",
-          "line": 320,
-          "normalized": "docs/Specifications AI-OS/owner/repo",
-          "raw": "owner/repo",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `pending` \u2192 merge blocked (if branch protection requires it)",
-          "line": 80,
-          "normalized": "docs/Specifications AI-OS/pending",
-          "raw": "pending",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* If Gitea API unreachable \u2192 set status `pending` (or `failure`) so merge is blocked",
-          "line": 296,
-          "normalized": "docs/Specifications AI-OS/pending",
-          "raw": "pending",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* If signature verification cannot run \u2192 `failure` (strict) or `pending` (lenient)",
-          "line": 299,
-          "normalized": "docs/Specifications AI-OS/pending",
-          "raw": "pending",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* Optional: labels (`governed`, `risk:*`, `LOCK:*`)",
-          "line": 238,
-          "normalized": "docs/Specifications AI-OS/risk:*",
-          "raw": "risk:*",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `set_commit_status(sha, context, state, description, target_url)`",
-          "line": 338,
-          "normalized": "docs/Specifications AI-OS/set_commit_status(sha, context, state, description, target_url",
-          "raw": "set_commit_status(sha, context, state, description, target_url)",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `success` \u2192 merge allowed (subject to other checks)",
-          "line": 78,
-          "normalized": "docs/Specifications AI-OS/success",
-          "raw": "success",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `governance/policy/*`",
-          "line": 280,
-          "normalized": "governance/policy",
-          "raw": "governance/policy/",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* `governance/policy/*`",
-          "line": 280,
-          "normalized": "governance/policy/*",
-          "raw": "governance/policy/*",
-          "status": "ambiguous"
-        },
-        {
-          "context": "`governance/policy/pr-governance.v0.2.yaml`",
-          "line": 95,
-          "normalized": "governance/policy/pr-governance.v0.2.yaml",
-          "raw": "governance/policy/pr-governance.v0.2.yaml",
-          "status": "exists"
-        },
-        {
-          "context": "2. Create policy file `governance/policy/pr-governance.v0.2.yaml`",
-          "line": 356,
-          "normalized": "governance/policy/pr-governance.v0.2.yaml",
-          "raw": "governance/policy/pr-governance.v0.2.yaml",
-          "status": "exists"
-        },
-        {
-          "context": "`artifacts/governance/pr-<num>-<headsha>.json`",
-          "line": 246,
-          "normalized": "governance/pr-",
-          "raw": "governance/pr-",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* Check name: `supervisor/governance`",
-          "line": 75,
-          "normalized": "supervisor/governance",
-          "raw": "supervisor/governance",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* Status: `supervisor/governance` = success/failure/pending",
-          "line": 234,
-          "normalized": "supervisor/governance",
-          "raw": "supervisor/governance",
-          "status": "ambiguous"
-        },
-        {
-          "context": "* Require status check: `supervisor/governance`",
-          "line": 309,
-          "normalized": "supervisor/governance",
-          "raw": "supervisor/governance",
-          "status": "ambiguous"
-        },
-        {
-          "context": "1. Enable branch protections (`main`, `develop`) with required check `supervisor/governance`",
-          "line": 355,
-          "normalized": "supervisor/governance",
-          "raw": "supervisor/governance",
-          "status": "ambiguous"
-        }
-      ],
-      "status": "HAS_MISSING_REFS",
-      "type": "spec"
-    },
-    {
       "missing_refs": [
         "supervisor/autonomy_budget_gate.py"
       ],
@@ -1752,45 +1013,38 @@
       "path": "docs/core_manifest.md",
       "refs": [
         {
-          "context": "| Agent Git Governance | `docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md` | v0.2 | LOCKED |",
-          "line": 15,
-          "normalized": "docs/Specifications",
-          "raw": "docs/Specifications",
-          "status": "ambiguous"
-        },
-        {
-          "context": "| Agent Git Governance | `docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md` | v0.2 | LOCKED |",
-          "line": 15,
-          "normalized": "docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md",
-          "raw": "docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md",
-          "status": "exists"
-        },
-        {
-          "context": "- `docs/archive/governance_versions/Agent Git Governance Spec v0.1.md` (superseded by v0.2)",
+          "context": "- docs/archive/governance_versions/Agent Git Governance Spec v0.1.md (superseded by v0.2)",
           "line": 25,
           "normalized": "docs/archive/governance_versions/Agent",
           "raw": "docs/archive/governance_versions/Agent",
           "status": "ambiguous"
         },
         {
-          "context": "- `docs/archive/governance_versions/Agent Git Governance Spec v0.1.md` (superseded by v0.2)",
-          "line": 25,
-          "normalized": "docs/archive/governance_versions/Agent Git Governance Spec v0.1.md",
-          "raw": "docs/archive/governance_versions/Agent Git Governance Spec v0.1.md",
-          "status": "exists"
-        },
-        {
-          "context": "- `docs/archive/governance_versions/governance-invariants.v0.1.md` (superseded by v0.2)",
+          "context": "- docs/archive/governance_versions/governance-invariants.v0.1.md (superseded by v0.2)",
           "line": 26,
           "normalized": "docs/archive/governance_versions/governance-invariants.v0.1.md",
           "raw": "docs/archive/governance_versions/governance-invariants.v0.1.md",
           "status": "exists"
         },
         {
-          "context": "Canonical core documents must have zero missing file references in `docs/index/spec_inventory.json`.",
-          "line": 30,
+          "context": "- docs/archive/legacy_specs/Specifications AI-OS/ (legacy vault root archived during Phase 7B)",
+          "line": 27,
+          "normalized": "docs/archive/legacy_specs/Specifications",
+          "raw": "docs/archive/legacy_specs/Specifications",
+          "status": "ambiguous"
+        },
+        {
+          "context": "Canonical core documents must have zero missing file references in docs/index/spec_inventory.json.",
+          "line": 31,
           "normalized": "docs/index/spec_inventory.json",
-          "raw": "docs/index/spec_inventory.json",
+          "raw": "docs/index/spec_inventory.json.",
+          "status": "exists"
+        },
+        {
+          "context": "| Agent Git Governance | `docs/specs/agent-git-governance-spec.v0.2.md` | v0.2 | LOCKED |",
+          "line": 15,
+          "normalized": "docs/specs/agent-git-governance-spec.v0.2.md",
+          "raw": "docs/specs/agent-git-governance-spec.v0.2.md",
           "status": "exists"
         },
         {
@@ -3533,6 +2787,120 @@
         }
       ],
       "status": "HAS_MISSING_REFS",
+      "type": "other"
+    },
+    {
+      "missing_refs": [],
+      "path": "docs/index/spec_root_audit.md",
+      "refs": [
+        {
+          "context": "| docs/Specifications AI-OS | no | 0 | 0be6779 Fri Feb 27 19:30:34 2026 +0100 docs(phase6): consolidate canonical docs, archive conceptuals, add ADRs | no |",
+          "line": 10,
+          "normalized": "docs/Specifications",
+          "raw": "docs/Specifications",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- Legacy roots were archived under `docs/archive/legacy_specs/`.",
+          "line": 18,
+          "normalized": "docs/archive/legacy_specs",
+          "raw": "docs/archive/legacy_specs/",
+          "status": "ambiguous"
+        },
+        {
+          "context": "| docs/archive/legacy_specs/Specifications AI-OS | yes | 22 | (untracked/no commit) | yes |",
+          "line": 13,
+          "normalized": "docs/archive/legacy_specs/Specifications",
+          "raw": "docs/archive/legacy_specs/Specifications",
+          "status": "ambiguous"
+        },
+        {
+          "context": "| docs/archive/legacy_specs/spec | yes | 1797 | (untracked/no commit) | no |",
+          "line": 11,
+          "normalized": "docs/archive/legacy_specs/spec",
+          "raw": "docs/archive/legacy_specs/spec",
+          "status": "ambiguous"
+        },
+        {
+          "context": "| docs/archive/legacy_specs/specs | yes | 3 | (untracked/no commit) | no |",
+          "line": 12,
+          "normalized": "docs/archive/legacy_specs/specs",
+          "raw": "docs/archive/legacy_specs/specs",
+          "status": "ambiguous"
+        },
+        {
+          "context": "Duplicate spec-root detection and normalization status for `/data/srv/aios/AI-OS`.",
+          "line": 3,
+          "normalized": "docs/index/data/srv/aios/AI-OS",
+          "raw": "/data/srv/aios/AI-OS",
+          "status": "ambiguous"
+        },
+        {
+          "context": "| docs/specs | yes | 12 | 763df78 Sat Feb 21 00:12:41 2026 +0100 spec(phase5): supervisor issuance, policy-to-capability mapping, controlled runtime enforcement plan (spec only) | yes |",
+          "line": 9,
+          "normalized": "docs/specs",
+          "raw": "docs/specs",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- Canonical active spec root: `docs/specs/`.",
+          "line": 17,
+          "normalized": "docs/specs",
+          "raw": "docs/specs/",
+          "status": "ambiguous"
+        }
+      ],
+      "status": "OK",
+      "type": "spec"
+    },
+    {
+      "missing_refs": [],
+      "path": "docs/index/vault_alignment.md",
+      "refs": [
+        {
+          "context": "- docs/adr: present",
+          "line": 9,
+          "normalized": "docs/adr",
+          "raw": "docs/adr",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- ADR files outside docs/adr (tracked): none",
+          "line": 16,
+          "normalized": "docs/adr",
+          "raw": "docs/adr",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- docs/archive/legacy_specs: present",
+          "line": 7,
+          "normalized": "docs/archive/legacy_specs",
+          "raw": "docs/archive/legacy_specs",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- docs/roadmap: present",
+          "line": 8,
+          "normalized": "docs/roadmap",
+          "raw": "docs/roadmap",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- roadmap files outside docs/roadmap (tracked): none",
+          "line": 15,
+          "normalized": "docs/roadmap",
+          "raw": "docs/roadmap",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- docs/specs: present",
+          "line": 6,
+          "normalized": "docs/specs",
+          "raw": "docs/specs",
+          "status": "ambiguous"
+        }
+      ],
+      "status": "OK",
       "type": "other"
     },
     {
@@ -7684,6 +7052,27 @@
       "path": "docs/roadmap/codex_autonomy_roadmap.md",
       "refs": [
         {
+          "context": "- [x] Convert roadmap proofs to ADR format in `docs/adr/`.",
+          "line": 503,
+          "normalized": "docs/adr",
+          "raw": "docs/adr/",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- [x] Move orphaned conceptual docs to `docs/archive/conceptual/`.",
+          "line": 501,
+          "normalized": "docs/archive/conceptual",
+          "raw": "docs/archive/conceptual/",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- [x] Create `docs/core_manifest.md` with canonical specs, version, and LOCKED status.",
+          "line": 500,
+          "normalized": "docs/core_manifest.md",
+          "raw": "docs/core_manifest.md",
+          "status": "exists"
+        },
+        {
           "context": "- [x] Step 1: Add deterministic local intake source from `state/issues/open/*.md` and `*.json`.",
           "line": 458,
           "normalized": "docs/roadmap/*.json",
@@ -7693,6 +7082,13 @@
         {
           "context": "- [x] Revalidated full suite remains green (`433 passed, 14 skipped`).",
           "line": 486,
+          "normalized": "docs/roadmap/433 passed, 14 skipped",
+          "raw": "433 passed, 14 skipped",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- [x] Full suite status preserved: `433 passed, 14 skipped`.",
+          "line": 514,
           "normalized": "docs/roadmap/433 passed, 14 skipped",
           "raw": "433 passed, 14 skipped",
           "status": "ambiguous"
@@ -7845,6 +7241,13 @@
           "status": "exists"
         },
         {
+          "context": "./scripts/aiosctl night-run --source local|remote|both",
+          "line": 692,
+          "normalized": "scripts/aiosctl",
+          "raw": "scripts/aiosctl",
+          "status": "ambiguous"
+        },
+        {
           "context": "- [x] Step 5: Add explicit local capability registry load from `state/capabilities/enabled.json`.",
           "line": 462,
           "normalized": "state/capabilities/enabled.json",
@@ -7866,6 +7269,13 @@
           "status": "ambiguous"
         },
         {
+          "context": "- Only state/issues/open",
+          "line": 697,
+          "normalized": "state/issues/open",
+          "raw": "state/issues/open",
+          "status": "ambiguous"
+        },
+        {
           "context": "- [x] Step 1: Add deterministic local intake source from `state/issues/open/*.md` and `*.json`.",
           "line": 458,
           "normalized": "state/issues/open/*.md",
@@ -7880,6 +7290,20 @@
           "status": "missing"
         },
         {
+          "context": "state/issues/remote/<source>/<issue_id>.json",
+          "line": 538,
+          "normalized": "state/issues/remote",
+          "raw": "state/issues/remote/",
+          "status": "ambiguous"
+        },
+        {
+          "context": "state/issues/remote/<source>/<issue_id>.json",
+          "line": 703,
+          "normalized": "state/issues/remote",
+          "raw": "state/issues/remote/",
+          "status": "ambiguous"
+        },
+        {
           "context": "- [x] Remove legacy budget overlap (supervisor/autonomy_budget.py)",
           "line": 27,
           "normalized": "supervisor/autonomy_budget.py",
@@ -7888,6 +7312,13 @@
         }
       ],
       "status": "HAS_MISSING_REFS",
+      "type": "roadmap"
+    },
+    {
+      "missing_refs": [],
+      "path": "docs/roadmap/secure-execution-layer.md",
+      "refs": [],
+      "status": "OK",
       "type": "roadmap"
     },
     {
@@ -8144,6 +7575,119 @@
       ],
       "status": "HAS_MISSING_REFS",
       "type": "other"
+    },
+    {
+      "missing_refs": [],
+      "path": "docs/specs/agent-git-governance-spec.v0.2.md",
+      "refs": [
+        {
+          "context": "1. Issue must contain `LOCK:<path>`",
+          "line": 136,
+          "normalized": "docs/specs/LOCK:<path",
+          "raw": "LOCK:<path>",
+          "status": "ambiguous"
+        },
+        {
+          "context": "1. Classified as `SYSTEM_EVOLUTION`",
+          "line": 194,
+          "normalized": "docs/specs/SYSTEM_EVOLUTION",
+          "raw": "SYSTEM_EVOLUTION",
+          "status": "ambiguous"
+        },
+        {
+          "context": "2. No direct mutation of `develop`.",
+          "line": 23,
+          "normalized": "docs/specs/develop",
+          "raw": "develop",
+          "status": "ambiguous"
+        },
+        {
+          "context": "| `develop` | Integration branch | No | Yes | No* |",
+          "line": 40,
+          "normalized": "docs/specs/develop",
+          "raw": "develop",
+          "status": "ambiguous"
+        },
+        {
+          "context": "* `develop` must be frozen",
+          "line": 162,
+          "normalized": "docs/specs/develop",
+          "raw": "develop",
+          "status": "ambiguous"
+        },
+        {
+          "context": "* Immediate cherry-pick to `develop`",
+          "line": 219,
+          "normalized": "docs/specs/develop",
+          "raw": "develop",
+          "status": "ambiguous"
+        },
+        {
+          "context": "* `environment/`",
+          "line": 131,
+          "normalized": "docs/specs/environment",
+          "raw": "environment/",
+          "status": "ambiguous"
+        },
+        {
+          "context": "* `executor/`",
+          "line": 129,
+          "normalized": "docs/specs/executor",
+          "raw": "executor/",
+          "status": "ambiguous"
+        },
+        {
+          "context": "* Must live in `generated/`",
+          "line": 258,
+          "normalized": "docs/specs/generated",
+          "raw": "generated/",
+          "status": "ambiguous"
+        },
+        {
+          "context": "1. No direct mutation of `main`.",
+          "line": 22,
+          "normalized": "docs/specs/main",
+          "raw": "main",
+          "status": "ambiguous"
+        },
+        {
+          "context": "| `main` | Stable releases | No | Yes | Yes |",
+          "line": 39,
+          "normalized": "docs/specs/main",
+          "raw": "main",
+          "status": "ambiguous"
+        },
+        {
+          "context": "Before merging into `main`:",
+          "line": 160,
+          "normalized": "docs/specs/main",
+          "raw": "main",
+          "status": "ambiguous"
+        },
+        {
+          "context": "* Direct PR to `main`",
+          "line": 217,
+          "normalized": "docs/specs/main",
+          "raw": "main",
+          "status": "ambiguous"
+        },
+        {
+          "context": "* Auto-commit from running agents to `main`",
+          "line": 249,
+          "normalized": "docs/specs/main",
+          "raw": "main",
+          "status": "ambiguous"
+        },
+        {
+          "context": "* `orchestrator/`",
+          "line": 130,
+          "normalized": "docs/specs/orchestrator",
+          "raw": "orchestrator/",
+          "status": "ambiguous"
+        }
+      ],
+      "status": "OK",
+      "type": "spec"
     },
     {
       "missing_refs": [
@@ -9711,8 +9255,8 @@
   "generated_at": null,
   "repo_root": "/data/srv/aios/AI-OS",
   "summary": {
-    "missing_refs_count": 257,
-    "total_docs_scanned": 87,
-    "total_refs_found": 1255
+    "missing_refs_count": 251,
+    "total_docs_scanned": 76,
+    "total_refs_found": 1202
   }
 }

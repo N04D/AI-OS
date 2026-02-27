@@ -12,7 +12,7 @@ Only listed artifacts are treated as canonical core. This manifest is LOCKED and
 
 | Domain | Canonical Artifact | Version | Lock |
 |---|---|---|---|
-| Agent Git Governance | `docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md` | v0.2 | LOCKED |
+| Agent Git Governance | `docs/specs/agent-git-governance-spec.v0.2.md` | v0.2 | LOCKED |
 | PR Governance Policy | `governance/policy/pr-governance.v0.2.yaml` | v0.2 | LOCKED |
 | Self-Improvement Risk Tiers | `docs/specs/self_improvement_risk_tiers.v0.1.md` | v0.1 | LOCKED |
 | Determinism Evidence Schema | `docs/specs/determinism_evidence.schema.v0.1.json` | v0.1 | LOCKED |
@@ -22,9 +22,10 @@ Only listed artifacts are treated as canonical core. This manifest is LOCKED and
 
 ## Archived/Obsolete Governance Versions
 
-- `docs/archive/governance_versions/Agent Git Governance Spec v0.1.md` (superseded by v0.2)
-- `docs/archive/governance_versions/governance-invariants.v0.1.md` (superseded by v0.2)
+- docs/archive/governance_versions/Agent Git Governance Spec v0.1.md (superseded by v0.2)
+- docs/archive/governance_versions/governance-invariants.v0.1.md (superseded by v0.2)
+- docs/archive/legacy_specs/Specifications AI-OS/ (legacy vault root archived during Phase 7B)
 
 ## Canonical Core Integrity Rule
 
-Canonical core documents must have zero missing file references in `docs/index/spec_inventory.json`.
+Canonical core documents must have zero missing file references in docs/index/spec_inventory.json.
