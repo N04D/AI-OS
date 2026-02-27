@@ -25,9 +25,6 @@
 ### docs/335 passed, 2 warnings in 5.18s
 - docs/governance-invariants.v0.2.md:4 — - Exact pytest summary: `335 passed, 2 warnings in 5.18s`
 
-### docs/KillSwitchError.code
-- docs/governance-invariants.v0.1.md:25 — - `KillSwitchError.code` compatibility contract is restored and covered by tests.
-
 ### docs/NIGHT_BRANCH=dev ./scripts/night-bootstrap.sh
 - docs/night-mode.v0.1.md:10 — Example: `NIGHT_BRANCH=dev ./scripts/night-bootstrap.sh`
 
@@ -47,12 +44,35 @@
 - docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md:166 — * `git log --show-signature <base>..<head>`
 
 ### docs/agents/state/environment.json
-- docs/daily-autonomous-execution-protocol-v0.1.md:74 — - Configured in `agents/state/environment.json`
 - docs/governance.md:78 — `agents/state/environment.json`. Refer to those files for details.)
 - docs/supervisor-governance-enforcement-v0.1.md:47 — `docs/governance.md` and `agents/state/environment.json`
 
 ### docs/approvals/capabilities/revoke/<revoke_id>.approved
 - docs/supervisor-autonomy.v0.2.md:13 — - Requires approval marker at `approvals/capabilities/revoke/<revoke_id>.approved`.
+
+### docs/archive/conceptual/agents/state/environment.json
+- docs/archive/conceptual/daily-autonomous-execution-protocol-v0.1.md:74 — - Configured in `agents/state/environment.json`
+
+### docs/archive/governance_versions/KillSwitchError.code
+- docs/archive/governance_versions/governance-invariants.v0.1.md:25 — - `KillSwitchError.code` compatibility contract is restored and covered by tests.
+
+### docs/archive/governance_versions/commit_signing.accepted_types
+- docs/archive/governance_versions/governance-invariants.v0.1.md:16 — - `commit_signing.accepted_types` is enforced.
+
+### docs/archive/governance_versions/commit_signing.mode
+- docs/archive/governance_versions/governance-invariants.v0.1.md:15 — - `commit_signing.mode` is enforced.
+
+### docs/archive/governance_versions/gate-verdict.json
+- docs/archive/governance_versions/governance-invariants.v0.1.md:11 — - `gate-verdict.json` is machine-readable.
+
+### docs/archive/governance_versions/governance-policy-sha.txt
+- docs/archive/governance_versions/governance-invariants.v0.1.md:35 — - Effective policy SHA anchor is recorded in [docs/governance-policy-sha.txt](./governance-policy-sha.txt).
+
+### docs/archive/governance_versions/requirements-dev.txt
+- docs/archive/governance_versions/governance-invariants.v0.1.md:30 — - `requirements-dev.txt` is pinned.
+
+### docs/archive/governance_versions/requirements.txt
+- docs/archive/governance_versions/governance-invariants.v0.1.md:29 — - `requirements.txt` is pinned.
 
 ### docs/bash scripts/test-pr-gate-m1.sh
 - docs/implementation-plan.v0.1.md:83 — - `bash scripts/test-pr-gate-m1.sh`
@@ -73,12 +93,6 @@
 ### docs/channels/logs/control/kernel-events.jsonl
 - docs/channels/telegram.v0.1.md:32 — - `logs/control/kernel-events.jsonl`
 - docs/channels/telegram.v0.1.md:41 — - `AIOS_EVENT_AUDIT_LOG_PATH` (default: `logs/control/kernel-events.jsonl`)
-
-### docs/commit_signing.accepted_types
-- docs/governance-invariants.v0.1.md:16 — - `commit_signing.accepted_types` is enforced.
-
-### docs/commit_signing.mode
-- docs/governance-invariants.v0.1.md:15 — - `commit_signing.mode` is enforced.
 
 ### docs/config.json
 - docs/plugins-ops.md:11 — `config.json` is operator-owned enablement state.
@@ -103,7 +117,6 @@
 ### docs/gate-verdict.json
 - docs/gitea-ci-setup.md:53 — - `gate-verdict.json`
 - docs/gitea-ci-setup.md:77 — Workflow always emits `gate-verdict.json` and prints it in logs via the `Emit gate verdict` step.
-- docs/governance-invariants.v0.1.md:11 — - `gate-verdict.json` is machine-readable.
 - docs/implementation-plan.v0.1.md:68 — - `gate-verdict.json` generated in CI run workspace.
 - docs/implementation-plan.v0.1.md:80 — - [ ] Workflow emits `gate-verdict.json` and fails closed on missing token/API base/evaluator error.
 - docs/pr-gate-path-allowlist.md:33 — 4. Writes `gate-verdict.json`
@@ -210,12 +223,6 @@
 
 ### docs/requests/capabilities/revoke/<timestamp>__<capability>__<reason_slug>.json
 - docs/supervisor-autonomy.v0.2.md:8 — - Writes revoke request artifact at `requests/capabilities/revoke/<timestamp>__<capability>__<reason_slug>.json`.
-
-### docs/requirements-dev.txt
-- docs/governance-invariants.v0.1.md:30 — - `requirements-dev.txt` is pinned.
-
-### docs/requirements.txt
-- docs/governance-invariants.v0.1.md:29 — - `requirements.txt` is pinned.
 
 ### docs/roadmap/*.json
 - docs/roadmap/codex_autonomy_roadmap.md:458 — - [x] Step 1: Add deterministic local intake source from `state/issues/open/*.md` and `*.json`.
@@ -545,7 +552,7 @@
 - docs/roadmap/codex_autonomy_progress.md:486 — - `state/capability_requests/<epoch>__<issue_id>__<capability>.json`
 
 ### state/environment.json
-- docs/daily-autonomous-execution-protocol-v0.1.md:74 — - Configured in `agents/state/environment.json`
+- docs/archive/conceptual/daily-autonomous-execution-protocol-v0.1.md:74 — - Configured in `agents/state/environment.json`
 - docs/evaluation-and-commit-protocol-v0.1.md:114 — agents/state/environment.json
 - docs/governance.md:78 — `agents/state/environment.json`. Refer to those files for details.)
 - docs/pre-execution-environment-validation-v0.1.md:115 — agents/state/environment.json
@@ -585,6 +592,7 @@
 - docs/supervisor-autonomy.v0.2.md:31 — Phase F optionally supports `state/supervisor_capability_denies.json`:
 
 ### supervisor/autonomy_budget_gate.py
+- docs/adr/ADR-001-autonomy-budget-gate-redundancy-proof.md:8 — Legacy compatibility layer `supervisor/autonomy_budget_gate.py` required proof of runtime redundancy before removal.
 - docs/roadmap/autonomy_budget_gate_redundancy_proof.md:4 — Scope: `supervisor/autonomy_budget_gate.py`
 - docs/roadmap/autonomy_budget_gate_redundancy_proof.md:61 — `supervisor/autonomy_budget_gate.py` is verified unused in production/runtime codepaths and is safe to remove in a separate change set.
 - docs/roadmap/codex_autonomy_progress.md:40 — - removed `supervisor/autonomy_budget_gate.py`
@@ -663,9 +671,6 @@
 ### docs/Specifications AI-OS/.obsidian/workspace.json
 - none
 
-### docs/Specifications AI-OS/Agent Git Governance Spec v0.1.md
-- none
-
 ### docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md
 - none
 
@@ -679,6 +684,15 @@
 - docs/Specifications AI-OS/environment.json (docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md:320) — * The Supervisor should derive `owner/repo` dynamically from `environment.json` or git remote (aligns with your backlog item: remove hard-coded owner/repo).
 - docs/Specifications AI-OS/git log --show-signature <base>..<head (docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md:166) — * `git log --show-signature <base>..<head>`
 
+### docs/adr/ADR-001-autonomy-budget-gate-redundancy-proof.md
+- supervisor/autonomy_budget_gate.py (docs/adr/ADR-001-autonomy-budget-gate-redundancy-proof.md:8) — Legacy compatibility layer `supervisor/autonomy_budget_gate.py` required proof of runtime redundancy before removal.
+
+### docs/adr/ADR-002-phase-acceptance-rule-enforcement.md
+- none
+
+### docs/adr/ADR-003-high-risk-token-gate-scope.md
+- none
+
 ### docs/approval-token.md
 - docs/.gitea/governance/supervisor-capabilities.v1.yaml (docs/approval-token.md:42) — - `.gitea/governance/supervisor-capabilities.v1.yaml`
 - docs/body.payload (docs/approval-token.md:35) — - `body.payload` if present
@@ -687,13 +701,38 @@
 - governance/supervisor-capabilities.v1.yaml (docs/approval-token.md:42) — - `.gitea/governance/supervisor-capabilities.v1.yaml`
 - state/autonomy/approval-replay.sqlite3 (docs/approval-token.md:77) — - default `/home/infra/night/state/autonomy/approval-replay.sqlite3`
 
-### docs/autonomous-evaluation-and-improvement-protocol-v0.1.md
+### docs/archive/conceptual/autonomous-evaluation-and-improvement-protocol-v0.1.md
 - none
+
+### docs/archive/conceptual/autonomous-planning-and-self-generated-task-protocol-v0.1.md
+- none
+
+### docs/archive/conceptual/daily-autonomous-execution-protocol-v0.1.md
+- docs/archive/conceptual/agents/state/environment.json (docs/archive/conceptual/daily-autonomous-execution-protocol-v0.1.md:74) — - Configured in `agents/state/environment.json`
+- state/environment.json (docs/archive/conceptual/daily-autonomous-execution-protocol-v0.1.md:74) — - Configured in `agents/state/environment.json`
+
+### docs/archive/conceptual/long-term-memory-and-knowledge-consolidation-protocol-v0.1.md
+- none
+
+### docs/archive/conceptual/system-memory-and-learning-protocol-v0.1.md
+- none
+
+### docs/archive/conceptual/task-execution-engine-v0.1.md
+- none
+
+### docs/archive/governance_versions/Agent Git Governance Spec v0.1.md
+- none
+
+### docs/archive/governance_versions/governance-invariants.v0.1.md
+- docs/archive/governance_versions/KillSwitchError.code (docs/archive/governance_versions/governance-invariants.v0.1.md:25) — - `KillSwitchError.code` compatibility contract is restored and covered by tests.
+- docs/archive/governance_versions/commit_signing.accepted_types (docs/archive/governance_versions/governance-invariants.v0.1.md:16) — - `commit_signing.accepted_types` is enforced.
+- docs/archive/governance_versions/commit_signing.mode (docs/archive/governance_versions/governance-invariants.v0.1.md:15) — - `commit_signing.mode` is enforced.
+- docs/archive/governance_versions/gate-verdict.json (docs/archive/governance_versions/governance-invariants.v0.1.md:11) — - `gate-verdict.json` is machine-readable.
+- docs/archive/governance_versions/governance-policy-sha.txt (docs/archive/governance_versions/governance-invariants.v0.1.md:35) — - Effective policy SHA anchor is recorded in [docs/governance-policy-sha.txt](./governance-policy-sha.txt).
+- docs/archive/governance_versions/requirements-dev.txt (docs/archive/governance_versions/governance-invariants.v0.1.md:30) — - `requirements-dev.txt` is pinned.
+- docs/archive/governance_versions/requirements.txt (docs/archive/governance_versions/governance-invariants.v0.1.md:29) — - `requirements.txt` is pinned.
 
 ### docs/autonomous-phase-transition-governance-v0.1.md
-- none
-
-### docs/autonomous-planning-and-self-generated-task-protocol-v0.1.md
 - none
 
 ### docs/channels/telegram.v0.1.md
@@ -705,9 +744,8 @@
 - state/plugins/config.json (docs/channels/telegram.v0.1.md:40) — - `AIOS_CONFIG_PATH` (default: `state/plugins/config.json`)
 - state/plugins/registry.json (docs/channels/telegram.v0.1.md:39) — - `AIOS_REGISTRY_PATH` (default: `state/plugins/registry.json`)
 
-### docs/daily-autonomous-execution-protocol-v0.1.md
-- docs/agents/state/environment.json (docs/daily-autonomous-execution-protocol-v0.1.md:74) — - Configured in `agents/state/environment.json`
-- state/environment.json (docs/daily-autonomous-execution-protocol-v0.1.md:74) — - Configured in `agents/state/environment.json`
+### docs/core_manifest.md
+- none
 
 ### docs/deterministic-executor-dispatch-and-result-ingestion-v0.1.md
 - none
@@ -745,14 +783,6 @@
 ### docs/governance-commit-policy-regex-fix-v0.1.md
 - docs/executor/dispatch.py (docs/governance-commit-policy-regex-fix-v0.1.md:83) — - `executor/dispatch.py`
 - docs/python3 -m py_compile supervisor/governance_enforcement.py (docs/governance-commit-policy-regex-fix-v0.1.md:78) — 1) `python3 -m py_compile supervisor/governance_enforcement.py`
-
-### docs/governance-invariants.v0.1.md
-- docs/KillSwitchError.code (docs/governance-invariants.v0.1.md:25) — - `KillSwitchError.code` compatibility contract is restored and covered by tests.
-- docs/commit_signing.accepted_types (docs/governance-invariants.v0.1.md:16) — - `commit_signing.accepted_types` is enforced.
-- docs/commit_signing.mode (docs/governance-invariants.v0.1.md:15) — - `commit_signing.mode` is enforced.
-- docs/gate-verdict.json (docs/governance-invariants.v0.1.md:11) — - `gate-verdict.json` is machine-readable.
-- docs/requirements-dev.txt (docs/governance-invariants.v0.1.md:30) — - `requirements-dev.txt` is pinned.
-- docs/requirements.txt (docs/governance-invariants.v0.1.md:29) — - `requirements.txt` is pinned.
 
 ### docs/governance-invariants.v0.2.md
 - docs/335 passed, 2 warnings in 5.18s (docs/governance-invariants.v0.2.md:4) — - Exact pytest summary: `335 passed, 2 warnings in 5.18s`
@@ -812,9 +842,6 @@
 
 ### docs/ipc-runner.v0.1.md
 - docs/runtime.timeout_seconds (docs/ipc-runner.v0.1.md:37) — - `runtime.timeout_seconds` must be present and > 0.
-
-### docs/long-term-memory-and-knowledge-consolidation-protocol-v0.1.md
-- none
 
 ### docs/multi-cycle-deterministic-scheduler-v0.1.md
 - none
@@ -1057,12 +1084,6 @@
 ### docs/supervisor-governance-enforcement-v0.1.md
 - docs/agents/state/environment.json (docs/supervisor-governance-enforcement-v0.1.md:47) — `docs/governance.md` and `agents/state/environment.json`
 - state/environment.json (docs/supervisor-governance-enforcement-v0.1.md:47) — `docs/governance.md` and `agents/state/environment.json`
-
-### docs/system-memory-and-learning-protocol-v0.1.md
-- none
-
-### docs/task-execution-engine-v0.1.md
-- none
 
 ### docs/wiki-snapshot-hash.json
 - none

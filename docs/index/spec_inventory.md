@@ -1,8 +1,8 @@
 # Spec & Doc Inventory
 
-- total docs scanned: 83
-- total refs found: 1238
-- missing refs count: 255
+- total docs scanned: 87
+- total refs found: 1255
+- missing refs count: 257
 
 | Document | Type | Ref count | Missing refs count | Status |
 |---|---|---:|---:|---|
@@ -18,16 +18,24 @@
 | docs/Specifications AI-OS/.obsidian/themes/WY Console/manifest.json | spec | 0 | 0 | OK |
 | docs/Specifications AI-OS/.obsidian/themes/flexcyon/manifest.json | spec | 1 | 1 | HAS_MISSING_REFS |
 | docs/Specifications AI-OS/.obsidian/workspace.json | spec | 0 | 0 | OK |
-| docs/Specifications AI-OS/Agent Git Governance Spec v0.1.md | spec | 2 | 0 | OK |
 | docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md | spec | 15 | 0 | OK |
 | docs/Specifications AI-OS/Notes 02162026.md | spec | 0 | 0 | OK |
 | docs/Specifications AI-OS/Supervisor PR Compliance Gate Spec v0.1.md | spec | 73 | 5 | HAS_MISSING_REFS |
+| docs/adr/ADR-001-autonomy-budget-gate-redundancy-proof.md | other | 3 | 1 | HAS_MISSING_REFS |
+| docs/adr/ADR-002-phase-acceptance-rule-enforcement.md | other | 1 | 0 | OK |
+| docs/adr/ADR-003-high-risk-token-gate-scope.md | other | 1 | 0 | OK |
 | docs/approval-token.md | other | 79 | 6 | HAS_MISSING_REFS |
-| docs/autonomous-evaluation-and-improvement-protocol-v0.1.md | other | 0 | 0 | OK |
+| docs/archive/conceptual/autonomous-evaluation-and-improvement-protocol-v0.1.md | other | 0 | 0 | OK |
+| docs/archive/conceptual/autonomous-planning-and-self-generated-task-protocol-v0.1.md | other | 0 | 0 | OK |
+| docs/archive/conceptual/daily-autonomous-execution-protocol-v0.1.md | other | 2 | 2 | HAS_MISSING_REFS |
+| docs/archive/conceptual/long-term-memory-and-knowledge-consolidation-protocol-v0.1.md | other | 0 | 0 | OK |
+| docs/archive/conceptual/system-memory-and-learning-protocol-v0.1.md | other | 0 | 0 | OK |
+| docs/archive/conceptual/task-execution-engine-v0.1.md | other | 0 | 0 | OK |
+| docs/archive/governance_versions/Agent Git Governance Spec v0.1.md | spec | 2 | 0 | OK |
+| docs/archive/governance_versions/governance-invariants.v0.1.md | other | 15 | 7 | HAS_MISSING_REFS |
 | docs/autonomous-phase-transition-governance-v0.1.md | other | 1 | 0 | OK |
-| docs/autonomous-planning-and-self-generated-task-protocol-v0.1.md | other | 0 | 0 | OK |
 | docs/channels/telegram.v0.1.md | other | 21 | 5 | HAS_MISSING_REFS |
-| docs/daily-autonomous-execution-protocol-v0.1.md | other | 2 | 2 | HAS_MISSING_REFS |
+| docs/core_manifest.md | other | 12 | 0 | OK |
 | docs/deterministic-executor-dispatch-and-result-ingestion-v0.1.md | other | 0 | 0 | OK |
 | docs/deterministic-supervisor-loop-v0.1.md | other | 0 | 0 | OK |
 | docs/dispatch-api.v0.1.md | other | 31 | 4 | HAS_MISSING_REFS |
@@ -36,7 +44,6 @@
 | docs/event-bus.v0.1.md | other | 22 | 6 | HAS_MISSING_REFS |
 | docs/gitea-ci-setup.md | other | 31 | 4 | HAS_MISSING_REFS |
 | docs/governance-commit-policy-regex-fix-v0.1.md | policy | 20 | 2 | HAS_MISSING_REFS |
-| docs/governance-invariants.v0.1.md | other | 15 | 6 | HAS_MISSING_REFS |
 | docs/governance-invariants.v0.2.md | other | 6 | 1 | HAS_MISSING_REFS |
 | docs/governance-policy-sha.txt | policy | 0 | 0 | OK |
 | docs/governance.md | other | 3 | 2 | HAS_MISSING_REFS |
@@ -44,7 +51,6 @@
 | docs/hardening/nginx-telegram-reverse-proxy.v0.1.md | other | 14 | 6 | HAS_MISSING_REFS |
 | docs/implementation-plan.v0.1.md | other | 39 | 24 | HAS_MISSING_REFS |
 | docs/ipc-runner.v0.1.md | other | 31 | 1 | HAS_MISSING_REFS |
-| docs/long-term-memory-and-knowledge-consolidation-protocol-v0.1.md | other | 0 | 0 | OK |
 | docs/multi-cycle-deterministic-scheduler-v0.1.md | other | 3 | 0 | OK |
 | docs/night-executor-v0.1.md | other | 141 | 24 | HAS_MISSING_REFS |
 | docs/night-mode.v0.1.md | other | 11 | 3 | HAS_MISSING_REFS |
@@ -77,8 +83,6 @@
 | docs/specs/supervisor-execution-permit-issuance-v0.1.schema.json | schema | 0 | 0 | OK |
 | docs/supervisor-autonomy.v0.2.md | other | 38 | 4 | HAS_MISSING_REFS |
 | docs/supervisor-governance-enforcement-v0.1.md | other | 3 | 2 | HAS_MISSING_REFS |
-| docs/system-memory-and-learning-protocol-v0.1.md | other | 0 | 0 | OK |
-| docs/task-execution-engine-v0.1.md | other | 0 | 0 | OK |
 | docs/wiki-snapshot-hash.json | other | 0 | 0 | OK |
 | governance/night-queue.yaml | other | 5 | 0 | OK |
 | governance/policy/notifier/telegram/plugin.yaml | policy | 1 | 0 | OK |
@@ -128,9 +132,6 @@
 ### docs/Specifications AI-OS/.obsidian/workspace.json
 - none
 
-### docs/Specifications AI-OS/Agent Git Governance Spec v0.1.md
-- none
-
 ### docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md
 - none
 
@@ -144,6 +145,15 @@
 - docs/Specifications AI-OS/environment.json
 - docs/Specifications AI-OS/git log --show-signature <base>..<head
 
+### docs/adr/ADR-001-autonomy-budget-gate-redundancy-proof.md
+- supervisor/autonomy_budget_gate.py
+
+### docs/adr/ADR-002-phase-acceptance-rule-enforcement.md
+- none
+
+### docs/adr/ADR-003-high-risk-token-gate-scope.md
+- none
+
 ### docs/approval-token.md
 - docs/.gitea/governance/supervisor-capabilities.v1.yaml
 - docs/body.payload
@@ -152,13 +162,38 @@
 - governance/supervisor-capabilities.v1.yaml
 - state/autonomy/approval-replay.sqlite3
 
-### docs/autonomous-evaluation-and-improvement-protocol-v0.1.md
+### docs/archive/conceptual/autonomous-evaluation-and-improvement-protocol-v0.1.md
 - none
+
+### docs/archive/conceptual/autonomous-planning-and-self-generated-task-protocol-v0.1.md
+- none
+
+### docs/archive/conceptual/daily-autonomous-execution-protocol-v0.1.md
+- docs/archive/conceptual/agents/state/environment.json
+- state/environment.json
+
+### docs/archive/conceptual/long-term-memory-and-knowledge-consolidation-protocol-v0.1.md
+- none
+
+### docs/archive/conceptual/system-memory-and-learning-protocol-v0.1.md
+- none
+
+### docs/archive/conceptual/task-execution-engine-v0.1.md
+- none
+
+### docs/archive/governance_versions/Agent Git Governance Spec v0.1.md
+- none
+
+### docs/archive/governance_versions/governance-invariants.v0.1.md
+- docs/archive/governance_versions/KillSwitchError.code
+- docs/archive/governance_versions/commit_signing.accepted_types
+- docs/archive/governance_versions/commit_signing.mode
+- docs/archive/governance_versions/gate-verdict.json
+- docs/archive/governance_versions/governance-policy-sha.txt
+- docs/archive/governance_versions/requirements-dev.txt
+- docs/archive/governance_versions/requirements.txt
 
 ### docs/autonomous-phase-transition-governance-v0.1.md
-- none
-
-### docs/autonomous-planning-and-self-generated-task-protocol-v0.1.md
 - none
 
 ### docs/channels/telegram.v0.1.md
@@ -168,9 +203,8 @@
 - state/plugins/config.json
 - state/plugins/registry.json
 
-### docs/daily-autonomous-execution-protocol-v0.1.md
-- docs/agents/state/environment.json
-- state/environment.json
+### docs/core_manifest.md
+- none
 
 ### docs/deterministic-executor-dispatch-and-result-ingestion-v0.1.md
 - none
@@ -207,14 +241,6 @@
 ### docs/governance-commit-policy-regex-fix-v0.1.md
 - docs/executor/dispatch.py
 - docs/python3 -m py_compile supervisor/governance_enforcement.py
-
-### docs/governance-invariants.v0.1.md
-- docs/KillSwitchError.code
-- docs/commit_signing.accepted_types
-- docs/commit_signing.mode
-- docs/gate-verdict.json
-- docs/requirements-dev.txt
-- docs/requirements.txt
 
 ### docs/governance-invariants.v0.2.md
 - docs/335 passed, 2 warnings in 5.18s
@@ -272,9 +298,6 @@
 
 ### docs/ipc-runner.v0.1.md
 - docs/runtime.timeout_seconds
-
-### docs/long-term-memory-and-knowledge-consolidation-protocol-v0.1.md
-- none
 
 ### docs/multi-cycle-deterministic-scheduler-v0.1.md
 - none
@@ -486,12 +509,6 @@
 ### docs/supervisor-governance-enforcement-v0.1.md
 - docs/agents/state/environment.json
 - state/environment.json
-
-### docs/system-memory-and-learning-protocol-v0.1.md
-- none
-
-### docs/task-execution-engine-v0.1.md
-- none
 
 ### docs/wiki-snapshot-hash.json
 - none

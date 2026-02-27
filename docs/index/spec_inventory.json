@@ -96,28 +96,6 @@
     },
     {
       "missing_refs": [],
-      "path": "docs/Specifications AI-OS/Agent Git Governance Spec v0.1.md",
-      "refs": [
-        {
-          "context": "agent/supervisor/chore-009-governance-refactor",
-          "line": 110,
-          "normalized": "supervisor/chore-009-governance-refactor",
-          "raw": "supervisor/chore-009-governance-refactor",
-          "status": "ambiguous"
-        },
-        {
-          "context": "supervisor/supervisor.py",
-          "line": 223,
-          "normalized": "supervisor/supervisor.py",
-          "raw": "supervisor/supervisor.py",
-          "status": "exists"
-        }
-      ],
-      "status": "OK",
-      "type": "spec"
-    },
-    {
-      "missing_refs": [],
       "path": "docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md",
       "refs": [
         {
@@ -763,6 +741,67 @@
     },
     {
       "missing_refs": [
+        "supervisor/autonomy_budget_gate.py"
+      ],
+      "path": "docs/adr/ADR-001-autonomy-budget-gate-redundancy-proof.md",
+      "refs": [
+        {
+          "context": "Treat `autonomy_budget_gate` as non-canonical compatibility-only path and remove from runtime dependency graph.",
+          "line": 11,
+          "normalized": "docs/adr/autonomy_budget_gate",
+          "raw": "autonomy_budget_gate",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- Source Proof: `docs/roadmap/autonomy_budget_gate_redundancy_proof.md`",
+          "line": 5,
+          "normalized": "docs/roadmap/autonomy_budget_gate_redundancy_proof.md",
+          "raw": "docs/roadmap/autonomy_budget_gate_redundancy_proof.md",
+          "status": "exists"
+        },
+        {
+          "context": "Legacy compatibility layer `supervisor/autonomy_budget_gate.py` required proof of runtime redundancy before removal.",
+          "line": 8,
+          "normalized": "supervisor/autonomy_budget_gate.py",
+          "raw": "supervisor/autonomy_budget_gate.py",
+          "status": "missing"
+        }
+      ],
+      "status": "HAS_MISSING_REFS",
+      "type": "other"
+    },
+    {
+      "missing_refs": [],
+      "path": "docs/adr/ADR-002-phase-acceptance-rule-enforcement.md",
+      "refs": [
+        {
+          "context": "- Source Proof: `docs/phase-acceptance-rule.v0.1.md`",
+          "line": 5,
+          "normalized": "docs/phase-acceptance-rule.v0.1.md",
+          "raw": "docs/phase-acceptance-rule.v0.1.md",
+          "status": "exists"
+        }
+      ],
+      "status": "OK",
+      "type": "other"
+    },
+    {
+      "missing_refs": [],
+      "path": "docs/adr/ADR-003-high-risk-token-gate-scope.md",
+      "refs": [
+        {
+          "context": "- Source Proof: `docs/roadmap/codex_autonomy_progress.md`",
+          "line": 5,
+          "normalized": "docs/roadmap/codex_autonomy_progress.md",
+          "raw": "docs/roadmap/codex_autonomy_progress.md",
+          "status": "exists"
+        }
+      ],
+      "status": "OK",
+      "type": "other"
+    },
+    {
+      "missing_refs": [
         "docs/.gitea/governance/supervisor-capabilities.v1.yaml",
         "docs/body.payload",
         "docs/home/infra/night/state/autonomy/approval-replay.sqlite3",
@@ -1331,9 +1370,205 @@
     },
     {
       "missing_refs": [],
-      "path": "docs/autonomous-evaluation-and-improvement-protocol-v0.1.md",
+      "path": "docs/archive/conceptual/autonomous-evaluation-and-improvement-protocol-v0.1.md",
       "refs": [],
       "status": "OK",
+      "type": "other"
+    },
+    {
+      "missing_refs": [],
+      "path": "docs/archive/conceptual/autonomous-planning-and-self-generated-task-protocol-v0.1.md",
+      "refs": [],
+      "status": "OK",
+      "type": "other"
+    },
+    {
+      "missing_refs": [
+        "docs/archive/conceptual/agents/state/environment.json",
+        "state/environment.json"
+      ],
+      "path": "docs/archive/conceptual/daily-autonomous-execution-protocol-v0.1.md",
+      "refs": [
+        {
+          "context": "- Configured in `agents/state/environment.json`",
+          "line": 74,
+          "normalized": "docs/archive/conceptual/agents/state/environment.json",
+          "raw": "agents/state/environment.json",
+          "status": "missing"
+        },
+        {
+          "context": "- Configured in `agents/state/environment.json`",
+          "line": 74,
+          "normalized": "state/environment.json",
+          "raw": "state/environment.json",
+          "status": "missing"
+        }
+      ],
+      "status": "HAS_MISSING_REFS",
+      "type": "other"
+    },
+    {
+      "missing_refs": [],
+      "path": "docs/archive/conceptual/long-term-memory-and-knowledge-consolidation-protocol-v0.1.md",
+      "refs": [],
+      "status": "OK",
+      "type": "other"
+    },
+    {
+      "missing_refs": [],
+      "path": "docs/archive/conceptual/system-memory-and-learning-protocol-v0.1.md",
+      "refs": [],
+      "status": "OK",
+      "type": "other"
+    },
+    {
+      "missing_refs": [],
+      "path": "docs/archive/conceptual/task-execution-engine-v0.1.md",
+      "refs": [],
+      "status": "OK",
+      "type": "other"
+    },
+    {
+      "missing_refs": [],
+      "path": "docs/archive/governance_versions/Agent Git Governance Spec v0.1.md",
+      "refs": [
+        {
+          "context": "agent/supervisor/chore-009-governance-refactor",
+          "line": 110,
+          "normalized": "supervisor/chore-009-governance-refactor",
+          "raw": "supervisor/chore-009-governance-refactor",
+          "status": "ambiguous"
+        },
+        {
+          "context": "supervisor/supervisor.py",
+          "line": 223,
+          "normalized": "supervisor/supervisor.py",
+          "raw": "supervisor/supervisor.py",
+          "status": "exists"
+        }
+      ],
+      "status": "OK",
+      "type": "spec"
+    },
+    {
+      "missing_refs": [
+        "docs/archive/governance_versions/KillSwitchError.code",
+        "docs/archive/governance_versions/commit_signing.accepted_types",
+        "docs/archive/governance_versions/commit_signing.mode",
+        "docs/archive/governance_versions/gate-verdict.json",
+        "docs/archive/governance_versions/governance-policy-sha.txt",
+        "docs/archive/governance_versions/requirements-dev.txt",
+        "docs/archive/governance_versions/requirements.txt"
+      ],
+      "path": "docs/archive/governance_versions/governance-invariants.v0.1.md",
+      "refs": [
+        {
+          "context": "- `KillSwitchError.code` compatibility contract is restored and covered by tests.",
+          "line": 25,
+          "normalized": "docs/archive/governance_versions/KillSwitchError.code",
+          "raw": "KillSwitchError.code",
+          "status": "missing"
+        },
+        {
+          "context": "- `httpx` is present for Starlette `TestClient`.",
+          "line": 31,
+          "normalized": "docs/archive/governance_versions/TestClient",
+          "raw": "TestClient",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- Workflow deny verdict literal includes `\"allow\": false`.",
+          "line": 12,
+          "normalized": "docs/archive/governance_versions/allow\": false",
+          "raw": "\"allow\": false",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- `commit_signing.accepted_types` is enforced.",
+          "line": 16,
+          "normalized": "docs/archive/governance_versions/commit_signing.accepted_types",
+          "raw": "commit_signing.accepted_types",
+          "status": "missing"
+        },
+        {
+          "context": "- `commit_signing.mode` is enforced.",
+          "line": 15,
+          "normalized": "docs/archive/governance_versions/commit_signing.mode",
+          "raw": "commit_signing.mode",
+          "status": "missing"
+        },
+        {
+          "context": "- Failures are accumulated (`failed_gates` contains all failing gates).",
+          "line": 9,
+          "normalized": "docs/archive/governance_versions/failed_gates",
+          "raw": "failed_gates",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- `gate-verdict.json` is machine-readable.",
+          "line": 11,
+          "normalized": "docs/archive/governance_versions/gate-verdict.json",
+          "raw": "gate-verdict.json",
+          "status": "missing"
+        },
+        {
+          "context": "- Effective policy SHA anchor is recorded in [docs/governance-policy-sha.txt](./governance-policy-sha.txt).",
+          "line": 35,
+          "normalized": "docs/archive/governance_versions/governance-policy-sha.txt",
+          "raw": "./governance-policy-sha.txt",
+          "status": "missing"
+        },
+        {
+          "context": "- `httpx` is present for Starlette `TestClient`.",
+          "line": 31,
+          "normalized": "docs/archive/governance_versions/httpx",
+          "raw": "httpx",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- `primary_failed_gate` is selected by MAX-severity contract.",
+          "line": 10,
+          "normalized": "docs/archive/governance_versions/primary_failed_gate",
+          "raw": "primary_failed_gate",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- `pytest` is pinned.",
+          "line": 32,
+          "normalized": "docs/archive/governance_versions/pytest",
+          "raw": "pytest",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- `requirements-dev.txt` is pinned.",
+          "line": 30,
+          "normalized": "docs/archive/governance_versions/requirements-dev.txt",
+          "raw": "requirements-dev.txt",
+          "status": "missing"
+        },
+        {
+          "context": "- `requirements.txt` is pinned.",
+          "line": 29,
+          "normalized": "docs/archive/governance_versions/requirements.txt",
+          "raw": "requirements.txt",
+          "status": "missing"
+        },
+        {
+          "context": "- 316 passed / 0 failed / 0 errors (`/tmp/aios-m4-venv/bin/python -m pytest -q`)",
+          "line": 4,
+          "normalized": "docs/archive/governance_versions/tmp/aios-m4-venv/bin/python -m pytest -q",
+          "raw": "/tmp/aios-m4-venv/bin/python -m pytest -q",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- Effective policy SHA anchor is recorded in [docs/governance-policy-sha.txt](./governance-policy-sha.txt).",
+          "line": 35,
+          "normalized": "docs/governance-policy-sha.txt",
+          "raw": "docs/governance-policy-sha.txt",
+          "status": "exists"
+        }
+      ],
+      "status": "HAS_MISSING_REFS",
       "type": "other"
     },
     {
@@ -1348,13 +1583,6 @@
           "status": "exists"
         }
       ],
-      "status": "OK",
-      "type": "other"
-    },
-    {
-      "missing_refs": [],
-      "path": "docs/autonomous-planning-and-self-generated-task-protocol-v0.1.md",
-      "refs": [],
       "status": "OK",
       "type": "other"
     },
@@ -1520,28 +1748,95 @@
       "type": "other"
     },
     {
-      "missing_refs": [
-        "docs/agents/state/environment.json",
-        "state/environment.json"
-      ],
-      "path": "docs/daily-autonomous-execution-protocol-v0.1.md",
+      "missing_refs": [],
+      "path": "docs/core_manifest.md",
       "refs": [
         {
-          "context": "- Configured in `agents/state/environment.json`",
-          "line": 74,
-          "normalized": "docs/agents/state/environment.json",
-          "raw": "agents/state/environment.json",
-          "status": "missing"
+          "context": "| Agent Git Governance | `docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md` | v0.2 | LOCKED |",
+          "line": 15,
+          "normalized": "docs/Specifications",
+          "raw": "docs/Specifications",
+          "status": "ambiguous"
         },
         {
-          "context": "- Configured in `agents/state/environment.json`",
-          "line": 74,
-          "normalized": "state/environment.json",
-          "raw": "state/environment.json",
-          "status": "missing"
+          "context": "| Agent Git Governance | `docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md` | v0.2 | LOCKED |",
+          "line": 15,
+          "normalized": "docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md",
+          "raw": "docs/Specifications AI-OS/Agent Git Governance Spec v0.2.md",
+          "status": "exists"
+        },
+        {
+          "context": "- `docs/archive/governance_versions/Agent Git Governance Spec v0.1.md` (superseded by v0.2)",
+          "line": 25,
+          "normalized": "docs/archive/governance_versions/Agent",
+          "raw": "docs/archive/governance_versions/Agent",
+          "status": "ambiguous"
+        },
+        {
+          "context": "- `docs/archive/governance_versions/Agent Git Governance Spec v0.1.md` (superseded by v0.2)",
+          "line": 25,
+          "normalized": "docs/archive/governance_versions/Agent Git Governance Spec v0.1.md",
+          "raw": "docs/archive/governance_versions/Agent Git Governance Spec v0.1.md",
+          "status": "exists"
+        },
+        {
+          "context": "- `docs/archive/governance_versions/governance-invariants.v0.1.md` (superseded by v0.2)",
+          "line": 26,
+          "normalized": "docs/archive/governance_versions/governance-invariants.v0.1.md",
+          "raw": "docs/archive/governance_versions/governance-invariants.v0.1.md",
+          "status": "exists"
+        },
+        {
+          "context": "Canonical core documents must have zero missing file references in `docs/index/spec_inventory.json`.",
+          "line": 30,
+          "normalized": "docs/index/spec_inventory.json",
+          "raw": "docs/index/spec_inventory.json",
+          "status": "exists"
+        },
+        {
+          "context": "| Determinism Evidence Schema | `docs/specs/determinism_evidence.schema.v0.1.json` | v0.1 | LOCKED |",
+          "line": 18,
+          "normalized": "docs/specs/determinism_evidence.schema.v0.1.json",
+          "raw": "docs/specs/determinism_evidence.schema.v0.1.json",
+          "status": "exists"
+        },
+        {
+          "context": "| Capability Mapping Contract | `docs/specs/policy-to-capability-deterministic-mapping-contract-v0.1.md` | v0.1 | LOCKED |",
+          "line": 21,
+          "normalized": "docs/specs/policy-to-capability-deterministic-mapping-contract-v0.1.md",
+          "raw": "docs/specs/policy-to-capability-deterministic-mapping-contract-v0.1.md",
+          "status": "exists"
+        },
+        {
+          "context": "| Self-Improvement Risk Tiers | `docs/specs/self_improvement_risk_tiers.v0.1.md` | v0.1 | LOCKED |",
+          "line": 17,
+          "normalized": "docs/specs/self_improvement_risk_tiers.v0.1.md",
+          "raw": "docs/specs/self_improvement_risk_tiers.v0.1.md",
+          "status": "exists"
+        },
+        {
+          "context": "| PR Governance Policy | `governance/policy/pr-governance.v0.2.yaml` | v0.2 | LOCKED |",
+          "line": 16,
+          "normalized": "governance/policy/pr-governance.v0.2.yaml",
+          "raw": "governance/policy/pr-governance.v0.2.yaml",
+          "status": "exists"
+        },
+        {
+          "context": "| Plugin Manifest Schema | `governance/schema/plugins/plugin-manifest.v0.1.yaml` | v0.1 | LOCKED |",
+          "line": 20,
+          "normalized": "governance/schema/plugins/plugin-manifest.v0.1.yaml",
+          "raw": "governance/schema/plugins/plugin-manifest.v0.1.yaml",
+          "status": "exists"
+        },
+        {
+          "context": "| Scheduler Job Schema | `governance/schema/scheduler/job.v0.1.json` | v0.1 | LOCKED |",
+          "line": 19,
+          "normalized": "governance/schema/scheduler/job.v0.1.json",
+          "raw": "governance/schema/scheduler/job.v0.1.json",
+          "status": "exists"
         }
       ],
-      "status": "HAS_MISSING_REFS",
+      "status": "OK",
       "type": "other"
     },
     {
@@ -2390,126 +2685,6 @@
       ],
       "status": "HAS_MISSING_REFS",
       "type": "policy"
-    },
-    {
-      "missing_refs": [
-        "docs/KillSwitchError.code",
-        "docs/commit_signing.accepted_types",
-        "docs/commit_signing.mode",
-        "docs/gate-verdict.json",
-        "docs/requirements-dev.txt",
-        "docs/requirements.txt"
-      ],
-      "path": "docs/governance-invariants.v0.1.md",
-      "refs": [
-        {
-          "context": "- `KillSwitchError.code` compatibility contract is restored and covered by tests.",
-          "line": 25,
-          "normalized": "docs/KillSwitchError.code",
-          "raw": "KillSwitchError.code",
-          "status": "missing"
-        },
-        {
-          "context": "- `httpx` is present for Starlette `TestClient`.",
-          "line": 31,
-          "normalized": "docs/TestClient",
-          "raw": "TestClient",
-          "status": "ambiguous"
-        },
-        {
-          "context": "- Workflow deny verdict literal includes `\"allow\": false`.",
-          "line": 12,
-          "normalized": "docs/allow\": false",
-          "raw": "\"allow\": false",
-          "status": "ambiguous"
-        },
-        {
-          "context": "- `commit_signing.accepted_types` is enforced.",
-          "line": 16,
-          "normalized": "docs/commit_signing.accepted_types",
-          "raw": "commit_signing.accepted_types",
-          "status": "missing"
-        },
-        {
-          "context": "- `commit_signing.mode` is enforced.",
-          "line": 15,
-          "normalized": "docs/commit_signing.mode",
-          "raw": "commit_signing.mode",
-          "status": "missing"
-        },
-        {
-          "context": "- Failures are accumulated (`failed_gates` contains all failing gates).",
-          "line": 9,
-          "normalized": "docs/failed_gates",
-          "raw": "failed_gates",
-          "status": "ambiguous"
-        },
-        {
-          "context": "- `gate-verdict.json` is machine-readable.",
-          "line": 11,
-          "normalized": "docs/gate-verdict.json",
-          "raw": "gate-verdict.json",
-          "status": "missing"
-        },
-        {
-          "context": "- Effective policy SHA anchor is recorded in [docs/governance-policy-sha.txt](./governance-policy-sha.txt).",
-          "line": 35,
-          "normalized": "docs/governance-policy-sha.txt",
-          "raw": "./governance-policy-sha.txt",
-          "status": "exists"
-        },
-        {
-          "context": "- Effective policy SHA anchor is recorded in [docs/governance-policy-sha.txt](./governance-policy-sha.txt).",
-          "line": 35,
-          "normalized": "docs/governance-policy-sha.txt",
-          "raw": "docs/governance-policy-sha.txt",
-          "status": "exists"
-        },
-        {
-          "context": "- `httpx` is present for Starlette `TestClient`.",
-          "line": 31,
-          "normalized": "docs/httpx",
-          "raw": "httpx",
-          "status": "ambiguous"
-        },
-        {
-          "context": "- `primary_failed_gate` is selected by MAX-severity contract.",
-          "line": 10,
-          "normalized": "docs/primary_failed_gate",
-          "raw": "primary_failed_gate",
-          "status": "ambiguous"
-        },
-        {
-          "context": "- `pytest` is pinned.",
-          "line": 32,
-          "normalized": "docs/pytest",
-          "raw": "pytest",
-          "status": "ambiguous"
-        },
-        {
-          "context": "- `requirements-dev.txt` is pinned.",
-          "line": 30,
-          "normalized": "docs/requirements-dev.txt",
-          "raw": "requirements-dev.txt",
-          "status": "missing"
-        },
-        {
-          "context": "- `requirements.txt` is pinned.",
-          "line": 29,
-          "normalized": "docs/requirements.txt",
-          "raw": "requirements.txt",
-          "status": "missing"
-        },
-        {
-          "context": "- 316 passed / 0 failed / 0 errors (`/tmp/aios-m4-venv/bin/python -m pytest -q`)",
-          "line": 4,
-          "normalized": "docs/tmp/aios-m4-venv/bin/python -m pytest -q",
-          "raw": "/tmp/aios-m4-venv/bin/python -m pytest -q",
-          "status": "ambiguous"
-        }
-      ],
-      "status": "HAS_MISSING_REFS",
-      "type": "other"
     },
     {
       "missing_refs": [
@@ -3585,13 +3760,6 @@
         }
       ],
       "status": "HAS_MISSING_REFS",
-      "type": "other"
-    },
-    {
-      "missing_refs": [],
-      "path": "docs/long-term-memory-and-knowledge-consolidation-protocol-v0.1.md",
-      "refs": [],
-      "status": "OK",
       "type": "other"
     },
     {
@@ -9409,20 +9577,6 @@
     },
     {
       "missing_refs": [],
-      "path": "docs/system-memory-and-learning-protocol-v0.1.md",
-      "refs": [],
-      "status": "OK",
-      "type": "other"
-    },
-    {
-      "missing_refs": [],
-      "path": "docs/task-execution-engine-v0.1.md",
-      "refs": [],
-      "status": "OK",
-      "type": "other"
-    },
-    {
-      "missing_refs": [],
       "path": "docs/wiki-snapshot-hash.json",
       "refs": [],
       "status": "OK",
@@ -9557,8 +9711,8 @@
   "generated_at": null,
   "repo_root": "/data/srv/aios/AI-OS",
   "summary": {
-    "missing_refs_count": 255,
-    "total_docs_scanned": 83,
-    "total_refs_found": 1238
+    "missing_refs_count": 257,
+    "total_docs_scanned": 87,
+    "total_refs_found": 1255
   }
 }
