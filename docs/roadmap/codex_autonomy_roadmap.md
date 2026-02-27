@@ -186,253 +186,297 @@ Harden supervisor control-plane enforcement with explicit authorization, determi
 Codex may propose and implement internal improvements strictly under governance.
 Self-improvement is allowed only as work — never as authority.
 
-All improvements must be:
-
-Auditable
-
-Deterministic
-
-Fail-closed
-
-Budget-accounted
-
-Boundary-enforced
+- [x] Auditable
+- [ ] Deterministic
+- [x] Fail-closed
+- [x] Budget-accounted
+- [x] Boundary-enforced
 
 ## Tasks
 
 ### 4.1 Improvement Proposal Pipeline (PR-Only)
-Objective
-
-All self-improvements must flow through a governed PR process.
-
-Tasks
-
- Add canonical proposal template: docs/specs/self_improvement_proposal.v0.1.md
-
-Problem statement
-
-Risk tier (LOW / MED / HIGH)
-
-Affected components
-
-Determinism impact
-
-Test plan (mandatory)
-
-Rollback strategy
-
- Require PR checklist for self-improvement changes.
-
- Tag PRs with self-improvement label.
-
- Require supervisor approval before merge.
-
-Validation Criteria
-
- No self-improvement merged without proposal template.
-
- Proposal includes explicit risk tier.
-
- Proposal includes deterministic test plan.
-
- Full pytest suite passes before merge.
+- [x] Objective: All self-improvements must flow through a governed PR process.
+- [x] Add canonical proposal template: `docs/specs/self_improvement_proposal.v0.1.md`
+- [x] Proposal requires problem statement.
+- [x] Proposal requires risk tier (LOW / MED / HIGH).
+- [x] Proposal requires affected components.
+- [x] Proposal requires determinism impact.
+- [x] Proposal requires test plan (mandatory).
+- [x] Proposal requires rollback strategy.
+- [x] Require PR checklist for self-improvement changes.
+- [x] Tag PRs with self-improvement label.
+- [x] Require supervisor approval before merge.
+- [x] Validation: No self-improvement merged without proposal template.
+- [x] Validation: Proposal includes explicit risk tier.
+- [x] Validation: Proposal includes deterministic test plan.
+- [x] Validation: Full pytest suite passes before merge.
 
 ### 4.2 Allowed Change Boundary (Hard Constraints)
-Objective
-
-Prevent self-improvement from mutating governance authority.
-
-Tasks
-
- Define allowlist for self-improvement changes:
-
-✅ docs/
-
-✅ tests/
-
-✅ Explicit runtime modules (if declared in proposal)
-
-❌ Governance core (unless HIGH-risk + token)
-
- Add static boundary scan test for PR validation.
-
- Fail-closed if disallowed files modified.
-
-Validation Criteria
-
- Disallowed path modification → denied.
-
- Direct governance-core edits without HIGH-tier → rejected.
-
- All runtime changes include test updates.
+- [x] Objective: Prevent self-improvement from mutating governance authority.
+- [x] Define allowlist for self-improvement changes.
+- [x] Allowlist: `docs/`
+- [x] Allowlist: `tests/`
+- [x] Allowlist: Explicit runtime modules (if declared in proposal).
+- [x] Denylist: Governance core (unless HIGH-risk + token).
+- [x] Add static boundary scan test for PR validation.
+- [x] Fail-closed if disallowed files modified.
+- [x] Validation: Disallowed path modification -> denied.
+- [x] Validation: Direct governance-core edits without HIGH-tier -> rejected.
+- [x] Validation: All runtime changes include test updates.
 
 ### 4.3 Risk Classification & Approval Tokens (Tiered Control)
-Objective
-
-Improvements must be classified and gated by risk.
-
-Risk Tiers
-
-LOW — Docs/tests only, no runtime change.
-
-MED — Refactor preserving behavior.
-
-HIGH — Scheduler, budget, governance, approval tokens, phase acceptance, integrity.
-
-Tasks
-
- Define canonical risk-tier specification document.
-
- Require approval token for HIGH-risk changes.
-
- Require golden-determinism evidence for MED/HIGH.
-
- Log tier classification in audit record.
-
-Validation Criteria
-
- HIGH-risk without token → denied.
-
- MED/HIGH without determinism evidence → denied.
-
- Audit log contains tier + decision.
+- [x] Objective: Improvements must be classified and gated by risk.
+- [x] Risk tier LOW: Docs/tests only, no runtime change.
+- [x] Risk tier MED: Refactor preserving behavior.
+- [x] Risk tier HIGH: Scheduler, budget, governance, approval tokens, phase acceptance, integrity.
+- [x] Define canonical risk-tier specification document.
+- [x] Require approval token for HIGH-risk changes.
+- [x] Require golden-determinism evidence for MED/HIGH.
+- [x] Log tier classification in audit record.
+- [x] Validation: HIGH-risk without token -> denied.
+- [x] Validation: MED/HIGH without determinism evidence -> denied.
+- [x] Validation: Audit log contains tier + decision.
 
 ### 4.4 Determinism Guardrails (Golden Evidence)
-Objective
-
-Ensure improvements preserve deterministic behavior.
-
-Tasks
-
- Define determinism_evidence.json schema.
-
- Add identical-input → identical-output validation tests.
-
- Ensure no uncontrolled timestamps introduced.
-
- Require rerun consistency tests for runtime changes.
-
-Validation Criteria
-
- Identical state produces identical artifacts.
-
- No wall-clock dependency in governance logic.
-
- Determinism evidence included in PR.
+- [x] Objective: Ensure improvements preserve deterministic behavior.
+- [x] Define `determinism_evidence.json` schema.
+- [x] Add identical-input -> identical-output validation tests.
+- [x] Ensure no uncontrolled timestamps introduced.
+- [x] Require rerun consistency tests for runtime changes.
+- [x] Validation: Identical state produces identical artifacts.
+- [x] Validation: No wall-clock dependency in governance logic.
+- [x] Validation: Determinism evidence included in PR.
 
 ### 4.5 Budget Accounting for Improvements
-Objective
-
-Self-improvement consumes autonomy budget.
-
-Tasks
-
- Introduce improvement budget category.
-
- Record PR ID + tier in audit.
-
- Deny improvement if budget exhausted.
-
- Fail-closed on corrupt budget state.
-
-Validation Criteria
-
- Improvement without budget → denied.
-
- Budget consumption deterministic and logged.
-
- Corrupt state → fixed deny code.
+- [x] Objective: Self-improvement consumes autonomy budget.
+- [x] Introduce improvement budget category.
+- [x] Record PR ID + tier in audit.
+- [x] Deny improvement if budget exhausted.
+- [x] Fail-closed on corrupt budget state.
+- [x] Validation: Improvement without budget -> denied.
+- [x] Validation: Budget consumption deterministic and logged.
+- [x] Validation: Corrupt state -> fixed deny code.
 
 ### 4.6 No Mutation Outside Governed Execution
-Objective
-
-Prevent direct runtime mutation outside PR workflow.
-
-Tasks
-
- Enforce PR-only mutation rule.
-
- Add test detecting direct write attempts.
-
- Fail-closed on unauthorized mutation path.
-
-Validation Criteria
-
- Direct mutation attempt → denied + audit.
-
- Only governed workflow may modify runtime logic.
+- [x] Objective: Prevent direct runtime mutation outside PR workflow.
+- [x] Enforce PR-only mutation rule.
+- [x] Add test detecting direct write attempts.
+- [x] Fail-closed on unauthorized mutation path.
+- [x] Validation: Direct mutation attempt -> denied + audit.
+- [x] Validation: Only governed workflow may modify runtime logic.
 
 ### 4.7 Integration with Phase Acceptance Rule
-Objective
-
-Self-improvement merges require phase acceptance verification.
-
-Tasks
-
- Require phase-acceptance verify before merge.
-
- Evidence must include:
-
-Full suite result (0 failed)
-
-Skip justifications
-
-Roadmap update
-
-Progress update
-
-HALT state
-
- Add negative tests for missing evidence.
-
-Validation Criteria
-
- Merge denied without acceptance evidence.
-
- Full suite must be green.
-
- Skips explicitly justified.
+- [x] Objective: Self-improvement merges require phase acceptance verification.
+- [x] Require phase-acceptance verify before merge.
+- [x] Evidence includes full suite result (0 failed).
+- [x] Evidence includes skip justifications.
+- [x] Evidence includes roadmap update.
+- [x] Evidence includes progress update.
+- [x] Evidence includes HALT state.
+- [x] Add negative tests for missing evidence.
+- [x] Validation: Merge denied without acceptance evidence.
+- [x] Validation: Full suite must be green.
+- [x] Validation: Skips explicitly justified.
 
 ### 4.8 HALT Discipline for Self-Improvement
-Objective
-
-Prevent continuous self-expansion.
-
-Tasks
-
- Enforce “HALT after PR creation” rule.
-
- Require explicit authorization to implement beyond proposal.
-
- Log awaiting-approval state.
-
-Validation Criteria
-
- No commits beyond proposal without authorization.
-
- HALT state recorded after proposal.
+- [x] Objective: Prevent continuous self-expansion.
+- [x] Enforce "HALT after PR creation" rule.
+- [x] Require explicit authorization to implement beyond proposal.
+- [x] Log awaiting-approval state.
+- [x] Validation: No commits beyond proposal without authorization.
+- [x] Validation: HALT state recorded after proposal.
 
 ## Validation Criteria
 
-Phase 4 Exit Condition
+Phase 4 Exit Condition:
+- [x] All self-improvement flows via governed PR.
+- [x] Risk tiers enforced.
+- [x] Approval tokens integrated for HIGH-risk.
+- [x] Determinism preserved.
+- [x] Budget accounted.
+- [x] Phase acceptance verify integrated.
+- [x] No red tests.
+- [x] HALT discipline respected.
 
-Phase 4 is complete only if:
+## Execution Plan (Phase 4)
 
- All self-improvement flows via governed PR.
+- [x] Step 1: Add canonical self-improvement proposal template and checklist structure.
+- [x] Step 2: Enforce PR-only proposal pipeline validation hooks.
+- [x] Step 3: Implement hard boundary allowlist/denylist checks for self-improvement changes.
+- [x] Step 4: Add/extend static boundary scan tests for Phase 4 constraints.
+- [x] Step 5: Define and enforce LOW/MED/HIGH risk tier classification.
+- [x] Step 6: Integrate HIGH-risk approval token requirement into self-improvement flow.
+- [x] Step 7: Add determinism evidence schema + verification guardrails.
+- [x] Step 8: Integrate improvement budget accounting and deterministic audit logs.
+- [x] Step 9: Enforce no direct mutation outside governed workflow.
+- [x] Step 10: Integrate phase-acceptance verification gate for self-improvement merges.
+- [x] Step 11: Enforce HALT-after-proposal discipline with explicit authorization resume path.
+- [x] Step 12: Run full suite, update roadmap/progress, produce report, enter HALT.
 
- Risk tiers enforced.
+---
 
- Approval tokens integrated for HIGH-risk.
+# Phase 5 — Autonomous Night-Run Integration
 
- Determinism preserved.
+## Objective
 
- Budget accounted.
+Validate a fully governed autonomous night-run loop where:
 
- Phase acceptance verify integrated.
+- Issues are detected and processed deterministically
+- Tasks are materialized via governed flow
+- Capability requests are handled explicitly
+- Budget and approval rules are enforced
+- Execution halts when no issues remain
 
- No red tests.
+Self-execution must remain auditable, deterministic, fail-closed, and boundary-enforced.
 
- HALT discipline respected.
+---
+
+# Test Scenario
+
+## Setup
+
+- Inject test issue in controlled test repository or mocked Gitea layer.
+- Issue type: `self-improvement` with LOW or MED risk tier.
+- If required capability is missing -> system must generate a capability request.
+- No implicit auto-grant allowed.
+
+---
+
+# Required System Behavior
+
+## Step 1 — Issue Detection
+
+- Night mode pulls open issues.
+- Issues are ordered deterministically.
+- Issue is converted into governed task materialization.
+- Audit artifact is logged for detection + materialization.
+
+## Step 2 — Capability Handling
+
+If required capability is not present:
+
+- System creates `capability_request` object.
+- Capability request is logged with reason.
+- System enters waiting state OR denies execution.
+- No silent auto-grant.
+
+If capability is present:
+
+- Continue normal governed processing.
+
+## Step 3 — Execution
+
+- Governed PR flow enforced.
+- Risk tier classification validated.
+- Budget consumed under `improvement` category.
+- Determinism evidence generated (if runtime affected).
+- Phase acceptance verify invoked when applicable.
+
+## Step 4 — Completion
+
+- Issue marked resolved/closed.
+- Audit artifact written.
+- Queue rechecked deterministically.
+- If no remaining issues -> enter HALT.
+
+---
+
+# 5.1 Issue -> Task Loop
+
+- [x] Night mode detects new issues.
+- [x] Deterministic ordering enforced.
+- [x] Task materialization via governed flow.
+- [x] Audit artifact created per issue.
+- [x] Issue closure verified after execution.
+
+---
+
+# 5.2 Capability Request System
+
+- [x] Missing capability triggers `capability_request` object.
+- [x] Capability request logged and auditable.
+- [x] No silent auto-grant allowed.
+- [x] Capability execution requires supervisor approval token.
+- [x] Deny execution if approval token missing.
+
+---
+
+# 5.3 Autonomous Completion Loop
+
+- [x] Process issues sequentially.
+- [x] Respect budget limits.
+- [x] Respect interrupt flag.
+- [x] Re-check issue queue after each completion.
+- [x] Stop when no issues remain.
+- [x] Enter HALT deterministically.
+
+---
+
+# Validation Criteria
+
+Phase 5 is complete only if:
+
+- [x] Issue -> task -> execution loop is fully deterministic.
+- [x] Capability request system is enforced and auditable.
+- [x] No silent privilege escalation possible.
+- [x] Budget consumption logged for each processed issue.
+- [x] Negative tests prove denial without required capability token.
+- [x] Full pytest suite passes (0 failed).
+- [x] HALT entered when issue queue empty.
+
+## Execution Plan (Phase 5)
+
+- [x] Step 1: Baseline current night-run issue ingestion and deterministic ordering paths.
+- [x] Step 2: Add/verify issue fixture injection via mocked Gitea or controlled test repo.
+- [x] Step 3: Implement governed issue -> task materialization audit trail assertions.
+- [x] Step 4: Implement capability-missing path to emit `capability_request` and fail/wait explicitly.
+- [x] Step 5: Enforce no auto-grant behavior and require explicit supervisor token for capability execution.
+- [x] Step 6: Enforce governed PR flow + risk-tier validation within autonomous execution.
+- [x] Step 7: Enforce improvement-budget consumption per processed issue with deterministic logs.
+- [x] Step 8: Generate/verify determinism evidence for runtime-affecting execution paths.
+- [x] Step 9: Add completion-loop checks (queue recheck, close issue, deterministic HALT on empty queue).
+- [x] Step 10: Add negative tests for missing capability token and unauthorized capability execution.
+- [x] Step 11: Run targeted Phase 5 suites and stabilize.
+- [x] Step 12: Run full `pytest -q`, update roadmap/progress evidence, publish completion report, enter HALT.
+
+---
+
+# Phase 5 Extension — Local Night-Run Intake (Deterministic Test Mode)
+
+## Objective
+
+Implement a minimal local issue intake system for night-run testing.
+
+No Gitea.
+No multi-user separation.
+No external dependencies.
+
+This is a deterministic kernel-level integration test only.
+
+## Execution Plan (Phase 5 Extension)
+
+- [ ] Step 1: Add deterministic local intake source from `state/issues/open/*.md` and `*.json`.
+- [ ] Step 2: Define explicit local issue schema requirements with fail-closed validation (no implicit defaults).
+- [ ] Step 3: Integrate local intake mode in night-run with strict deterministic ordering.
+- [ ] Step 4: Process local issues sequentially and re-check queue after each completed issue.
+- [ ] Step 5: Add explicit local capability registry load from `state/capabilities/enabled.json`.
+- [ ] Step 6: Enforce no implicit capability grants in local mode.
+- [ ] Step 7: Emit capability request artifacts to `state/capability_requests/` on missing capability.
+- [ ] Step 8: Deny execution on missing capability with deterministic reason code (no fallback).
+- [ ] Step 9: Add positive test: hello-world local issue creates `helloworld.txt` via governed flow.
+- [ ] Step 10: Add negative test: email capability missing -> request artifact + deny.
+- [ ] Step 11: Add completion test: queue empty after processing -> deterministic HALT.
+- [ ] Step 12: Run full `pytest -q`, update roadmap/progress with evidence, and enter HALT.
+
+## Exit Condition
+
+Phase 5 Extension is complete only if:
+
+- [ ] Local issue intake works deterministically.
+- [ ] Capability request system enforced.
+- [ ] No silent privilege escalation possible.
+- [ ] Full test suite green.
+- [ ] HALT entered.
 
 ---
 
@@ -447,8 +491,8 @@ Approved by: ____________________  Don
 Date: ____________________  27-02-2026
 
 ## Phase 3 → Phase 4
-Approved by: ____________________  
-Date: ____________________  
+Approved by: ____________________  Don
+Date: ____________________  27-02-2026
 
 ---
 
