@@ -503,3 +503,57 @@ Current Focus: Phase 5 Extension complete
 - State:
   - Phase 5 Extension objectives complete.
   - HALT.
+
+## Phase 7C Progress (2026-02-28)
+
+- Implemented remote replay protection in runtime:
+  - persistent ledger path:
+    - `state/issues/remote/remote_issue_execution_ledger.json`
+  - remote replay deny code:
+    - `DENY_ALREADY_EXECUTED`
+  - replay audit artifact:
+    - `logs/control/night_issue_audit/<epoch>/<issue_id>__replay_denied.json`
+
+- Added/updated remote integrity test coverage:
+  - `tests/test_night_mode_remote_sync.py::test_remote_issue_replay_denied_by_execution_ledger`
+  - `tests/test_night_mode_remote_sync.py::test_remote_risk_tier_detection_is_deterministic_for_low_med_high`
+  - `tests/test_night_mode_remote_sync.py::test_source_both_merge_order_is_stable`
+  - `tests/test_night_mode_remote_sync.py::test_source_both_fetch_order_is_deterministic_across_repeated_runs`
+  - `tests/test_night_mode_remote_sync.py::test_remote_401_fails_closed_without_partial_intake`
+  - `tests/test_night_mode_remote_sync.py::test_remote_429_rate_limit_fails_closed`
+  - `tests/test_night_mode_remote_sync.py::test_remote_invalid_json_fails_closed`
+  - `tests/test_night_mode_remote_sync.py::test_remote_high_inline_override_attempt_is_ignored`
+  - `tests/test_night_mode_remote_sync.py::test_remote_high_with_token_but_missing_capability_still_denied`
+  - `tests/test_night_mode_remote_sync.py::test_remote_budget_enforcement_denies_second_issue`
+
+- Verification:
+  - targeted suites:
+    - `17 passed in 3.52s`
+      - `pytest -q tests/test_night_mode_remote_sync.py tests/test_night_mode_local_intake.py`
+    - `20 passed in 5.26s`
+      - `pytest -q tests/test_night_mode_remote_sync.py tests/test_night_mode_local_intake.py`
+  - full suite:
+    - `448 passed, 14 skipped in 40.88s`
+      - `pytest -q`
+    - `450 passed, 14 skipped in 30.08s`
+      - `pytest -q`
+
+- State:
+  - Phase 7C execution plan steps 1-8 completed.
+  - HALT pending after remaining 7C closure checks.
+
+## Phase 7C Determinism Hard Proof Sync (2026-02-28, epoch: 2026-02-27 / 2026-02-28)
+
+- Evidence pointers:
+  - `tests/test_night_mode_remote_sync.py::test_determinism_hard_proof_same_epoch_byte_identical_artifacts`
+  - `tests/test_night_mode_remote_sync.py::test_determinism_cross_epoch_only_epoch_field_differs`
+  - `tests/test_night_mode_remote_sync.py::test_merge_order_proof_stable_when_creation_order_is_shuffled`
+  - `tests/test_night_mode_remote_sync.py::test_regression_no_new_nondeterministic_fields_in_artifact_roots`
+
+- Latest verification summary:
+  - `pytest -q` -> `454 passed, 14 skipped in 39.28s`
+
+- State:
+  - Phase 7C roadmap checkboxes aligned with deterministic hard-proof evidence.
+  - Step 9 (Enter HALT) recorded as complete.
+  - HALT.
