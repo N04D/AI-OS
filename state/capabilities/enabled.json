@@ -1,0 +1,7 @@
+{
+  "enabled": [
+    "repo_write",
+    "pr_create",
+    "tests_run"
+  ]
+}
