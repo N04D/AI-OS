@@ -378,7 +378,6 @@ def activate_capability(
         [
             "add",
             str(resolved_ledger_path.relative_to(repo_root)),
-            str(resolved_audit_path.relative_to(repo_root)),
         ],
     )
     _commit(repo_root, f"chore(capabilities): activate {cap}")

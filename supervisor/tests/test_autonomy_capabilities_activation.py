@@ -26,8 +26,9 @@ def _write_json(path: Path, payload: dict) -> None:
 def _init_repo_with_registry(entry: dict) -> Path:
     tmp = Path(tempfile.mkdtemp())
     _git(tmp, ["init"])
+    (tmp / ".gitignore").write_text("logs/\n", encoding="utf-8")
     _write_json(tmp / "state/supervisor_capabilities.json", {"email.send": entry, "scheduler_guarded_skill_run": True})
-    _git(tmp, ["add", "state/supervisor_capabilities.json"])
+    _git(tmp, ["add", ".gitignore", "state/supervisor_capabilities.json"])
     _git(
         tmp,
         [
@@ -85,6 +86,8 @@ def test_activate_capability_success_commits_and_audits() -> None:
     assert audit["activated_by"] == "Don"
     assert _git(repo, ["log", "-1", "--pretty=%s"]) == "chore(capabilities): activate email.send"
     assert _git(repo, ["status", "--short"]) == ""
+    committed_files = [line for line in _git(repo, ["show", "--name-only", "--pretty=format:", "HEAD"]).splitlines() if line]
+    assert committed_files == ["state/supervisor_capabilities.json"]
 
 
 def test_activate_capability_fails_closed_when_prereq_missing() -> None:
