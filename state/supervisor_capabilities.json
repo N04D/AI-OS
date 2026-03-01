@@ -1,3 +1,10 @@
 {
-  "scheduler_guarded_skill_run": true
+  "scheduler_guarded_skill_run": true,
+  "email.send": {
+    "state": "IMPLEMENTED_NOT_ACTIVE",
+    "granted": false,
+    "proposal_issue": 60,
+    "approved_by": "Don",
+    "activated_by": null
+  }
 }
