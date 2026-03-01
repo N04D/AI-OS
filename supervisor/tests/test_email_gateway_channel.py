@@ -304,6 +304,25 @@ class EmailGatewayChannelTests(unittest.TestCase):
             self.assertEqual(transport.marked_uids, ["7"])
             artifact = Path(result["artifacts"][0])
             self.assertTrue(artifact.is_file())
+            self.assertEqual(len(result["summaries"]), 1)
+            self.assertNotIn("body_preview", result["summaries"][0])
+
+    def test_poll_body_preview_is_opt_in(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            self._bootstrap_repo(root, poll_granted=True)
+            transport = _FakeIMAPTransport()
+            result = poll_email_direct(
+                repo_root=root,
+                agent="codex",
+                max_messages=5,
+                epoch="2026-03-01",
+                include_body_preview=True,
+                preview_chars=10,
+                transport=transport,
+            )
+            self.assertEqual(result["messages"], 1)
+            self.assertEqual(result["summaries"][0]["body_preview"], "message bo")
 
     def test_poll_filters_by_sender_and_subject(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -397,7 +397,14 @@ class CliTests(unittest.TestCase):
     def test_email_poll_accepts_deterministic_filters(self) -> None:
         with patch(
             "supervisor.cli.poll_email_direct",
-            return_value={"status": "ok", "agent": "codex", "messages": 0, "artifacts": [], "audit_path": "logs/control/email_gateway_audit.jsonl"},
+            return_value={
+                "status": "ok",
+                "agent": "codex",
+                "messages": 0,
+                "artifacts": [],
+                "summaries": [],
+                "audit_path": "logs/control/email_gateway_audit.jsonl",
+            },
         ) as poll_mock:
             buf = io.StringIO()
             with redirect_stdout(buf):
@@ -416,6 +423,9 @@ class CliTests(unittest.TestCase):
                         "hello",
                         "--seen-mode",
                         "all",
+                        "--include-body-preview",
+                        "--preview-chars",
+                        "120",
                     ]
                 )
             out = json.loads(buf.getvalue().strip())
@@ -425,6 +435,8 @@ class CliTests(unittest.TestCase):
             self.assertEqual(called["from_contains"], "don@")
             self.assertEqual(called["subject_contains"], "hello")
             self.assertEqual(called["seen_mode"], "all")
+            self.assertTrue(called["include_body_preview"])
+            self.assertEqual(called["preview_chars"], 120)
 
 
 if __name__ == "__main__":

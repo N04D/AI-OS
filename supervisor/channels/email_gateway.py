@@ -287,6 +287,8 @@ def poll_email_direct(
     from_contains: str = "",
     subject_contains: str = "",
     seen_mode: str = "unseen",
+    include_body_preview: bool = False,
+    preview_chars: int = 160,
     transport: IMAPTransportAdapter | None = None,
 ) -> dict[str, Any]:
     safe_epoch = _safe_epoch(epoch or os.environ.get("AIOS_EPOCH", ""))
@@ -298,6 +300,8 @@ def poll_email_direct(
             raise EmailGatewayError(DENY_POLICY_INVALID, "max_messages must be >= 1")
         if seen_mode not in {"unseen", "seen", "all"}:
             raise EmailGatewayError(DENY_POLICY_INVALID, "seen_mode must be one of: unseen, seen, all")
+        if preview_chars < 0 or preview_chars > 2000:
+            raise EmailGatewayError(DENY_POLICY_INVALID, "preview_chars must be between 0 and 2000")
     except EmailGatewayError as exc:
         _append_deny_audit(
             repo_root=repo_root,
@@ -332,6 +336,7 @@ def poll_email_direct(
         unseen = [item for item in unseen if subject_filter in str(item.get("subject", "")).lower()]
 
     written: list[str] = []
+    summaries: list[dict[str, Any]] = []
     seen_uids: list[str] = []
     for item in unseen:
         from_addr = str(item.get("from", ""))
@@ -380,6 +385,16 @@ def poll_email_direct(
                 "uid": uid,
             },
         )
+        summary = {
+            "uid": uid,
+            "from": _normalize_address(from_addr),
+            "to": _normalize_address(str(item.get("to", ""))),
+            "subject": str(item.get("subject", "")),
+        }
+        if include_body_preview:
+            body_preview = " ".join(body.split())[:preview_chars]
+            summary["body_preview"] = body_preview
+        summaries.append(summary)
 
     if seen_uids:
         adapter.mark_seen(
@@ -396,5 +411,6 @@ def poll_email_direct(
         "agent": agent,
         "messages": len(artifacts),
         "artifacts": artifacts,
+        "summaries": summaries,
         "audit_path": str((repo_root / DEFAULT_AUDIT_PATH)),
     }
