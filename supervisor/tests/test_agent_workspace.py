@@ -168,8 +168,9 @@ class AgentWorkspaceTests(unittest.TestCase):
                 result = run_workspace_tests(agent="zeta", workspace_root=str(Path(tmp_dir) / "agents"))
             self.assertEqual(result["status"], "ok")
             self.assertEqual(calls[0][:3], ["python3", "-m", "venv"])
-            self.assertEqual(calls[1][-1], "pytest")
-            self.assertEqual(calls[2][-3:], ["-m", "pytest", "-q"])
+            self.assertEqual(calls[1][-2:], ["pip", "--version"])
+            self.assertEqual(calls[2][-1], "pytest")
+            self.assertEqual(calls[3][-3:], ["-m", "pytest", "-q"])
 
     def test_run_workspace_tests_rejects_when_python3_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -203,7 +204,33 @@ class AgentWorkspaceTests(unittest.TestCase):
             with patch("supervisor.agent_workspace.subprocess.run", side_effect=fake_run):
                 result = run_workspace_tests(agent="theta", workspace_root=str(Path(tmp_dir) / "agents"))
             self.assertEqual(result["status"], "ok")
-            self.assertEqual(calls[0][-2:], ["-r", "requirements-dev.txt"])
+            self.assertEqual(calls[0][-2:], ["pip", "--version"])
+            self.assertEqual(calls[1][-2:], ["-r", "requirements-dev.txt"])
+
+    def test_run_workspace_tests_bootstraps_pip_when_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "agents" / "iota" / "repo"
+            repo.mkdir(parents=True, exist_ok=True)
+            (repo / ".git").mkdir()
+            venv_python = Path(tmp_dir) / "agents" / "iota" / "venv" / "bin" / "python"
+            venv_python.parent.mkdir(parents=True, exist_ok=True)
+            venv_python.write_text("", encoding="utf-8")
+            calls: list[list[str]] = []
+
+            def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+                cmd = args[0]
+                calls.append(cmd)
+                if cmd[-2:] == ["pip", "--version"]:
+                    return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="No module named pip")
+                return subprocess.CompletedProcess(cmd, 0, stdout="ok\n", stderr="")
+
+            with patch("supervisor.agent_workspace.subprocess.run", side_effect=fake_run):
+                result = run_workspace_tests(agent="iota", workspace_root=str(Path(tmp_dir) / "agents"))
+            self.assertEqual(result["status"], "ok")
+            self.assertEqual(calls[0][-2:], ["pip", "--version"])
+            self.assertEqual(calls[1][-3:], ["-m", "ensurepip", "--upgrade"])
+            self.assertEqual(calls[2][-1], "pytest")
+            self.assertEqual(calls[3][-3:], ["-m", "pytest", "-q"])
 
 
 if __name__ == "__main__":

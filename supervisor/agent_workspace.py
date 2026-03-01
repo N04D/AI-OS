@@ -223,6 +223,41 @@ def run_workspace_tests(*, agent: str, workspace_root: str | None = None) -> dic
         ensure_commands.append([python3_bin, "-m", "venv", str(paths.venv)])
 
     venv_python = paths.venv / "bin" / "python"
+    pip_check_command = [str(venv_python), "-m", "pip", "--version"]
+    pip_check_proc = subprocess.run(
+        pip_check_command,
+        cwd=paths.repo,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if pip_check_proc.returncode != 0:
+        ensurepip_command = [str(venv_python), "-m", "ensurepip", "--upgrade"]
+        ensurepip_proc = subprocess.run(
+            ensurepip_command,
+            cwd=paths.repo,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if ensurepip_proc.returncode != 0:
+            return {
+                "status": "failed",
+                "agent": _normalize_name(agent, field="agent"),
+                "workspace_repo": str(paths.repo),
+                "runtime_env_file": str(paths.runtime_env_file),
+                "mailbox_fixtures_dir": str(paths.mailbox_fixtures_dir),
+                "venv_path": str(paths.venv),
+                "command": " ".join(ensurepip_command),
+                "exit_code": int(ensurepip_proc.returncode),
+                "stdout_tail": "\n".join(ensurepip_proc.stdout.splitlines()[-10:]),
+                "stderr_tail": "\n".join(ensurepip_proc.stderr.splitlines()[-10:]),
+                "bootstrap_commands": [" ".join(cmd) for cmd in ensure_commands],
+            }
+        ensure_commands.append(ensurepip_command)
+
     requirements_dev = paths.repo / "requirements-dev.txt"
     requirements = paths.repo / "requirements.txt"
     if requirements_dev.is_file():
