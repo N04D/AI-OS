@@ -1,17 +1,44 @@
 {
   "agents": {
     "codex": {
-      "domains_allowlist": [
-        "example.com"
-      ],
+      "domains_allowlist": [],
       "max_body_bytes": 65536,
+      "monitor_policy": {
+        "from_contains": [
+          "don.berghuijs@gmail.com",
+          "shb7733910@gmail.com",
+          "sophia.berghuijs@gmail.com"
+        ],
+        "max_messages": 200,
+        "seen_mode": "seen",
+        "subject_contains": [
+          "AI-OS",
+          "Hello World",
+          "Roblox"
+        ]
+      },
       "receive_allowlist": [
-        "ops@example.com"
+        "don.berghuijs@gmail.com",
+        "shb7733910@gmail.com",
+        "sophia.berghuijs@gmail.com"
       ],
+      "receive_blocklist": [],
+      "reply_policy": {
+        "allowed_senders": [
+          "don.berghuijs@gmail.com",
+          "shb7733910@gmail.com",
+          "sophia.berghuijs@gmail.com"
+        ],
+        "enabled": true,
+        "max_replies_per_thread_per_day": 1,
+        "require_subject_match": true
+      },
       "send_allowlist": [
-        "ops@example.com",
-        "alerts@example.com"
-      ]
+        "don.berghuijs@gmail.com",
+        "shb7733910@gmail.com",
+        "sophia.berghuijs@gmail.com"
+      ],
+      "send_blocklist": []
     }
   },
   "default_action": "deny",
