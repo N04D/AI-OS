@@ -62,6 +62,17 @@ class CliTests(unittest.TestCase):
             self.assertEqual(out["status"], "error")
             self.assertIn("boom", out["reason"])
 
+    def test_capability_activate_returns_structured_rejection(self) -> None:
+        error = cli.CapabilityActivationError("DENY_CAPABILITY_SECRETS_MISSING", "SMTP_PASS")
+        with patch("supervisor.cli.activate_capability", side_effect=error):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                code = cli.main(["--json", "autonomy", "capability-activate", "email.send"])
+            out = json.loads(buf.getvalue().strip())
+            self.assertEqual(code, 2)
+            self.assertEqual(out["status"], "rejected")
+            self.assertEqual(out["reason_code"], "DENY_CAPABILITY_SECRETS_MISSING")
+
     def test_budget_reset_requires_approval_token(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             with patch.dict(os.environ, {"SUPERVISOR_BUDGET_OVERRIDE_TOKEN": ""}, clear=False):

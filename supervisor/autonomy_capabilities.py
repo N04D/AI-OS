@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import uuid
@@ -8,14 +9,31 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from supervisor.capability_lifecycle import DENY_CAPABILITY_APPROVAL_INVALID
+from supervisor.capability_lifecycle import DENY_CAPABILITY_NETWORK_REQUIRED
+from supervisor.capability_lifecycle import DENY_CAPABILITY_SECRETS_MISSING
+from supervisor.capability_lifecycle import DENY_CAPABILITY_TRANSITION_INVALID
+from supervisor.capability_lifecycle import STATE_ACTIVE
+from supervisor.capability_lifecycle import STATE_IMPLEMENTED_NOT_ACTIVE
+from supervisor.capability_lifecycle import collect_activation_prerequisites
+
 DEFAULT_CAPABILITY_LEDGER_PATH = Path("state/supervisor_capabilities.json")
 DEFAULT_CAPABILITY_DENYLIST_PATH = Path("state/supervisor_capability_denies.json")
 DEFAULT_POLICY_SHA_PATH = Path("docs/governance-policy-sha.txt")
+DEFAULT_CAPABILITY_ACTIVATION_AUDIT_PATH = Path("logs/control/capability_activation.jsonl")
 REQUEST_REVOKE_DIR = Path("requests/capabilities/revoke")
 APPROVAL_REVOKE_DIR = Path("approvals/capabilities/revoke")
 
 
 class CapabilityRevokeError(RuntimeError):
+    def __init__(self, reason_code: str, detail: str | None = None) -> None:
+        self.reason_code = reason_code
+        self.detail = detail
+        message = reason_code if not detail else f"{reason_code}: {detail}"
+        super().__init__(message)
+
+
+class CapabilityActivationError(RuntimeError):
     def __init__(self, reason_code: str, detail: str | None = None) -> None:
         self.reason_code = reason_code
         self.detail = detail
@@ -79,6 +97,12 @@ def _read_policy_sha(repo_root: Path) -> str:
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=True) + "\n", encoding="utf-8")
+
+
+def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n")
 
 
 def create_revoke_request(repo_root: Path, capability: str, justification: str) -> dict[str, Any]:
@@ -276,4 +300,95 @@ def apply_revoke_request(repo_root: Path, request_path: Path, approval_path: Pat
         "capability": capability,
         "revoke_id": request_payload["revoke_id"],
         "ledger_path": str(ledger_path),
+    }
+
+
+def activate_capability(
+    repo_root: Path,
+    capability: str,
+    *,
+    expected_approver: str = "Don",
+    ledger_path: Path = DEFAULT_CAPABILITY_LEDGER_PATH,
+    audit_path: Path = DEFAULT_CAPABILITY_ACTIVATION_AUDIT_PATH,
+    env: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    cap = capability.strip()
+    if not cap:
+        raise CapabilityActivationError("DENY_CAPABILITY_ACTIVATION_INVALID", "capability is required")
+    approver = expected_approver.strip()
+    if not approver:
+        raise CapabilityActivationError("DENY_CAPABILITY_ACTIVATION_INVALID", "expected approver is required")
+
+    if _run_git(repo_root, ["status", "--porcelain"]).strip():
+        raise CapabilityActivationError("DENY_DIRTY_WORKTREE", "working tree must be clean before activation")
+
+    resolved_ledger_path = repo_root / ledger_path
+    ledger = load_capability_ledger(resolved_ledger_path)
+    if cap not in ledger:
+        raise CapabilityActivationError("DENY_CAPABILITY_NOT_REGISTERED", f"unknown capability: {cap}")
+    entry = dict(ledger[cap])
+    if str(entry.get("state", "")).strip() != STATE_IMPLEMENTED_NOT_ACTIVE:
+        raise CapabilityActivationError(
+            DENY_CAPABILITY_TRANSITION_INVALID,
+            f"activation requires state {STATE_IMPLEMENTED_NOT_ACTIVE}",
+        )
+    approved_by = str(entry.get("approved_by", "") or "").strip()
+    if approved_by != approver:
+        raise CapabilityActivationError(
+            DENY_CAPABILITY_APPROVAL_INVALID,
+            f"approved_by must be {approver}",
+        )
+
+    runtime_env = dict(os.environ) if env is None else dict(env)
+    prereq = collect_activation_prerequisites(runtime_env, capability=cap)
+    if prereq.missing_secrets:
+        raise CapabilityActivationError(
+            DENY_CAPABILITY_SECRETS_MISSING,
+            ",".join(prereq.missing_secrets),
+        )
+    if not prereq.network_enabled:
+        raise CapabilityActivationError(DENY_CAPABILITY_NETWORK_REQUIRED, "NETWORK_ACCESS_ENABLED must be true")
+
+    updated_ledger = {key: dict(value) for key, value in ledger.items()}
+    updated_entry = dict(updated_ledger[cap])
+    timestamps = updated_entry.get("timestamps")
+    if not isinstance(timestamps, dict):
+        timestamps = {}
+    timestamps[f"{STATE_IMPLEMENTED_NOT_ACTIVE}->{STATE_ACTIVE}"] = _utc_now_iso8601()
+    updated_entry["timestamps"] = dict(sorted((str(key), str(value)) for key, value in timestamps.items()))
+    updated_entry["state"] = STATE_ACTIVE
+    updated_entry["granted"] = True
+    updated_entry["activated_by"] = approver
+    updated_ledger[cap] = updated_entry
+
+    _write_json(resolved_ledger_path, {key: updated_ledger[key] for key in sorted(updated_ledger.keys())})
+    audit_record = {
+        "capability": cap,
+        "activated_by": approver,
+        "approved_by": approved_by,
+        "issue": updated_entry.get("proposal_issue"),
+        "state_after": STATE_ACTIVE,
+        "ts_utc": _utc_now_iso8601(),
+    }
+    resolved_audit_path = repo_root / audit_path
+    _append_jsonl(resolved_audit_path, audit_record)
+
+    _run_git(
+        repo_root,
+        [
+            "add",
+            str(resolved_ledger_path.relative_to(repo_root)),
+            str(resolved_audit_path.relative_to(repo_root)),
+        ],
+    )
+    _commit(repo_root, f"chore(capabilities): activate {cap}")
+
+    return {
+        "status": "ok",
+        "capability": cap,
+        "state": STATE_ACTIVE,
+        "granted": True,
+        "activated_by": approver,
+        "ledger_path": str(resolved_ledger_path.relative_to(repo_root)),
+        "audit_path": str(resolved_audit_path.relative_to(repo_root)),
     }

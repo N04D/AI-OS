@@ -24,7 +24,9 @@ from supervisor.budgets.autonomy import consume_improvement_budget
 from supervisor.budgets.autonomy import load_or_init_budget_state
 from supervisor.budgets.autonomy import roll_window_if_needed
 from supervisor.autonomy_capabilities import apply_revoke_request
+from supervisor.autonomy_capabilities import CapabilityActivationError
 from supervisor.autonomy_capabilities import create_revoke_request
+from supervisor.autonomy_capabilities import activate_capability
 from supervisor.autonomy_promotion_gate import AutonomyPromotionGateError
 from supervisor.autonomy_promotion_gate import create_draft_proposals_prs
 from supervisor.autonomy_review_intake_gate import intake_approved_autonomy_proposals
@@ -157,6 +159,16 @@ def _print_capability_revoke_apply_result(data: dict[str, Any]) -> None:
     print(f"capability: {data.get('capability', '')}")
     print(f"revoke_id: {data.get('revoke_id', '')}")
     print(f"ledger_path: {data.get('ledger_path', '')}")
+
+
+def _print_capability_activate_result(data: dict[str, Any]) -> None:
+    print(f"status: {data.get('status', '')}")
+    print(f"capability: {data.get('capability', '')}")
+    print(f"state: {data.get('state', '')}")
+    print(f"granted: {data.get('granted', False)}")
+    print(f"activated_by: {data.get('activated_by', '')}")
+    print(f"ledger_path: {data.get('ledger_path', '')}")
+    print(f"audit_path: {data.get('audit_path', '')}")
 
 
 def _print_scheduler_tick_result(data: dict[str, Any]) -> None:
@@ -452,6 +464,18 @@ def _cmd_autonomy_apply_revoke(args: argparse.Namespace) -> tuple[int, dict[str,
         approval_path=Path(args.approval),
     )
     return 0, payload, "capability_revoke_apply"
+
+
+def _cmd_autonomy_capability_activate(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]:
+    try:
+        payload = activate_capability(repo_root=Path.cwd(), capability=args.capability, expected_approver="Don")
+        return 0, payload, "capability_activate"
+    except CapabilityActivationError as exc:
+        return (
+            2,
+            {"status": "rejected", "reason_code": exc.reason_code, "reason": str(exc)},
+            "capability_activate",
+        )
 
 
 def _cmd_autonomy_scheduler_tick(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]:
@@ -954,6 +978,10 @@ def build_parser() -> argparse.ArgumentParser:
     apply_revoke.add_argument("--approval", required=True)
     apply_revoke.set_defaults(handler=_cmd_autonomy_apply_revoke)
 
+    capability_activate = autonomy_sub.add_parser("capability-activate", help="Activate capability via Model A lifecycle")
+    capability_activate.add_argument("capability")
+    capability_activate.set_defaults(handler=_cmd_autonomy_capability_activate)
+
     scheduler = autonomy_sub.add_parser("scheduler", help="Scheduler control commands")
     scheduler_sub = scheduler.add_subparsers(dest="scheduler_command", required=True)
 
@@ -1102,6 +1130,8 @@ def main(argv: list[str] | None = None) -> int:
                 _print_capability_revoke_request_result(payload)
             elif kind == "capability_revoke_apply":
                 _print_capability_revoke_apply_result(payload)
+            elif kind == "capability_activate":
+                _print_capability_activate_result(payload)
             elif kind == "scheduler_tick":
                 _print_scheduler_tick_result(payload)
             elif kind == "night_run":
