@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
 import time
 import unittest
@@ -83,7 +84,7 @@ class PluginLoaderTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (good_dir / "plugin.yaml").write_text(
-                self._manifest_json("good", ["python", str(good_dir / "plugin.py")]),
+                self._manifest_json("good", [sys.executable, str(good_dir / "plugin.py")]),
                 encoding="utf-8",
             )
             (bad_dir / "plugin.yaml").write_text(
@@ -94,7 +95,7 @@ class PluginLoaderTests(unittest.TestCase):
                         "name": "bad",
                         "version": "1.0.0",
                         "trust_tier": "community",
-                        "execution": {"out_of_process": True, "command": ["python", "missing.py"]},
+                        "execution": {"out_of_process": True, "command": [sys.executable, "missing.py"]},
                         "capabilities": ["network:any"],
                         "permissions": {"filesystem": {"allow": ["logs/**"]}, "network": {"allow_hosts": ["*"]}},
                         "signing": {"registry_signed": False},
@@ -132,11 +133,11 @@ class PluginLoaderTests(unittest.TestCase):
             (repo_p / "plugin.py").write_text("print('')\n", encoding="utf-8")
             (ext_p / "plugin.py").write_text("print('')\n", encoding="utf-8")
             (repo_p / "plugin.yaml").write_text(
-                self._manifest_json("same-id", ["python", str(repo_p / "plugin.py")], trust_tier="official"),
+                self._manifest_json("same-id", [sys.executable, str(repo_p / "plugin.py")], trust_tier="official"),
                 encoding="utf-8",
             )
             (ext_p / "plugin.yaml").write_text(
-                self._manifest_json("same-id", ["python", str(ext_p / "plugin.py")], trust_tier="community"),
+                self._manifest_json("same-id", [sys.executable, str(ext_p / "plugin.py")], trust_tier="community"),
                 encoding="utf-8",
             )
 
@@ -171,7 +172,7 @@ class PluginLoaderTests(unittest.TestCase):
                         "name": "manifest-id",
                         "version": "1.0.0",
                         "trust_tier": "community",
-                        "execution": {"out_of_process": True, "command": ["python", "missing.py"]},
+                        "execution": {"out_of_process": True, "command": [sys.executable, "missing.py"]},
                         "capabilities": ["network:any"],
                         "permissions": {"filesystem": {"allow": ["logs/**"]}, "network": {"allow_hosts": ["example.com"]}},
                         "signing": {"registry_signed": False},
@@ -215,7 +216,7 @@ class PluginLoaderTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (plugin_dir / "plugin.yaml").write_text(
-                self._manifest_json("dummy", ["python", str(script)]),
+                self._manifest_json("dummy", [sys.executable, str(script)]),
                 encoding="utf-8",
             )
             registry_path = tmp / "state" / "plugins" / "registry.json"
@@ -249,7 +250,7 @@ class PluginLoaderTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (plugin_dir / "plugin.yaml").write_text(
-                self._manifest_json("slow", ["python", str(script)]),
+                self._manifest_json("slow", [sys.executable, str(script)]),
                 encoding="utf-8",
             )
             registry_path = tmp / "state" / "plugins" / "registry.json"

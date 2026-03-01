@@ -1,0 +1,27 @@
+{
+  "version": "v0.1",
+  "pytest": {
+    "passed": 385,
+    "failed": 0,
+    "skipped": 14,
+    "skip_justifications": [
+      "tests/test_observability.py:95 fastapi not installed in test environment",
+      "tests/test_observability.py:63 fastapi not installed in test environment",
+      "tests/test_observability.py:109 fastapi not installed in test environment",
+      "tests/test_observability.py:72 fastapi not installed in test environment",
+      "tests/test_observability.py:82 fastapi not installed in test environment",
+      "tests/test_telegram_channel.py:170 fastapi not installed in test environment",
+      "tests/test_telegram_channel.py:283 fastapi not installed in test environment",
+      "tests/test_telegram_channel.py:258 fastapi not installed in test environment",
+      "tests/test_telegram_channel.py:238 fastapi not installed in test environment",
+      "tests/test_telegram_channel.py:154 fastapi not installed in test environment",
+      "tests/test_telegram_channel.py:180 fastapi not installed in test environment",
+      "tests/test_telegram_channel.py:203 fastapi not installed in test environment",
+      "tests/test_telegram_channel.py:221 fastapi not installed in test environment",
+      "tests/test_telegram_channel.py:160 fastapi not installed in test environment"
+    ]
+  },
+  "roadmap_updated": true,
+  "progress_updated": true,
+  "halt_entered": true
+}

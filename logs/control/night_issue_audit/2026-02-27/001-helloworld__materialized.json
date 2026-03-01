@@ -1,0 +1,7 @@
+{
+  "body_sha256": "9791973f43d18eb732e93872e065f5ffd78d91dc6692c317ed0e6302c601bef8",
+  "epoch": "2026-02-27",
+  "issue_id": "001-helloworld",
+  "spec_path": "/data/srv/aios/AI-OS/state/night_specs/001-helloworld.md",
+  "stage": "materialized"
+}

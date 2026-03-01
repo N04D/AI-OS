@@ -48,6 +48,9 @@ except ImportError:
         write_gate_artifact,
     )
 from supervisor.environment_validation import validate_environment
+from supervisor.git_remote import required_remote_url
+from supervisor.approval_tokens import ApprovalTokenError
+from supervisor.approval_tokens import require_approval_token
 try:
     from ledger import (
         compute_run_id,
@@ -121,16 +124,7 @@ def get_repo_identity_from_remote_url():
     Derives owner and repo from the actual git remote URL.
     Expected format: ssh://git@localhost:2222/Don/dev.git or git@github.com:owner/repo.git
     """
-    try:
-        result = subprocess.run(
-            ["git", "config", "--get", "remote.origin.url"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        url = result.stdout.strip()
-    except subprocess.CalledProcessError:
-        raise ValueError("Could not get git remote.origin.url. Is this a git repository?")
+    remote_name, url = required_remote_url()
 
     # Handle ssh://git@localhost:2222/Don/dev.git
     match = re.search(r'ssh://git@(?:[^:]+)(?::\d+)?/(?P<owner>[^/]+)/(?P<repo>.+)\.git', url)
@@ -142,7 +136,7 @@ def get_repo_identity_from_remote_url():
     if match:
         return match.group('owner'), match.group('repo')
         
-    raise ValueError(f"Unsupported git remote URL format: {url}")
+    raise ValueError(f"Unsupported git remote URL format (remote={remote_name}): {url}")
 
 def get_open_issues(api_base, owner, repo, headers=None):
     """Fetches open issues from the Gitea API."""
@@ -1274,6 +1268,17 @@ def main():
 
                     print("RECURSIVE_AUTONOMY_ENABLED")
                     print(f'AUTONOMY_MODE_ACTIVE phase="{FINAL_PHASE_NAME}"')
+                    try:
+                        require_approval_token(
+                            scope="high_risk_autonomy",
+                            operation=f"recursive_improvement:{FINAL_PHASE_NAME}",
+                            token=(os.environ.get("SUPERVISOR_HIGH_RISK_TOKEN", "") or "").strip(),
+                        )
+                    except ApprovalTokenError as exc:
+                        print(f"RECURSION_BLOCKED reason=approval_token_denied:{exc.reason_code}")
+                        print(enforcer.compliance_report_block())
+                        time.sleep(AUTONOMY_SLEEP_SECONDS)
+                        continue
                     created, counter, improvement_class = create_recursive_improvement_task(
                         api_base=api_base,
                         owner=owner,
@@ -1300,6 +1305,18 @@ def main():
         active_phase_id = active_phase["id"]
         active_phase_name = active_phase.get("title", "")
         eligible_count = count_eligible_tasks_for_phase(issues, active_phase_id)
+
+        try:
+            require_approval_token(
+                scope="phase_start",
+                operation=f"phase_start:{active_phase_name}",
+                token=(os.environ.get("SUPERVISOR_PHASE_START_TOKEN", "") or "").strip(),
+            )
+        except ApprovalTokenError as exc:
+            print(f'PHASE_START_DENIED phase="{active_phase_name}" reason_code={exc.reason_code}')
+            print(enforcer.compliance_report_block())
+            time.sleep(AUTONOMY_SLEEP_SECONDS)
+            continue
 
         print(f"ACTIVE_PHASE={active_phase_name}")
         print(f"ELIGIBLE_TASK_COUNT={eligible_count}")
@@ -1351,6 +1368,11 @@ def main():
                     try:
                         execution_start_ms = int(time.time() * 1000)
                         try:
+                            require_approval_token(
+                                scope="high_risk_autonomy",
+                                operation=f"dispatch_task:{dispatch_input.get('task_id')}",
+                                token=(os.environ.get("SUPERVISOR_HIGH_RISK_TOKEN", "") or "").strip(),
+                            )
                             result, dispatch_meta = dispatch_task_with_supervisor_permit_or_halt(
                                 dispatch_input,
                                 policy_hash=policy_hash_baseline,
@@ -1358,6 +1380,8 @@ def main():
                                 max_duration_seconds=max_duration_seconds,
                                 decision="allow",
                             )
+                        except ApprovalTokenError as exc:
+                            raise DispatchFailure(f"approval_token_denied:{exc.reason_code}") from exc
                         except ValueError as exc:
                             raise DispatchFailure(str(exc)) from exc
 

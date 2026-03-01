@@ -6,6 +6,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from supervisor.git_remote import preferred_remote_name
+
 
 def _utc_iso8601() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -49,6 +51,7 @@ def validate_environment(
 ) -> dict:
     checks_passed: list[str] = []
     checks_failed: list[str] = []
+    remote_name = preferred_remote_name()
 
     # A) Repository State
     try:
@@ -60,14 +63,14 @@ def validate_environment(
             timeout=5,
         )
         subprocess.run(
-            ["git", "config", "--get", "remote.origin.url"],
+            ["git", "config", "--get", f"remote.{remote_name}.url"],
             check=True,
             capture_output=True,
             text=True,
             timeout=5,
         )
         subprocess.run(
-            ["git", "ls-remote", "--exit-code", "origin"],
+            ["git", "ls-remote", "--exit-code", remote_name],
             check=True,
             capture_output=True,
             text=True,

@@ -1,0 +1,75 @@
+schema_version: "autonomy-budget.v1"
+timezone: "UTC"
+epoch:
+  type: "daily_utc"
+  format: "YYYY-MM-DD"
+
+hashing:
+  algorithm: "sha256"
+  canonical_json: "sorted_keys,separators=(',',':'),ensure_ascii=true"
+
+validation:
+  require_all_keys: true
+  forbid_unknown_keys: true
+  trust_levels: ["LOW", "MEDIUM", "HIGH"]
+  risk_profiles: ["LOW", "MEDIUM", "HIGH"]
+  non_negative_limits: true
+  propagation_factor_range: [0.0, 1.0]
+
+trust_levels:
+  LOW:
+    token_multiplier: 0.5
+    external_io_multiplier: 0.5
+    max_escalations: 1
+  MEDIUM:
+    token_multiplier: 1.0
+    external_io_multiplier: 1.0
+    max_escalations: 3
+  HIGH:
+    token_multiplier: 1.5
+    external_io_multiplier: 1.2
+    max_escalations: 10
+
+risk_profiles:
+  LOW:
+    token_cost_multiplier: 1.0
+    external_call_cost_multiplier: 1.0
+  MEDIUM:
+    token_cost_multiplier: 1.3
+    external_call_cost_multiplier: 1.5
+  HIGH:
+    token_cost_multiplier: 2.0
+    external_call_cost_multiplier: 3.0
+
+skill_quotas:
+  git_commit:
+    base_limit: 50
+    requires_escalation: false
+  telegram:
+    base_limit: 20
+    requires_escalation: false
+  email:
+    base_limit: 10
+    requires_escalation: false
+  policy_modify:
+    base_limit: 2
+    requires_escalation: true
+
+trust_evolution:
+  clean_epochs_for_upgrade: 3
+  downgrade_on_budget_violation: true
+  downgrade_on_hash_inconsistency: true
+  downgrade_on_escalation_limit_exceeded: true
+  downgrade_on_high_risk_overflow: true
+  high_risk_overflow_threshold: 1
+
+cross_agent_risk:
+  enabled: true
+  propagation_factor: 0.25
+  shared_risk_window_epochs: 3
+
+ledger:
+  base_dir: "audit/budget_ledger"
+  file_name_pattern: "YYYY-MM-DD.jsonl"
+  append_only: true
+  fail_closed_on_write_error: true

@@ -1,0 +1,7 @@
+{
+  "epoch": "2026-02-27",
+  "issue_id": "901-high-star",
+  "reason_code": "DENY_TOKEN_MISSING",
+  "risk_tier": "HIGH",
+  "stage": "capability_execution_denied"
+}

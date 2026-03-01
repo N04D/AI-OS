@@ -1,5 +1,4 @@
 import json
-import os
 import re
 import subprocess
 import urllib.request
@@ -7,8 +6,9 @@ from datetime import UTC
 from datetime import datetime
 from pathlib import Path
 
-from supervisor.budgets import BudgetStateError
-from supervisor.budgets import consume_from_path
+from supervisor.control_plane import BudgetStateError
+from supervisor.control_plane import consume_from_path
+from supervisor.git_remote import preferred_remote_name
 
 
 def run(cmd):
@@ -40,30 +40,20 @@ def create_branch(task_id):
     return branch
 
 
-def commit(message):
-    run(["git", "add", "."])
+def commit(message, files=None):
+    staged_files = list(files) if files is not None else get_changed_files()
+    if not staged_files:
+        return
+    run(["git", "add", "--", *staged_files])
     run(["git", "commit", "-m", message])
 
 
 def push(branch):
-    run(["git", "push", "-u", "origin", branch])
-
-
-def _preferred_remote_name():
-    env_remote = os.environ.get("AIOS_GIT_REMOTE")
-    if env_remote:
-        return env_remote
-
-    has_gitea_remote = subprocess.run(
-        ["git", "config", "--get", "remote.gitea.url"],
-        capture_output=True,
-        text=True,
-    ).returncode == 0
-    return "gitea" if has_gitea_remote else "origin"
+    run(["git", "push", "-u", preferred_remote_name(), branch])
 
 
 def get_repo_info():
-    remote_name = _preferred_remote_name()
+    remote_name = preferred_remote_name()
     result = subprocess.run(
         ["git", "config", "--get", f"remote.{remote_name}.url"],
         capture_output=True,

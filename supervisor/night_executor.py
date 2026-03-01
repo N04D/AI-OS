@@ -18,8 +18,8 @@ from supervisor.ledger import ingest_evaluation_record_linked
 from supervisor.ledger import mark_run_committed
 from supervisor.autonomy_observer import analyze_ledger
 from supervisor.autonomy_planner import generate_proposals
-from supervisor.autonomy_budget import DEFAULT_HOST_STATE_DIR
-from supervisor.autonomy_budget import consume_budget
+from supervisor.budgets.autonomy import DEFAULT_HOST_STATE_DIR
+from supervisor.budgets.autonomy import consume_budget
 from supervisor.autonomy_promotion_gate import create_draft_proposals_prs
 from supervisor.autonomy_review_intake_gate import intake_approved_autonomy_proposals
 from supervisor.night_task_runner import execute_night_task

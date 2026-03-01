@@ -32,7 +32,7 @@ def handle_success(task_id, task_text, eval_log):
         raise
 
     branch = create_branch(task_id)
-    commit(commit_msg)
+    commit(commit_msg, changed_files)
     push(branch)
 
     print(f"Committed and pushed feature branch: {branch}")

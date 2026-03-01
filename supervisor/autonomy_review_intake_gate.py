@@ -8,9 +8,9 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from supervisor.autonomy_budget import DEFAULT_HOST_STATE_DIR
-from supervisor.autonomy_budget import check_budget
-from supervisor.autonomy_budget import consume_budget
+from supervisor.budgets.autonomy import DEFAULT_HOST_STATE_DIR
+from supervisor.budgets.autonomy import check_budget
+from supervisor.budgets.autonomy import consume_budget
 
 
 class AutonomyReviewIntakeGateError(RuntimeError):

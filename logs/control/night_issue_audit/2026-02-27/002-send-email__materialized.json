@@ -1,0 +1,7 @@
+{
+  "body_sha256": "c383648b2ec9cf4b8537be420c24f4a0bd2bf831d20be142b2d60aa292de60b2",
+  "epoch": "2026-02-27",
+  "issue_id": "002-send-email",
+  "spec_path": "/data/srv/aios/AI-OS/state/night_specs/002-send-email.md",
+  "stage": "materialized"
+}

@@ -1,0 +1,12 @@
+{
+  "epoch": "2026-02-27",
+  "issue_id": "002-send-email",
+  "issue_number": 0,
+  "labels": [
+    "MED",
+    "risk:med",
+    "self-improvement"
+  ],
+  "source": "local_open",
+  "stage": "detected"
+}

@@ -1,0 +1,8 @@
+{
+  "capability": "email_send",
+  "epoch": "2026-02-27",
+  "issue_id": "900-send-email",
+  "reason_code": "DENY_CAPABILITY_MISSING",
+  "status": "requested",
+  "type": "capability_request"
+}

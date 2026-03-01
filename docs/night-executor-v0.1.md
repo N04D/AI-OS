@@ -175,7 +175,7 @@ CLI groundwork is available through:
 
 ## Execution Budgeting + Rate Limiter v0.1
 
-Budget gate module: `supervisor.autonomy_budget` (canonical runtime path)
+Budget gate module: `supervisor.budgets.autonomy` (canonical runtime path)
 
 Host-state files (outside repository):
 

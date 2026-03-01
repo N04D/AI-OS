@@ -1,0 +1,44 @@
+name: PR Gate Path Allowlist
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  path-allowlist:
+    name: pr-gate/path-allowlist
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deterministic dependencies
+        run: |
+          python -m pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Evaluate path allowlist
+        run: |
+          python scripts/pr_gate_path_allowlist.py \
+            --repo "${{ github.repository }}" \
+            --pr-number "${{ github.event.pull_request.number }}" \
+            --token "${{ secrets.GITHUB_TOKEN }}" \
+            --policy ".gitea/governance/path-allowlist.v1.yaml" \
+            --output "gate-verdict.json"
+
+      - name: Upload gate verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-verdict-pr-${{ github.event.pull_request.number }}
+          path: gate-verdict.json
+          if-no-files-found: error

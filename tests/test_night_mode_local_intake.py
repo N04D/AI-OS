@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import subprocess
+from datetime import UTC
+from datetime import datetime
+from datetime import timedelta
 from pathlib import Path
 
 from autonomy_orchestrator.night_mode import NightModeRunner
@@ -67,6 +70,11 @@ def _phase_j_budget(limit: int) -> dict:
     }
 
 
+def _approval_token(scope: list[str], *, jti: str = "local-intake-jti", exp_offset_s: int = 3600) -> str:
+    exp = int((datetime.now(UTC) + timedelta(seconds=exp_offset_s)).timestamp())
+    return json.dumps({"v": 1, "scope": scope, "exp": exp, "jti": jti}, sort_keys=True)
+
+
 def _make_local_runner(repo: Path) -> NightModeRunner:
     phase_k_state_path = repo / "state" / "night_mode_state.json"
     phase_j_budget_path = repo / "state" / "budgets.json"
@@ -87,6 +95,44 @@ def _make_local_runner(repo: Path) -> NightModeRunner:
         capability_ledger_path=capability_ledger.relative_to(repo),
         plugin_dispatcher=lambda plugin_id, summary: None,
     )
+
+
+def test_user_contract_issue_format_runs_in_local_source_mode(tmp_path: Path, monkeypatch) -> None:
+    repo = tmp_path
+    _init_repo(repo)
+    monkeypatch.delenv("SUPERVISOR_CAPABILITY_EXECUTION_TOKEN", raising=False)
+    _write_json(
+        repo / "state" / "issues" / "open" / "001-helloworld.json",
+        {
+            "id": "001-helloworld",
+            "title": "Create helloworld.txt",
+            "labels": ["self-improvement", "LOW"],
+            "body": "Create a file helloworld.txt in the repository root containing the text: Hello World.",
+        },
+    )
+    _write_json(
+        repo / "state" / "issues" / "open" / "002-send-email.json",
+        {
+            "id": "002-send-email",
+            "title": "Send me an email",
+            "labels": ["self-improvement", "MED"],
+            "required_capabilities": ["email_send"],
+            "body": "Send an email to <YOUR_EMAIL> saying: Autonomous system test successful.",
+        },
+    )
+    runner = _make_local_runner(repo)
+    result = runner.run()
+
+    assert result["status"] == "stopped"
+    assert result["summary"]["tasks_executed"] == 1
+    assert "DENY_CAPABILITY_MISSING" in result["summary"]["violations"]
+    assert (repo / "helloworld.txt").read_text(encoding="utf-8") == "Hello World\n"
+    assert not (repo / "state" / "issues" / "open" / "001-helloworld.json").exists()
+    assert (repo / "state" / "issues" / "open" / "002-send-email.json").exists()
+    requests = sorted((repo / "state" / "capability_requests").glob("*.json"))
+    assert len(requests) == 1
+    req = json.loads(requests[0].read_text(encoding="utf-8"))
+    assert req["capability"] == "email_send"
 
 
 def test_local_hello_world_issue_creates_file_and_halts(tmp_path: Path) -> None:

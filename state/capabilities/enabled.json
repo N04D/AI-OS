@@ -1,7 +1,41 @@
 {
-  "enabled": [
-    "repo_write",
-    "pr_create",
-    "tests_run"
-  ]
+  "email.send": {
+    "activated_by": null,
+    "approved_by": "Don",
+    "proposal_issue": 60,
+    "state": "IMPLEMENTED_NOT_ACTIVE",
+    "timestamps": {
+      "IMPLEMENTATION_PENDING->IMPLEMENTED_NOT_ACTIVE": "2026-03-01T00:00:00Z",
+      "NOT_PRESENT->PROPOSAL_REQUIRED": "2026-02-28T23:00:00Z",
+      "PROPOSAL_APPROVED->IMPLEMENTATION_PENDING": "2026-02-28T23:50:00Z",
+      "PROPOSAL_REQUIRED->PROPOSAL_APPROVED": "2026-02-28T23:45:00Z"
+    }
+  },
+  "pr_create": {
+    "activated_by": "system",
+    "approved_by": "system",
+    "proposal_issue": null,
+    "state": "ACTIVE",
+    "timestamps": {
+      "ACTIVATION_PENDING->ACTIVE": "2026-02-27T00:00:00Z"
+    }
+  },
+  "repo_write": {
+    "activated_by": "system",
+    "approved_by": "system",
+    "proposal_issue": null,
+    "state": "ACTIVE",
+    "timestamps": {
+      "ACTIVATION_PENDING->ACTIVE": "2026-02-27T00:00:00Z"
+    }
+  },
+  "tests_run": {
+    "activated_by": "system",
+    "approved_by": "system",
+    "proposal_issue": null,
+    "state": "ACTIVE",
+    "timestamps": {
+      "ACTIVATION_PENDING->ACTIVE": "2026-02-27T00:00:00Z"
+    }
+  }
 }

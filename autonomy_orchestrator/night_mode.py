@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import urllib.parse
 import urllib.request
+import yaml
 from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
@@ -50,6 +52,9 @@ class AtomicTask:
     changeset: tuple[tuple[str, str], ...]
     risk_profile: str
     skill: str
+
+
+_RISK_RANK: dict[str, int] = {"LOW": 0, "MED": 1, "HIGH": 2}
 
 
 def _canonical_json(payload: dict[str, Any]) -> str:
@@ -172,6 +177,8 @@ class NightModeRunner:
         gitea_base_url: str = "",
         gitea_token: str = "",
         gitea_repo: str = "",
+        source_mode: str = "gitea",
+        remote_config_path: Path = Path("config/remote_sources.yaml"),
     ) -> None:
         self.repo_root = repo_root
         self.epoch_id = epoch_id
@@ -185,12 +192,19 @@ class NightModeRunner:
         self.gitea_base_url = gitea_base_url.strip().rstrip("/")
         self.gitea_token = gitea_token.strip()
         self.gitea_repo = gitea_repo.strip().strip("/")
+        self.source_mode = source_mode.strip().lower() or "gitea"
+        self.remote_config_path = Path(str(remote_config_path))
+        self._remote_sync_done = False
         normalized_summary_dir = Path(str(summary_dir))
         self.summary_dir = normalized_summary_dir
         self._halt_on_empty_queue = not callable(issue_fetcher)
         if callable(issue_fetcher):
             self._fetch_issues = issue_fetcher
-        elif self.gitea_base_url and self.gitea_repo:
+        elif self.source_mode == "remote":
+            self._fetch_issues = self._fetch_remote_open_issues
+        elif self.source_mode == "both":
+            self._fetch_issues = self._fetch_local_and_remote_open_issues
+        elif self.gitea_base_url and self.gitea_repo and self.source_mode == "gitea":
             self._fetch_issues = self._fetch_night_build_issues
         else:
             self._fetch_issues = self._fetch_local_open_issues
@@ -665,10 +679,27 @@ class NightModeRunner:
             raise NightModeError("DENY_STATE_INVALID", "local_capability_registry_invalid_json") from exc
         if not isinstance(payload, dict):
             raise NightModeError("DENY_STATE_INVALID", "local_capability_registry_invalid_type")
-        enabled = payload.get("enabled")
-        if not isinstance(enabled, list) or any(not isinstance(item, str) or not item.strip() for item in enabled):
-            raise NightModeError("DENY_STATE_INVALID", "local_capability_registry_invalid_enabled")
-        return {item.strip() for item in enabled}
+        # Backward-compatible legacy model: {"enabled": ["capability.name", ...]}
+        if "enabled" in payload:
+            enabled = payload.get("enabled")
+            if not isinstance(enabled, list) or any(not isinstance(item, str) or not item.strip() for item in enabled):
+                raise NightModeError("DENY_STATE_INVALID", "local_capability_registry_invalid_enabled")
+            return {item.strip() for item in enabled}
+
+        # State-machine model:
+        # {"email.send": {"state":"IMPLEMENTED_NOT_ACTIVE|ACTIVE|...", ...}, ...}
+        active: set[str] = set()
+        for key, value in payload.items():
+            if not isinstance(key, str) or not key.strip():
+                raise NightModeError("DENY_STATE_INVALID", "local_capability_registry_invalid_key")
+            if not isinstance(value, dict):
+                raise NightModeError("DENY_STATE_INVALID", "local_capability_registry_invalid_entry")
+            state_value = value.get("state")
+            if not isinstance(state_value, str):
+                raise NightModeError("DENY_STATE_INVALID", "local_capability_registry_invalid_state")
+            if state_value == "ACTIVE":
+                active.add(key.strip())
+        return active
 
     def _parse_local_issue_file(self, issue_path: Path) -> dict[str, Any]:
         if issue_path.suffix == ".json":
@@ -678,25 +709,42 @@ class NightModeRunner:
                 raise NightModeError("DENY_STATE_INVALID", f"local_issue_invalid_json:{issue_path.name}") from exc
             if not isinstance(payload, dict):
                 raise NightModeError("DENY_STATE_INVALID", f"local_issue_invalid_type:{issue_path.name}")
-            issue_id = payload.get("issue_id")
+            issue_id = payload.get("issue_id") or payload.get("id")
             body = payload.get("body")
             labels = payload.get("labels")
             required_capability = payload.get("required_capability")
+            required_capabilities = payload.get("required_capabilities")
             if not isinstance(issue_id, str) or not issue_id.strip():
                 raise NightModeError("DENY_STATE_INVALID", f"local_issue_missing_issue_id:{issue_path.name}")
             if not isinstance(body, str) or not body.strip():
                 raise NightModeError("DENY_STATE_INVALID", f"local_issue_missing_body:{issue_path.name}")
             if not isinstance(labels, list) or any(not isinstance(item, str) or not item.strip() for item in labels):
                 raise NightModeError("DENY_STATE_INVALID", f"local_issue_invalid_labels:{issue_path.name}")
+            if required_capabilities is not None:
+                if (
+                    not isinstance(required_capabilities, list)
+                    or any(not isinstance(item, str) or not item.strip() for item in required_capabilities)
+                ):
+                    raise NightModeError("DENY_STATE_INVALID", f"local_issue_invalid_required_capabilities:{issue_path.name}")
+                if required_capability is None and required_capabilities:
+                    required_capability = str(required_capabilities[0]).strip()
             if required_capability is not None and (
                 not isinstance(required_capability, str) or not required_capability.strip()
             ):
                 raise NightModeError("DENY_STATE_INVALID", f"local_issue_invalid_required_capability:{issue_path.name}")
+            normalized_labels = {item.strip() for item in labels}
+            if "LOW" in normalized_labels:
+                normalized_labels.add("risk:low")
+            if "MED" in normalized_labels or "MEDIUM" in normalized_labels:
+                normalized_labels.add("risk:med")
+            if "HIGH" in normalized_labels:
+                normalized_labels.add("risk:high")
+            normalized_body = self._normalize_local_issue_body(issue_id.strip(), body.strip())
             return {
                 "number": issue_id.strip(),
-                "body": body,
+                "body": normalized_body,
                 "source": "local_open",
-                "labels": sorted({item.strip() for item in labels}),
+                "labels": sorted(normalized_labels),
                 "required_capability": (required_capability or "").strip(),
                 "local_issue_path": str(issue_path),
             }
@@ -735,6 +783,23 @@ class NightModeRunner:
 
         raise NightModeError("DENY_STATE_INVALID", f"local_issue_unsupported_extension:{issue_path.name}")
 
+    @staticmethod
+    def _normalize_local_issue_body(issue_id: str, body: str) -> str:
+        match = re.fullmatch(
+            r"Create a file ([^\s]+) in the repository root containing the text:\s*(.+?)(?:\.)?",
+            body.strip(),
+            flags=re.IGNORECASE,
+        )
+        if not match:
+            return body
+        rel_path = _ensure_safe_repo_relative(match.group(1).strip())
+        content = match.group(2).strip()
+        return (
+            f"CREATE_FILE {rel_path}\n"
+            f"WRITE_FILE {rel_path} {content}\n"
+            f"COMMIT local-{issue_id}\n"
+        )
+
     def _fetch_local_open_issues(self) -> list[dict[str, Any]]:
         root = self.repo_root / "state" / "issues" / "open"
         if not root.exists():
@@ -749,6 +814,315 @@ class NightModeRunner:
         for issue_path in issue_paths:
             issues.append(self._parse_local_issue_file(issue_path))
         return issues
+
+    @staticmethod
+    def _risk_tier_from_labels(labels: set[str]) -> str:
+        lowered = {label.lower() for label in labels}
+        if "high" in lowered or "risk:high" in lowered:
+            return "HIGH"
+        if "med" in lowered or "medium" in lowered or "risk:med" in lowered or "risk:medium" in lowered:
+            return "MED"
+        if "low" in lowered or "risk:low" in lowered:
+            return "LOW"
+        return ""
+
+    @staticmethod
+    def _issue_number_key(value: Any) -> int:
+        match = re.search(r"\d+", str(value))
+        return int(match.group(0)) if match else 0
+
+    @staticmethod
+    def _sanitize_remote_body(raw_body: str) -> str:
+        body = raw_body
+        body = re.sub(r"<[^>]+>", "", body)
+        body = re.sub(r"```(?:.|\\n)*?```", "", body)
+        return body.strip()
+
+    def _remote_sync_state_path(self) -> Path:
+        return self.repo_root / "state" / "issues" / "remote" / "last_sync.json"
+
+    def _remote_execution_ledger_path(self) -> Path:
+        return self.repo_root / "state" / "issues" / "remote" / "remote_issue_execution_ledger.json"
+
+    def _load_remote_sync_state(self) -> dict[str, Any]:
+        path = self._remote_sync_state_path()
+        if not path.exists():
+            return {}
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise NightModeError("DENY_STATE_INVALID", "remote_sync_state_invalid_json") from exc
+        if not isinstance(payload, dict):
+            raise NightModeError("DENY_STATE_INVALID", "remote_sync_state_invalid_type")
+        return payload
+
+    def _write_remote_sync_state(self, payload: dict[str, Any]) -> None:
+        _atomic_write_text(self._remote_sync_state_path(), json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=True) + "\n")
+
+    def _load_remote_execution_ledger(self) -> dict[str, Any]:
+        path = self._remote_execution_ledger_path()
+        if not path.exists():
+            return {"executed_issue_ids": []}
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise NightModeError("DENY_STATE_INVALID", "remote_execution_ledger_invalid_json") from exc
+        if not isinstance(payload, dict):
+            raise NightModeError("DENY_STATE_INVALID", "remote_execution_ledger_invalid_type")
+        executed_issue_ids = payload.get("executed_issue_ids")
+        if not isinstance(executed_issue_ids, list) or any(not isinstance(item, str) or not item.strip() for item in executed_issue_ids):
+            raise NightModeError("DENY_STATE_INVALID", "remote_execution_ledger_invalid_entries")
+        return {"executed_issue_ids": sorted({item.strip() for item in executed_issue_ids})}
+
+    def _write_remote_execution_ledger(self, payload: dict[str, Any]) -> None:
+        _atomic_write_text(self._remote_execution_ledger_path(), json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=True) + "\n")
+
+    def _remote_issue_already_executed(self, issue_id: str) -> bool:
+        payload = self._load_remote_execution_ledger()
+        executed = payload.get("executed_issue_ids", [])
+        return issue_id in executed if isinstance(executed, list) else False
+
+    def _record_remote_issue_executed(self, issue_id: str) -> None:
+        payload = self._load_remote_execution_ledger()
+        executed = payload.get("executed_issue_ids", [])
+        values = sorted({str(item).strip() for item in executed if isinstance(item, str) and item.strip()} | {issue_id})
+        self._write_remote_execution_ledger({"executed_issue_ids": values})
+
+    def _load_remote_sources_config(self) -> list[dict[str, Any]]:
+        cfg_path = self.repo_root / self.remote_config_path
+        if not cfg_path.exists():
+            raise NightModeError("DENY_STATE_INVALID", f"remote_config_missing:{self.remote_config_path}")
+        try:
+            parsed = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise NightModeError("DENY_STATE_INVALID", "remote_config_invalid_yaml") from exc
+        if not isinstance(parsed, dict):
+            raise NightModeError("DENY_STATE_INVALID", "remote_config_invalid_type")
+        sources = parsed.get("remote_sources")
+        if not isinstance(sources, list):
+            raise NightModeError("DENY_STATE_INVALID", "remote_sources_missing")
+        out: list[dict[str, Any]] = []
+        for item in sources:
+            if not isinstance(item, dict):
+                raise NightModeError("DENY_STATE_INVALID", "remote_source_invalid_type")
+            source_id = str(item.get("id", "")).strip()
+            source_type = str(item.get("type", "")).strip().lower()
+            enabled = bool(item.get("enabled", False))
+            base_url = str(item.get("base_url", "")).strip().rstrip("/")
+            owner = str(item.get("owner", "")).strip()
+            repo = str(item.get("repo", "")).strip()
+            auth_env = str(item.get("auth_env", "")).strip()
+            labels_allowlist = item.get("labels_allowlist", [])
+            max_issues = int(item.get("max_issues", 0) or 0)
+            if not source_id or source_type not in {"gitea", "github"} or not base_url or not owner or not repo:
+                raise NightModeError("DENY_STATE_INVALID", f"remote_source_invalid:{source_id or 'unknown'}")
+            if enabled and not auth_env:
+                raise NightModeError("DENY_STATE_INVALID", f"remote_source_missing_auth_env:{source_id}")
+            if max_issues <= 0:
+                raise NightModeError("DENY_STATE_INVALID", f"remote_source_invalid_max_issues:{source_id}")
+            if not isinstance(labels_allowlist, list) or any(not isinstance(v, str) or not v.strip() for v in labels_allowlist):
+                raise NightModeError("DENY_STATE_INVALID", f"remote_source_invalid_labels_allowlist:{source_id}")
+            out.append(
+                {
+                    "id": source_id,
+                    "type": source_type,
+                    "enabled": enabled,
+                    "base_url": base_url,
+                    "owner": owner,
+                    "repo": repo,
+                    "auth_env": auth_env,
+                    "labels_allowlist": sorted({v.strip() for v in labels_allowlist}),
+                    "max_issues": max_issues,
+                }
+            )
+        out.sort(key=lambda s: str(s["id"]))
+        return out
+
+    def _remote_http_get(
+        self, *, url: str, token: str, etag: str
+    ) -> tuple[int, Any, str]:
+        headers = {"Accept": "application/json"}
+        if token:
+            headers["Authorization"] = f"token {token}"
+        if etag:
+            headers["If-None-Match"] = etag
+        request = urllib.request.Request(url=url, method="GET", headers=headers)
+        try:
+            with urllib.request.urlopen(request) as response:
+                status = int(getattr(response, "status", response.getcode()))
+                body = response.read().decode("utf-8")
+                next_etag = str(response.headers.get("ETag", "")).strip()
+                rate_remaining = str(response.headers.get("X-RateLimit-Remaining", "")).strip()
+        except urllib.error.HTTPError as exc:
+            status = int(getattr(exc, "code", 500))
+            body = exc.read().decode("utf-8", errors="replace")
+            headers_obj = getattr(exc, "headers", None)
+            next_etag = str(headers_obj.get("ETag", "")).strip() if headers_obj is not None else ""
+            rate_remaining = str(headers_obj.get("X-RateLimit-Remaining", "")).strip() if headers_obj is not None else ""
+        except Exception as exc:
+            raise NightModeError("DENY_STATE_INVALID", f"remote_api_error:{exc}") from exc
+
+        if status == 429 or rate_remaining == "0":
+            raise NightModeError("DENY_STATE_INVALID", "remote_rate_limit_exceeded")
+        if status == 304:
+            return status, [], next_etag
+        if status >= 400:
+            raise NightModeError("DENY_STATE_INVALID", f"remote_api_http_error:{status}")
+        try:
+            parsed = json.loads(body) if body.strip() else []
+        except json.JSONDecodeError as exc:
+            raise NightModeError("DENY_STATE_INVALID", "remote_api_invalid_json") from exc
+        if not isinstance(parsed, list):
+            raise NightModeError("DENY_STATE_INVALID", "remote_api_payload_invalid")
+        return status, parsed, next_etag
+
+    def _normalize_remote_issue(self, source_id: str, item: dict[str, Any]) -> dict[str, Any]:
+        if item.get("pull_request") is not None:
+            raise NightModeError("DENY_STATE_INVALID", f"remote_issue_pull_request_not_supported:{source_id}")
+        number = item.get("number")
+        title = item.get("title")
+        body = item.get("body", "")
+        labels = self._issue_label_names(item)
+        if not isinstance(number, int) or number <= 0:
+            raise NightModeError("DENY_STATE_INVALID", f"remote_issue_invalid_number:{source_id}")
+        if not isinstance(title, str):
+            raise NightModeError("DENY_STATE_INVALID", f"remote_issue_invalid_title:{source_id}:{number}")
+        if not isinstance(body, str):
+            raise NightModeError("DENY_STATE_INVALID", f"remote_issue_invalid_body:{source_id}:{number}")
+        if len(body.encode("utf-8")) > 65536:
+            raise NightModeError("DENY_STATE_INVALID", f"remote_issue_body_too_large:{source_id}:{number}")
+        attachments = item.get("attachments")
+        if isinstance(attachments, list) and attachments:
+            raise NightModeError("DENY_STATE_INVALID", f"remote_issue_attachment_rejected:{source_id}:{number}")
+
+        risk_tier = self._risk_tier_from_labels(labels)
+        if not risk_tier:
+            raise NightModeError("DENY_STATE_INVALID", f"remote_issue_missing_risk_tier:{source_id}:{number}")
+        capability = ""
+        for label in sorted(labels):
+            lowered = label.lower()
+            if lowered.startswith("capability:"):
+                capability = label.split(":", 1)[1].strip()
+                break
+
+        clean_body = self._sanitize_remote_body(body)
+        normalized = {
+            "id": f"remote:{source_id}:{number}",
+            "title": title.strip(),
+            "body": clean_body,
+            "risk_tier": risk_tier,
+            "source": source_id,
+            "labels": ["self-improvement", risk_tier],
+            "issue_number": number,
+        }
+        if capability:
+            normalized["required_capability"] = capability
+        return normalized
+
+    def _sync_remote_sources_once(self) -> None:
+        if self._remote_sync_done:
+            return
+        sources = [item for item in self._load_remote_sources_config() if bool(item.get("enabled", False))]
+        state = self._load_remote_sync_state()
+        audit_rows: list[dict[str, Any]] = []
+        for source in sources:
+            source_id = str(source["id"])
+            token = str(os.environ.get(str(source["auth_env"]), "")).strip()
+            if not token:
+                raise NightModeError("DENY_STATE_INVALID", f"remote_source_missing_auth_env:{source_id}")
+            source_state = state.get(source_id, {}) if isinstance(state.get(source_id), dict) else {}
+            etag = str(source_state.get("etag", "")).strip()
+            base = str(source["base_url"])
+            owner = str(source["owner"])
+            repo = str(source["repo"])
+            max_issues = int(source["max_issues"])
+            labels_allowlist = [str(v) for v in source["labels_allowlist"]]
+            if source["type"] == "gitea":
+                query = urllib.parse.urlencode({"state": "open", "limit": str(max_issues)})
+            else:
+                query = urllib.parse.urlencode({"state": "open", "per_page": str(max_issues)})
+            url = f"{base}/repos/{owner}/{repo}/issues?{query}"
+            status, payload, next_etag = self._remote_http_get(url=url, token=token, etag=etag)
+            items: list[dict[str, Any]] = []
+            if status == 304:
+                source_dir = self.repo_root / "state" / "issues" / "remote" / source_id
+                source_dir.mkdir(parents=True, exist_ok=True)
+                cached = source_state.get("issues", [])
+                if isinstance(cached, list) and all(isinstance(v, dict) for v in cached):
+                    for existing in sorted(source_dir.glob("*.json")):
+                        existing.unlink(missing_ok=True)
+                    for normalized in sorted(cached, key=lambda item: int(item.get("issue_number", 0))):
+                        issue_id = str(normalized.get("id", "")).strip()
+                        if not issue_id:
+                            continue
+                        out_path = source_dir / f"{issue_id}.json"
+                        _atomic_write_text(out_path, json.dumps(normalized, sort_keys=True, indent=2, ensure_ascii=True) + "\n")
+                        parsed = self._parse_local_issue_file(out_path)
+                        items.append(parsed)
+                else:
+                    for path in sorted(source_dir.glob("*.json")) if source_dir.exists() else []:
+                        parsed = self._parse_local_issue_file(path)
+                        items.append(parsed)
+            else:
+                filtered: list[dict[str, Any]] = []
+                allowset = {v.lower() for v in labels_allowlist}
+                for raw in payload:
+                    if not isinstance(raw, dict):
+                        continue
+                    label_names = {v.lower() for v in self._issue_label_names(raw)}
+                    if allowset and not (label_names & allowset):
+                        continue
+                    normalized = self._normalize_remote_issue(source_id, raw)
+                    filtered.append(normalized)
+                filtered.sort(key=lambda item: int(item["issue_number"]))
+                source_dir = self.repo_root / "state" / "issues" / "remote" / source_id
+                source_dir.mkdir(parents=True, exist_ok=True)
+                for existing in sorted(source_dir.glob("*.json")):
+                    existing.unlink(missing_ok=True)
+                for normalized in filtered:
+                    issue_id = str(normalized["id"])
+                    out_path = source_dir / f"{issue_id}.json"
+                    _atomic_write_text(out_path, json.dumps(normalized, sort_keys=True, indent=2, ensure_ascii=True) + "\n")
+                    parsed = self._parse_local_issue_file(out_path)
+                    items.append(parsed)
+                state[source_id] = {"etag": next_etag, "issues": filtered}
+            normalized_hash = sha256(_canonical_json({"issues": [{"id": i.get("number"), "body": i.get("body")} for i in items]}).encode("utf-8")).hexdigest()
+            audit_rows.append({"source": source_id, "issue_count": len(items), "normalized_hash": normalized_hash})
+
+        audit_rows.sort(key=lambda row: str(row["source"]))
+        artifact = self.repo_root / "logs" / "control" / "remote_sync" / f"{self.epoch_id}.json"
+        _atomic_write_text(artifact, json.dumps({"epoch": self.epoch_id, "sources": audit_rows}, sort_keys=True, indent=2, ensure_ascii=True) + "\n")
+        self._write_remote_sync_state(state)
+        self._remote_sync_done = True
+
+    def _fetch_remote_open_issues(self) -> list[dict[str, Any]]:
+        self._sync_remote_sources_once()
+        root = self.repo_root / "state" / "issues" / "remote"
+        if not root.exists():
+            return []
+        out: list[dict[str, Any]] = []
+        for source_dir in sorted([p for p in root.iterdir() if p.is_dir()], key=lambda p: p.name):
+            for issue_path in sorted(source_dir.glob("*.json"), key=lambda p: p.name):
+                parsed = self._parse_local_issue_file(issue_path)
+                issue_num = self._issue_number_key(parsed.get("number", "0"))
+                parsed["order_key"] = (issue_num, str(parsed.get("source", "")), str(parsed.get("number", "")))
+                out.append(parsed)
+        out.sort(key=lambda item: tuple(item.get("order_key", (0, "", ""))))
+        return out
+
+    def _fetch_local_and_remote_open_issues(self) -> list[dict[str, Any]]:
+        local_items = self._fetch_local_open_issues()
+        remote_items = self._fetch_remote_open_issues()
+        merged = local_items + remote_items
+        for item in merged:
+            item["order_key"] = (
+                _RISK_RANK.get(self._issue_risk_tier(set(item.get("labels", []))) or "HIGH", 99),
+                int(item.get("issue_number", 0)) if str(item.get("issue_number", "")).isdigit() else self._issue_number_key(item.get("number", "0")),
+                str(item.get("source", "")),
+                str(item.get("number", "")),
+            )
+        merged.sort(key=lambda item: tuple(item.get("order_key", (99, 0, "", ""))))
+        return merged
 
     def _emit_local_capability_request(self, issue_id: str, capability: str) -> None:
         request_path = self.repo_root / "state" / "capability_requests" / f"{self.epoch_id}__{issue_id}__{capability}.json"
@@ -1104,9 +1478,17 @@ class NightModeRunner:
             halted_no_issues = False
             while True:
                 issues = self._fetch_issues()
+                def _sort_key(item: dict[str, Any]) -> tuple[Any, ...]:
+                    custom = item.get("order_key")
+                    if isinstance(custom, (list, tuple)):
+                        return tuple(custom)
+                    issue_value = item.get("number", "")
+                    if str(issue_value).isdigit():
+                        return (int(issue_value),)
+                    return (str(issue_value),)
                 issues_sorted = sorted(
                     issues,
-                    key=lambda item: int(item.get("number", 0)) if str(item.get("number", "")).isdigit() else str(item.get("number", "")),
+                    key=_sort_key,
                 )
                 pending_issues = [item for item in issues_sorted if str(item.get("number")) not in processed_issue_ids]
                 if not pending_issues:
@@ -1125,6 +1507,7 @@ class NightModeRunner:
                 issue_id = str(spec["issue_id"])
                 issue_labels = set(spec.get("labels", [])) if isinstance(spec.get("labels"), list) else set()
                 is_gitea_issue = str(spec.get("source", "")) == "gitea"
+                is_remote_issue = issue_id.startswith("remote:")
                 if is_gitea_issue:
                     issue_number_raw = spec.get("issue_number")
                     if not isinstance(issue_number_raw, int):
@@ -1143,8 +1526,14 @@ class NightModeRunner:
                     "materialized",
                     {"spec_path": str(spec.get("spec_path", "")), "body_sha256": sha256(str(spec["body"]).encode("utf-8")).hexdigest()},
                 )
+                if is_remote_issue and self._remote_issue_already_executed(issue_id):
+                    self._write_issue_audit(
+                        issue_id,
+                        "replay_denied",
+                        {"reason_code": "DENY_ALREADY_EXECUTED"},
+                    )
+                    raise NightModeError("DENY_ALREADY_EXECUTED", f"remote issue replay denied: {issue_id}")
                 commit_hashes: list[str] = []
-                tasks = self._parse_spec(issue_id, str(spec["body"]))
                 if is_gitea_issue:
                     issue_labels = self._issue_mark_in_progress(issue_number, issue_labels)
                 is_self_improvement = self._issue_is_self_improvement(issue_labels)
@@ -1154,6 +1543,7 @@ class NightModeRunner:
                     self._enforce_local_required_capability(issue_id, required_capability)
                 if is_self_improvement and not risk_tier:
                     raise NightModeError("DENY_STATE_INVALID", f"self_improvement_risk_tier_missing:{issue_id}")
+                tasks = self._parse_spec(issue_id, str(spec["body"]))
 
                 for task in tasks:
                     try:
@@ -1162,7 +1552,7 @@ class NightModeRunner:
                             summary["tasks_skipped"] += 1
                             continue
 
-                        if is_self_improvement:
+                        if is_self_improvement and risk_tier == "HIGH":
                             self._require_capability_execution_token(issue_id, risk_tier)
                         self._guarded_allow(task)
                         if is_self_improvement:
@@ -1222,6 +1612,8 @@ class NightModeRunner:
                     local_issue_path = str(spec.get("local_issue_path", "")).strip()
                     if local_issue_path:
                         Path(local_issue_path).unlink(missing_ok=True)
+                    if is_remote_issue:
+                        self._record_remote_issue_executed(issue_id)
                     self._write_issue_audit(
                         issue_id,
                         "resolved",

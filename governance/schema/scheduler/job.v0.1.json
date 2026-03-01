@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-os.local/schema/scheduler/job.v0.1.json",
+  "title": "Scheduler Jobs Config v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "timezone", "jobs"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "v0.1"
+    },
+    "timezone": {
+      "type": "string",
+      "const": "UTC"
+    },
+    "jobs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["job_id", "enabled", "schedule", "event_type", "payload", "mode"],
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "schedule": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "every"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "interval_minutes"
+              },
+              "every": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "event_type": {
+            "type": "string",
+            "const": "scheduler.job_due"
+          },
+          "payload": {
+            "type": "object"
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["event_only", "guarded_skill"]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "mode": {
+                  "const": "guarded_skill"
+                }
+              },
+              "required": ["mode"]
+            },
+            "then": {
+              "properties": {
+                "payload": {
+                  "type": "object",
+                  "required": ["task"],
+                  "properties": {
+                    "task": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "approval_required": true,
+  "epoch": "2026-02-27",
+  "issue_id": "001-helloworld",
+  "reason_code": "DENY_CAPABILITY_MISSING",
+  "required_capability": "scheduler_guarded_skill_run",
+  "risk_tier": "LOW",
+  "status": "requested",
+  "task_hash": "a38e2c3828f83018",
+  "ts_utc": "2026-02-27T00:00:00Z",
+  "type": "capability_request"
+}

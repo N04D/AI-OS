@@ -1,0 +1,10 @@
+{"action":"improvement","consumed":true,"context_id":"pr:001-helloworld:a38e2c3828f83018|tier:LOW","count_after":1,"event":"budget_consume","reason":"consumed","ts_epoch_s":1772150400,"window_utc_day":"2026-02-27"}
+{"consumed":true,"event":"improvement_budget_consume","pr_id":"001-helloworld:a38e2c3828f83018","reason":"consumed","tier":"LOW","ts_epoch_s":1772150400,"window_utc_day":"2026-02-27"}
+{"action":"improvement","consumed":true,"context_id":"pr:001a-hello-no-token:d34ffc21fcc942b0|tier:LOW","count_after":2,"event":"budget_consume","reason":"consumed","ts_epoch_s":1772150400,"window_utc_day":"2026-02-27"}
+{"consumed":true,"event":"improvement_budget_consume","pr_id":"001a-hello-no-token:d34ffc21fcc942b0","reason":"consumed","tier":"LOW","ts_epoch_s":1772150400,"window_utc_day":"2026-02-27"}
+{"action":"improvement","consumed":true,"context_id":"pr:001b-hello-cap-token:3f4d0e4a3a652022|tier:LOW","count_after":3,"event":"budget_consume","reason":"consumed","ts_epoch_s":1772150400,"window_utc_day":"2026-02-27"}
+{"consumed":true,"event":"improvement_budget_consume","pr_id":"001b-hello-cap-token:3f4d0e4a3a652022","reason":"consumed","tier":"LOW","ts_epoch_s":1772150400,"window_utc_day":"2026-02-27"}
+{"action":"improvement","consumed":true,"context_id":"pr:001c-hello-star-token:5f7535fd6f03662a|tier:LOW","count_after":4,"event":"budget_consume","reason":"consumed","ts_epoch_s":1772150400,"window_utc_day":"2026-02-27"}
+{"consumed":true,"event":"improvement_budget_consume","pr_id":"001c-hello-star-token:5f7535fd6f03662a","reason":"consumed","tier":"LOW","ts_epoch_s":1772150400,"window_utc_day":"2026-02-27"}
+{"action":"improvement","consumed":true,"context_id":"pr:001-helloworld:338d0021c7c7de77|tier:LOW","count_after":5,"event":"budget_consume","reason":"consumed","ts_epoch_s":1772150400,"window_utc_day":"2026-02-27"}
+{"consumed":true,"event":"improvement_budget_consume","pr_id":"001-helloworld:338d0021c7c7de77","reason":"consumed","tier":"LOW","ts_epoch_s":1772150400,"window_utc_day":"2026-02-27"}

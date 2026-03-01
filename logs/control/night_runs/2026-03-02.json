@@ -1,0 +1,9 @@
+{
+  "budget_used": 0,
+  "epoch": "2026-03-02",
+  "stopped": false,
+  "tasks_executed": 0,
+  "tasks_failed": 0,
+  "tasks_skipped": 0,
+  "violations": []
+}
