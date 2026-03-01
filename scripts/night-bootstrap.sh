@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NIGHT_DIR="${NIGHT_DIR:-/home/infra/night/AI-OS}"
-NIGHT_BRANCH="${NIGHT_BRANCH:-dev}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+NIGHT_DIR="${NIGHT_DIR:-$REPO_ROOT/.night/AI-OS}"
+NIGHT_BRANCH="${NIGHT_BRANCH:-dev}"
 if git -C "$REPO_ROOT" remote get-url gitea >/dev/null 2>&1; then
   SELECTED_REMOTE="gitea"
   REMOTE_URL="$(git -C "$REPO_ROOT" remote get-url gitea)"

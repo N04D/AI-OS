@@ -7,8 +7,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from supervisor.paths import resolve_host_state_dir
 
-DEFAULT_HOST_STATE_DIR = "/home/infra/night/state"
+DEFAULT_HOST_STATE_DIR = str(resolve_host_state_dir(""))
 DEFAULT_BUDGET_STATE_PATH = f"{DEFAULT_HOST_STATE_DIR}/autonomy/budget.json"
 DEFAULT_BUDGET_LOG_PATH = f"{DEFAULT_HOST_STATE_DIR}/autonomy/budget-log.jsonl"
 
@@ -47,7 +48,7 @@ def _resolve_budget_paths(
     state_path: str | None = None,
     log_path: str | None = None,
 ) -> tuple[Path, Path]:
-    root = host_state_dir or os.environ.get("HOST_STATE_DIR", "").strip() or DEFAULT_HOST_STATE_DIR
+    root = str(resolve_host_state_dir(host_state_dir))
     resolved_state = Path(state_path or f"{root}/autonomy/budget.json")
     resolved_log = Path(log_path or f"{root}/autonomy/budget-log.jsonl")
     return resolved_state, resolved_log

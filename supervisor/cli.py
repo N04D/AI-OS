@@ -62,6 +62,7 @@ from supervisor.phase_acceptance import verify_phase_acceptance_evidence
 from supervisor.determinism_evidence import DeterminismEvidenceError
 from supervisor.determinism_evidence import load_determinism_evidence
 from supervisor.determinism_evidence import verify_determinism_evidence
+from supervisor.paths import resolve_host_state_dir
 
 
 DRYRUN_QUEUE_YAML = """\
@@ -920,7 +921,7 @@ def build_parser() -> argparse.ArgumentParser:
     materialize.add_argument("--intake-label", default="intake-processed")
     materialize.add_argument(
         "--host-state-dir",
-        default=os.environ.get("HOST_STATE_DIR", "").strip() or "/home/infra/night/state",
+        default=str(resolve_host_state_dir()),
     )
     materialize.set_defaults(handler=_cmd_autonomy_materialize)
 

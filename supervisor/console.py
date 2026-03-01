@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 from typing import TextIO
 
+from supervisor.paths import resolve_host_state_dir
+
 try:
     import readline as _READLINE
 except ImportError:  # pragma: no cover - platform dependent
@@ -17,11 +19,11 @@ except ImportError:  # pragma: no cover - platform dependent
 
 
 REPORTS_DIR = Path("state/night-reports")
-HOST_STATE_DIR = Path(os.environ.get("HOST_STATE_DIR", "").strip() or "/home/infra/night/state")
+HOST_STATE_DIR = resolve_host_state_dir()
 BUDGET_LOG_PATH = HOST_STATE_DIR / "autonomy" / "budget-log.jsonl"
 INTAKE_LOG_PATH = HOST_STATE_DIR / "autonomy" / "intake-log.jsonl"
 TASKS_DIR = HOST_STATE_DIR / "autonomy" / "inbox" / "tasks"
-DEFAULT_HISTORY_PATH = Path("/home/infra/night/state/aiosctl/history")
+DEFAULT_HISTORY_PATH = HOST_STATE_DIR / "aiosctl" / "history"
 SENSITIVE_HISTORY_SUBSTRINGS = ("gitea_token", "token", "--token", "authorization", "bearer")
 
 
