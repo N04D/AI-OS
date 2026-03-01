@@ -258,37 +258,39 @@ def run_workspace_tests(*, agent: str, workspace_root: str | None = None) -> dic
             }
         ensure_commands.append(ensurepip_command)
 
-    requirements_dev = paths.repo / "requirements-dev.txt"
     requirements = paths.repo / "requirements.txt"
+    requirements_dev = paths.repo / "requirements-dev.txt"
+    install_commands: list[list[str]] = []
+    if requirements.is_file():
+        install_commands.append([str(venv_python), "-m", "pip", "install", "-r", "requirements.txt"])
     if requirements_dev.is_file():
-        install_command = [str(venv_python), "-m", "pip", "install", "-r", "requirements-dev.txt"]
-    elif requirements.is_file():
-        install_command = [str(venv_python), "-m", "pip", "install", "-r", "requirements.txt"]
-    else:
-        install_command = [str(venv_python), "-m", "pip", "install", "pytest"]
+        install_commands.append([str(venv_python), "-m", "pip", "install", "-r", "requirements-dev.txt"])
+    if not install_commands:
+        install_commands.append([str(venv_python), "-m", "pip", "install", "pytest"])
 
-    install_proc = subprocess.run(
-        install_command,
-        cwd=paths.repo,
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if install_proc.returncode != 0:
-        return {
-            "status": "failed",
-            "agent": _normalize_name(agent, field="agent"),
-            "workspace_repo": str(paths.repo),
-            "runtime_env_file": str(paths.runtime_env_file),
-            "mailbox_fixtures_dir": str(paths.mailbox_fixtures_dir),
-            "venv_path": str(paths.venv),
-            "command": " ".join(install_command),
-            "exit_code": int(install_proc.returncode),
-            "stdout_tail": "\n".join(install_proc.stdout.splitlines()[-10:]),
-            "stderr_tail": "\n".join(install_proc.stderr.splitlines()[-10:]),
-            "bootstrap_commands": [" ".join(cmd) for cmd in ensure_commands],
-        }
+    for install_command in install_commands:
+        install_proc = subprocess.run(
+            install_command,
+            cwd=paths.repo,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if install_proc.returncode != 0:
+            return {
+                "status": "failed",
+                "agent": _normalize_name(agent, field="agent"),
+                "workspace_repo": str(paths.repo),
+                "runtime_env_file": str(paths.runtime_env_file),
+                "mailbox_fixtures_dir": str(paths.mailbox_fixtures_dir),
+                "venv_path": str(paths.venv),
+                "command": " ".join(install_command),
+                "exit_code": int(install_proc.returncode),
+                "stdout_tail": "\n".join(install_proc.stdout.splitlines()[-10:]),
+                "stderr_tail": "\n".join(install_proc.stderr.splitlines()[-10:]),
+                "bootstrap_commands": [" ".join(cmd) for cmd in ensure_commands],
+            }
 
     test_command = [str(venv_python), "-m", "pytest", "-q"]
     proc = subprocess.run(
@@ -310,7 +312,7 @@ def run_workspace_tests(*, agent: str, workspace_root: str | None = None) -> dic
         "exit_code": int(proc.returncode),
         "stdout_tail": "\n".join(proc.stdout.splitlines()[-10:]),
         "stderr_tail": "\n".join(proc.stderr.splitlines()[-10:]),
-        "bootstrap_commands": [" ".join(cmd) for cmd in ensure_commands + [install_command]],
+        "bootstrap_commands": [" ".join(cmd) for cmd in ensure_commands + install_commands],
     }
 
 

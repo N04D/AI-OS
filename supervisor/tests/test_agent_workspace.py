@@ -185,7 +185,7 @@ class AgentWorkspaceTests(unittest.TestCase):
                     run_workspace_tests(agent="eta", workspace_root=str(Path(tmp_dir) / "agents"))
             self.assertEqual(ctx.exception.reason_code, "DENY_AGENT_WORKSPACE_RUNTIME_MISSING")
 
-    def test_run_workspace_tests_prefers_requirements_dev(self) -> None:
+    def test_run_workspace_tests_installs_requirements_then_requirements_dev(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo = Path(tmp_dir) / "agents" / "theta" / "repo"
             repo.mkdir(parents=True, exist_ok=True)
@@ -205,7 +205,9 @@ class AgentWorkspaceTests(unittest.TestCase):
                 result = run_workspace_tests(agent="theta", workspace_root=str(Path(tmp_dir) / "agents"))
             self.assertEqual(result["status"], "ok")
             self.assertEqual(calls[0][-2:], ["pip", "--version"])
-            self.assertEqual(calls[1][-2:], ["-r", "requirements-dev.txt"])
+            self.assertEqual(calls[1][-2:], ["-r", "requirements.txt"])
+            self.assertEqual(calls[2][-2:], ["-r", "requirements-dev.txt"])
+            self.assertEqual(calls[3][-3:], ["-m", "pytest", "-q"])
 
     def test_run_workspace_tests_bootstraps_pip_when_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

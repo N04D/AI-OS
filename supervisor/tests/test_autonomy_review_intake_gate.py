@@ -179,6 +179,15 @@ class AutonomyReviewIntakeGateTests(unittest.TestCase):
             )
         self.assertIn("missing_gitea_token", str(ctx.exception))
 
+    def test_missing_token_fails_even_when_env_token_exists(self) -> None:
+        with patch.dict("os.environ", {"GITEA_TOKEN": "env-token"}, clear=False):
+            with self.assertRaises(AutonomyReviewIntakeGateError) as ctx:
+                intake_approved_autonomy_proposals(
+                    gitea_base_url="http://gitea.local",
+                    gitea_token="",
+                )
+        self.assertIn("missing_gitea_token", str(ctx.exception))
+
     def test_budget_rejection_skips_network(self) -> None:
         with (
             patch("supervisor.autonomy_review_intake_gate._git_is_clean", return_value=True),

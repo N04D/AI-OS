@@ -119,7 +119,7 @@ def create_draft_proposals_prs(
     gitea_base_url: str | None = None,
     gitea_token: str | None = None,
 ) -> list[dict[str, Any]]:
-    token = (gitea_token or os.environ.get("GITEA_TOKEN", "")).strip()
+    token = (os.environ.get("GITEA_TOKEN", "") if gitea_token is None else gitea_token).strip()
     if not token:
         raise AutonomyPromotionGateError("missing_gitea_token")
     if not _git_is_clean():
