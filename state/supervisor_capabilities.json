@@ -1,10 +1,15 @@
 {
-  "scheduler_guarded_skill_run": true,
   "email.send": {
-    "state": "IMPLEMENTED_NOT_ACTIVE",
-    "granted": false,
-    "proposal_issue": 60,
+    "activated_by": "Don",
     "approved_by": "Don",
-    "activated_by": null
+    "granted": true,
+    "proposal_issue": 60,
+    "state": "ACTIVE",
+    "timestamps": {
+      "IMPLEMENTED_NOT_ACTIVE->ACTIVE": "2026-03-01T10:57:31Z"
+    }
+  },
+  "scheduler_guarded_skill_run": {
+    "granted": true
   }
 }
