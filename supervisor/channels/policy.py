@@ -44,6 +44,7 @@ def load_email_policy(path: Path) -> dict[str, Any]:
         receive_allowlist = rule.get("receive_allowlist", [])
         domains_allowlist = rule.get("domains_allowlist", [])
         max_body_bytes = rule.get("max_body_bytes", 65536)
+        reply_policy = rule.get("reply_policy", {})
         if not isinstance(send_allowlist, list) or not all(isinstance(v, str) for v in send_allowlist):
             raise PolicyError(DENY_POLICY_INVALID, f"send_allowlist invalid: {agent}")
         if not isinstance(receive_allowlist, list) or not all(isinstance(v, str) for v in receive_allowlist):
@@ -52,11 +53,27 @@ def load_email_policy(path: Path) -> dict[str, Any]:
             raise PolicyError(DENY_POLICY_INVALID, f"domains_allowlist invalid: {agent}")
         if not isinstance(max_body_bytes, int) or max_body_bytes < 1:
             raise PolicyError(DENY_POLICY_INVALID, f"max_body_bytes invalid: {agent}")
+        if not isinstance(reply_policy, dict):
+            raise PolicyError(DENY_POLICY_INVALID, f"reply_policy invalid: {agent}")
+        reply_enabled = bool(reply_policy.get("enabled", False))
+        reply_allowed_senders = reply_policy.get("allowed_senders", [])
+        reply_require_subject_match = bool(reply_policy.get("require_subject_match", False))
+        reply_max_per_day = int(reply_policy.get("max_replies_per_thread_per_day", 1))
+        if not isinstance(reply_allowed_senders, list) or not all(isinstance(v, str) for v in reply_allowed_senders):
+            raise PolicyError(DENY_POLICY_INVALID, f"reply_policy.allowed_senders invalid: {agent}")
+        if reply_max_per_day < 1:
+            raise PolicyError(DENY_POLICY_INVALID, f"reply_policy.max_replies_per_thread_per_day invalid: {agent}")
         out_agents[agent] = {
             "send_allowlist": sorted(v.strip().lower() for v in send_allowlist if v.strip()),
             "receive_allowlist": sorted(v.strip().lower() for v in receive_allowlist if v.strip()),
             "domains_allowlist": sorted(v.strip().lower() for v in domains_allowlist if v.strip()),
             "max_body_bytes": max_body_bytes,
+            "reply_policy": {
+                "enabled": reply_enabled,
+                "allowed_senders": sorted(v.strip().lower() for v in reply_allowed_senders if v.strip()),
+                "require_subject_match": reply_require_subject_match,
+                "max_replies_per_thread_per_day": reply_max_per_day,
+            },
         }
     return {
         "version": str(payload.get("version", "v0.1")),

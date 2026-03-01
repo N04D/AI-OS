@@ -12,6 +12,7 @@ from supervisor.channels.email_gateway import DENY_BODY_TOO_LARGE
 from supervisor.channels.email_gateway import DENY_CAPABILITY_MISSING
 from supervisor.channels.email_gateway import DENY_DOMAIN_NOT_ALLOWED
 from supervisor.channels.email_gateway import DENY_POLICY_MISSING
+from supervisor.channels.email_gateway import DENY_REPLY_NOT_ALLOWED
 from supervisor.channels.email_gateway import EmailGatewayError
 from supervisor.channels.email_gateway import _artifact_name
 from supervisor.channels.email_gateway import poll_email_direct
@@ -83,6 +84,12 @@ class EmailGatewayChannelTests(unittest.TestCase):
                         "receive_allowlist": ["ops@example.com"],
                         "domains_allowlist": ["example.com"],
                         "max_body_bytes": max_body_bytes,
+                        "reply_policy": {
+                            "enabled": False,
+                            "allowed_senders": [],
+                            "require_subject_match": True,
+                            "max_replies_per_thread_per_day": 1,
+                        },
                     }
                 },
             },
@@ -229,6 +236,44 @@ class EmailGatewayChannelTests(unittest.TestCase):
             self.assertEqual(payload["to"], "ops@example.com")
             self.assertNotIn("SMTP_PASS", json.dumps(payload, sort_keys=True))
 
+    def test_reply_subject_denied_when_reply_policy_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            self._bootstrap_repo(root)
+            with self.assertRaises(EmailGatewayError) as ctx:
+                send_email_direct(
+                    repo_root=root,
+                    agent="codex",
+                    to="ops@example.com",
+                    subject="Re: Hello",
+                    body="reply",
+                    transport=_FakeSMTPTransport(),
+                )
+            self.assertEqual(ctx.exception.reason_code, DENY_REPLY_NOT_ALLOWED)
+
+    def test_reply_subject_allowed_when_policy_allows_sender(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            self._bootstrap_repo(root)
+            policy_path = root / "governance/policy/email_gateway.v0.1.json"
+            payload = json.loads(policy_path.read_text(encoding="utf-8"))
+            payload["agents"]["codex"]["reply_policy"] = {
+                "enabled": True,
+                "allowed_senders": ["ops@example.com"],
+                "require_subject_match": True,
+                "max_replies_per_thread_per_day": 1,
+            }
+            policy_path.write_text(json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+            result = send_email_direct(
+                repo_root=root,
+                agent="codex",
+                to="ops@example.com",
+                subject="Re: Hello",
+                body="reply",
+                transport=_FakeSMTPTransport(),
+            )
+            self.assertEqual(result["status"], "ok")
+
     def test_poll_denies_when_capability_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -302,6 +347,24 @@ class EmailGatewayChannelTests(unittest.TestCase):
             audit_path = root / "logs/control/email_gateway_audit.jsonl"
             self.assertTrue(audit_path.is_file())
             self.assertIn("DENY_DOMAIN_NOT_ALLOWED", audit_path.read_text(encoding="utf-8"))
+
+    def test_poll_messages_count_matches_artifacts_length(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            self._bootstrap_repo(root, poll_granted=True)
+            transport = _FakeIMAPTransport()
+            transport.messages = [
+                {"uid": "9", "from": "ops@example.com", "to": "codex@example.com", "subject": "a", "body": "x"},
+                {"uid": "10", "from": "ops@example.com", "to": "codex@example.com", "subject": "b", "body": "y"},
+            ]
+            result = poll_email_direct(
+                repo_root=root,
+                agent="codex",
+                max_messages=5,
+                epoch="2026-03-01",
+                transport=transport,
+            )
+            self.assertEqual(result["messages"], len(result["artifacts"]))
 
     def test_poll_rejects_invalid_seen_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

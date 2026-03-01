@@ -23,6 +23,7 @@ DENY_CAPABILITY_MISSING = "DENY_CAPABILITY_MISSING"
 DENY_ADDRESS_NOT_ALLOWED = "DENY_ADDRESS_NOT_ALLOWED"
 DENY_DOMAIN_NOT_ALLOWED = "DENY_DOMAIN_NOT_ALLOWED"
 DENY_BODY_TOO_LARGE = "DENY_BODY_TOO_LARGE"
+DENY_REPLY_NOT_ALLOWED = "DENY_REPLY_NOT_ALLOWED"
 
 DEFAULT_EMAIL_CONFIG_PATH = Path("config/channels/email_gateway.json")
 DEFAULT_EMAIL_POLICY_PATH = Path("governance/policy/email_gateway.v0.1.json")
@@ -139,6 +140,29 @@ def _assert_policy_allow(policy: dict[str, Any], *, agent: str, direction: str, 
     raise EmailGatewayError(DENY_ADDRESS_NOT_ALLOWED, f"address not allowed: {normalized or '<empty>'}")
 
 
+def _is_reply_subject(subject: str) -> bool:
+    return subject.strip().lower().startswith("re:")
+
+
+def _assert_reply_policy_allow(policy: dict[str, Any], *, agent: str, to: str, subject: str) -> None:
+    if not _is_reply_subject(subject):
+        return
+    agent_policy = (policy.get("agents") or {}).get(agent)
+    if not isinstance(agent_policy, dict):
+        raise EmailGatewayError(DENY_REPLY_NOT_ALLOWED, f"missing policy for agent: {agent}")
+    reply_policy = agent_policy.get("reply_policy")
+    if not isinstance(reply_policy, dict) or not bool(reply_policy.get("enabled", False)):
+        raise EmailGatewayError(DENY_REPLY_NOT_ALLOWED, "reply policy disabled")
+    normalized_to = _normalize_address(to)
+    allowed = set(str(v).lower() for v in reply_policy.get("allowed_senders", []))
+    if normalized_to not in allowed:
+        raise EmailGatewayError(DENY_REPLY_NOT_ALLOWED, f"reply recipient not allowed: {normalized_to or '<empty>'}")
+    if bool(reply_policy.get("require_subject_match", False)):
+        remainder = subject.strip()[3:].strip()
+        if not remainder:
+            raise EmailGatewayError(DENY_REPLY_NOT_ALLOWED, "reply subject missing thread content")
+
+
 def _load_config_and_policy(repo_root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     try:
         config = load_email_config(repo_root / DEFAULT_EMAIL_CONFIG_PATH)
@@ -190,6 +214,7 @@ def send_email_direct(
         _assert_agent_enabled(config, agent)
         _assert_capability(repo_root, "email.send")
         _assert_policy_allow(policy, agent=agent, direction="send", address=to, body=body)
+        _assert_reply_policy_allow(policy, agent=agent, to=to, subject=subject)
     except EmailGatewayError as exc:
         _append_deny_audit(
             repo_root=repo_root,
@@ -365,10 +390,11 @@ def poll_email_direct(
             uids=seen_uids,
         )
 
+    artifacts = sorted(set(written))
     return {
         "status": "ok",
         "agent": agent,
-        "messages": len(written),
-        "artifacts": sorted(written),
+        "messages": len(artifacts),
+        "artifacts": artifacts,
         "audit_path": str((repo_root / DEFAULT_AUDIT_PATH)),
     }
