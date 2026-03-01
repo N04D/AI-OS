@@ -967,6 +967,7 @@ def _cmd_agent_workspace_sync(args: argparse.Namespace) -> tuple[int, dict[str, 
             agent=args.agent,
             workspace_root=args.root,
             base_branch=args.base_branch,
+            remote=args.remote,
         )
         return 0, payload, "agent_workspace"
     except AgentWorkspaceError as exc:
@@ -1125,6 +1126,7 @@ def build_parser() -> argparse.ArgumentParser:
     agent_sync.add_argument("--agent", required=True)
     agent_sync.add_argument("--root", default="")
     agent_sync.add_argument("--base-branch", default="dev")
+    agent_sync.add_argument("--remote", default="")
     agent_sync.set_defaults(handler=_cmd_agent_workspace_sync)
 
     agent_run_tests = agent_workspace_sub.add_parser("run-tests", help="Run tests in workspace clone")

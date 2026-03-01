@@ -62,6 +62,33 @@ class AgentWorkspaceTests(unittest.TestCase):
             self.assertTrue((ws / "env" / "mailboxes").is_dir())
             self.assertEqual((ws / ".gitignore").read_text(encoding="utf-8"), "env/\nlogs/\n")
 
+    def test_sync_workspace_accepts_remote_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            bare = tmp / "origin.git"
+            source = tmp / "source"
+            _git(tmp, ["init", "--bare", str(bare)])
+
+            source.mkdir(parents=True, exist_ok=True)
+            _git(source, ["init"])
+            _git(source, ["checkout", "-b", "dev"])
+            (source / "README.md").write_text("hello\n", encoding="utf-8")
+            _git(source, ["add", "README.md"])
+            _git(source, ["-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-m", "init"])
+            _git(source, ["remote", "add", "origin", str(bare)])
+            _git(source, ["push", "-u", "origin", "dev"])
+
+            workspace_root = tmp / "workspaces"
+            result = sync_workspace(
+                repo_root=source,
+                agent="beta",
+                workspace_root=str(workspace_root),
+                base_branch="dev",
+                remote=str(bare),
+            )
+            self.assertEqual(result["status"], "ok")
+            self.assertEqual(result["remote"], str(bare))
+
     def test_push_pr_is_mockable_and_clean_guarded(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo = Path(tmp_dir) / "agents" / "delta" / "repo"

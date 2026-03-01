@@ -162,11 +162,12 @@ def sync_workspace(
     agent: str,
     workspace_root: str | None = None,
     base_branch: str = "dev",
+    remote: str = "",
 ) -> dict[str, Any]:
     branch = _normalize_name(base_branch, field="base_branch")
     paths = resolve_workspace_paths(agent, workspace_root=workspace_root)
     _ensure_workspace_layout(paths)
-    remote_url = _resolve_source_remote(repo_root)
+    remote_url = remote.strip() or _resolve_source_remote(repo_root)
     if not (paths.repo / ".git").is_dir():
         proc = subprocess.run(
             ["git", "clone", remote_url, str(paths.repo)],
@@ -190,6 +191,7 @@ def sync_workspace(
         "runtime_env_file": str(paths.runtime_env_file),
         "mailbox_fixtures_dir": str(paths.mailbox_fixtures_dir),
         "base_branch": branch,
+        "remote": remote_url,
     }
 
 
