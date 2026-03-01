@@ -66,6 +66,11 @@ from supervisor.determinism_evidence import DeterminismEvidenceError
 from supervisor.determinism_evidence import load_determinism_evidence
 from supervisor.determinism_evidence import verify_determinism_evidence
 from supervisor.paths import resolve_host_state_dir
+from supervisor.agent_workspace import AgentWorkspaceError
+from supervisor.agent_workspace import create_workspace_branch
+from supervisor.agent_workspace import push_workspace_pr
+from supervisor.agent_workspace import run_workspace_tests
+from supervisor.agent_workspace import sync_workspace
 
 
 DRYRUN_QUEUE_YAML = """\
@@ -179,6 +184,30 @@ def _print_scheduler_tick_result(data: dict[str, Any]) -> None:
         print(f"reason: {data.get('reason', '')}")
     print(f"dry_run: {data.get('dry_run', False)}")
     print(f"jobs_due: {len(data.get('due_events') or [])}")
+
+
+def _print_agent_workspace_result(data: dict[str, Any]) -> None:
+    print(f"status: {data.get('status', '')}")
+    if data.get("reason_code"):
+        print(f"reason_code: {data.get('reason_code', '')}")
+    if data.get("reason"):
+        print(f"reason: {data.get('reason', '')}")
+    if data.get("agent"):
+        print(f"agent: {data.get('agent', '')}")
+    if data.get("workspace_repo"):
+        print(f"workspace_repo: {data.get('workspace_repo', '')}")
+    if data.get("runtime_env_file"):
+        print(f"runtime_env_file: {data.get('runtime_env_file', '')}")
+    if data.get("mailbox_fixtures_dir"):
+        print(f"mailbox_fixtures_dir: {data.get('mailbox_fixtures_dir', '')}")
+    if data.get("branch"):
+        print(f"branch: {data.get('branch', '')}")
+    if data.get("pr_number") is not None:
+        print(f"pr_number: {data.get('pr_number')}")
+    if data.get("pr_url"):
+        print(f"pr_url: {data.get('pr_url', '')}")
+    if data.get("exit_code") is not None:
+        print(f"exit_code: {data.get('exit_code')}")
 
 
 def _print_night_run_result(data: dict[str, Any]) -> None:
@@ -931,6 +960,49 @@ def _cmd_autonomy_determinism_evidence_verify(args: argparse.Namespace) -> tuple
         )
 
 
+def _cmd_agent_workspace_sync(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]:
+    try:
+        payload = sync_workspace(
+            repo_root=Path.cwd(),
+            agent=args.agent,
+            workspace_root=args.root,
+            base_branch=args.base_branch,
+        )
+        return 0, payload, "agent_workspace"
+    except AgentWorkspaceError as exc:
+        return 2, {"status": "rejected", "reason_code": exc.reason_code, "reason": str(exc)}, "agent_workspace"
+
+
+def _cmd_agent_workspace_run_tests(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]:
+    try:
+        payload = run_workspace_tests(agent=args.agent, workspace_root=args.root)
+        return (0 if payload.get("status") == "ok" else 2), payload, "agent_workspace"
+    except AgentWorkspaceError as exc:
+        return 2, {"status": "rejected", "reason_code": exc.reason_code, "reason": str(exc)}, "agent_workspace"
+
+
+def _cmd_agent_workspace_create_branch(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]:
+    try:
+        payload = create_workspace_branch(agent=args.agent, branch_name=args.name, workspace_root=args.root)
+        return 0, payload, "agent_workspace"
+    except AgentWorkspaceError as exc:
+        return 2, {"status": "rejected", "reason_code": exc.reason_code, "reason": str(exc)}, "agent_workspace"
+
+
+def _cmd_agent_workspace_push_pr(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]:
+    try:
+        payload = push_workspace_pr(
+            agent=args.agent,
+            title=args.title,
+            body=args.body,
+            base_branch=args.base_branch,
+            workspace_root=args.root,
+        )
+        return 0, payload, "agent_workspace"
+    except AgentWorkspaceError as exc:
+        return 2, {"status": "rejected", "reason_code": exc.reason_code, "reason": str(exc)}, "agent_workspace"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="aiosctl", description="AI-OS control CLI")
     parser.add_argument("--json", action="store_true", help="Emit raw JSON output")
@@ -1044,6 +1116,36 @@ def build_parser() -> argparse.ArgumentParser:
     determinism_evidence_verify.add_argument("--path", required=True)
     determinism_evidence_verify.set_defaults(handler=_cmd_autonomy_determinism_evidence_verify)
 
+    agent = subparsers.add_parser("agent", help="Agent workspace commands")
+    agent_sub = agent.add_subparsers(dest="agent_command", required=True)
+    agent_workspace = agent_sub.add_parser("workspace", help="Manage isolated per-agent workspaces")
+    agent_workspace_sub = agent_workspace.add_subparsers(dest="workspace_command", required=True)
+
+    agent_sync = agent_workspace_sub.add_parser("sync", help="Sync workspace clone from canonical repository remote")
+    agent_sync.add_argument("--agent", required=True)
+    agent_sync.add_argument("--root", default="")
+    agent_sync.add_argument("--base-branch", default="dev")
+    agent_sync.set_defaults(handler=_cmd_agent_workspace_sync)
+
+    agent_run_tests = agent_workspace_sub.add_parser("run-tests", help="Run tests in workspace clone")
+    agent_run_tests.add_argument("--agent", required=True)
+    agent_run_tests.add_argument("--root", default="")
+    agent_run_tests.set_defaults(handler=_cmd_agent_workspace_run_tests)
+
+    agent_create_branch = agent_workspace_sub.add_parser("create-branch", help="Create branch in workspace clone")
+    agent_create_branch.add_argument("--agent", required=True)
+    agent_create_branch.add_argument("--name", required=True)
+    agent_create_branch.add_argument("--root", default="")
+    agent_create_branch.set_defaults(handler=_cmd_agent_workspace_create_branch)
+
+    agent_push_pr = agent_workspace_sub.add_parser("push-pr", help="Push workspace branch and create draft PR")
+    agent_push_pr.add_argument("--agent", required=True)
+    agent_push_pr.add_argument("--title", required=True)
+    agent_push_pr.add_argument("--body", required=True)
+    agent_push_pr.add_argument("--base-branch", default="dev")
+    agent_push_pr.add_argument("--root", default="")
+    agent_push_pr.set_defaults(handler=_cmd_agent_workspace_push_pr)
+
     plugin = subparsers.add_parser("plugin", help="Plugin loader commands")
     plugin_sub = plugin.add_subparsers(dest="plugin_command", required=True)
 
@@ -1134,6 +1236,8 @@ def main(argv: list[str] | None = None) -> int:
                 _print_capability_activate_result(payload)
             elif kind == "scheduler_tick":
                 _print_scheduler_tick_result(payload)
+            elif kind == "agent_workspace":
+                _print_agent_workspace_result(payload)
             elif kind == "night_run":
                 _print_night_run_result(payload)
             elif kind == "phase_acceptance":
