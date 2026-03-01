@@ -29,6 +29,7 @@ class AgentWorkspaceTests(unittest.TestCase):
             self.assertEqual(paths.repo, Path(tmp_dir) / "agent-1" / "repo")
             self.assertEqual(paths.env, Path(tmp_dir) / "agent-1" / "env")
             self.assertEqual(paths.logs, Path(tmp_dir) / "agent-1" / "logs")
+            self.assertEqual(paths.venv, Path(tmp_dir) / "agent-1" / "venv")
             self.assertEqual(paths.runtime_env_file, Path(tmp_dir) / "agent-1" / "env" / ".env.runtime")
             self.assertEqual(paths.mailbox_fixtures_dir, Path(tmp_dir) / "agent-1" / "env" / "mailboxes")
 
@@ -61,7 +62,7 @@ class AgentWorkspaceTests(unittest.TestCase):
             self.assertTrue((ws / "env").is_dir())
             self.assertTrue((ws / "logs").is_dir())
             self.assertTrue((ws / "env" / "mailboxes").is_dir())
-            self.assertEqual((ws / ".gitignore").read_text(encoding="utf-8"), "env/\nlogs/\n")
+            self.assertEqual((ws / ".gitignore").read_text(encoding="utf-8"), "env/\nlogs/\nvenv/\n")
 
     def test_sync_workspace_accepts_remote_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -144,7 +145,7 @@ class AgentWorkspaceTests(unittest.TestCase):
                     )
             self.assertEqual(ctx.exception.reason_code, "DENY_DIRTY_WORKTREE")
 
-    def test_run_workspace_tests_falls_back_to_python_module(self) -> None:
+    def test_run_workspace_tests_creates_venv_and_installs_pytest_when_no_requirements(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo = Path(tmp_dir) / "agents" / "zeta" / "repo"
             repo.mkdir(parents=True, exist_ok=True)
@@ -154,25 +155,55 @@ class AgentWorkspaceTests(unittest.TestCase):
 
             def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
                 calls.append(args[0])
+                if args[0][:3] == ["python3", "-m", "venv"]:
+                    venv_python = Path(args[0][3]) / "bin" / "python"
+                    venv_python.parent.mkdir(parents=True, exist_ok=True)
+                    venv_python.write_text("", encoding="utf-8")
                 return subprocess.CompletedProcess(args[0], 0, stdout="ok\n", stderr="")
 
             with (
-                patch("supervisor.agent_workspace.shutil.which", side_effect=lambda x: None if x == "pytest" else "/usr/bin/python3"),
                 patch("supervisor.agent_workspace.subprocess.run", side_effect=fake_run),
+                patch.dict("os.environ", {"AIOS_PYTHON3_BIN": "python3"}, clear=False),
             ):
                 result = run_workspace_tests(agent="zeta", workspace_root=str(Path(tmp_dir) / "agents"))
             self.assertEqual(result["status"], "ok")
-            self.assertEqual(calls[0], ["/usr/bin/python3", "-m", "pytest", "-q"])
+            self.assertEqual(calls[0][:3], ["python3", "-m", "venv"])
+            self.assertEqual(calls[1][-1], "pytest")
+            self.assertEqual(calls[2][-3:], ["-m", "pytest", "-q"])
 
-    def test_run_workspace_tests_rejects_when_no_python_or_pytest(self) -> None:
+    def test_run_workspace_tests_rejects_when_python3_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo = Path(tmp_dir) / "agents" / "eta" / "repo"
             repo.mkdir(parents=True, exist_ok=True)
             (repo / ".git").mkdir()
-            with patch("supervisor.agent_workspace.shutil.which", return_value=None):
+            def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+                return subprocess.CompletedProcess(args[0], 127, stdout="", stderr="python3: not found")
+
+            with patch("supervisor.agent_workspace.subprocess.run", side_effect=fake_run):
                 with self.assertRaises(AgentWorkspaceError) as ctx:
                     run_workspace_tests(agent="eta", workspace_root=str(Path(tmp_dir) / "agents"))
             self.assertEqual(ctx.exception.reason_code, "DENY_AGENT_WORKSPACE_RUNTIME_MISSING")
+
+    def test_run_workspace_tests_prefers_requirements_dev(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "agents" / "theta" / "repo"
+            repo.mkdir(parents=True, exist_ok=True)
+            (repo / ".git").mkdir()
+            (repo / "requirements-dev.txt").write_text("pytest\n", encoding="utf-8")
+            (repo / "requirements.txt").write_text("requests\n", encoding="utf-8")
+            venv_python = Path(tmp_dir) / "agents" / "theta" / "venv" / "bin" / "python"
+            venv_python.parent.mkdir(parents=True, exist_ok=True)
+            venv_python.write_text("", encoding="utf-8")
+            calls: list[list[str]] = []
+
+            def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+                calls.append(args[0])
+                return subprocess.CompletedProcess(args[0], 0, stdout="ok\n", stderr="")
+
+            with patch("supervisor.agent_workspace.subprocess.run", side_effect=fake_run):
+                result = run_workspace_tests(agent="theta", workspace_root=str(Path(tmp_dir) / "agents"))
+            self.assertEqual(result["status"], "ok")
+            self.assertEqual(calls[0][-2:], ["-r", "requirements-dev.txt"])
 
 
 if __name__ == "__main__":

@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import shutil
 import subprocess
 import urllib.error
 import urllib.request
@@ -29,6 +28,7 @@ class WorkspacePaths:
     repo: Path
     env: Path
     logs: Path
+    venv: Path
     runtime_env_file: Path
     mailbox_fixtures_dir: Path
 
@@ -78,6 +78,7 @@ def resolve_workspace_paths(agent: str, *, workspace_root: str | None = None) ->
         repo=agent_root / "repo",
         env=env_dir,
         logs=agent_root / "logs",
+        venv=agent_root / "venv",
         runtime_env_file=env_dir / ".env.runtime",
         mailbox_fixtures_dir=env_dir / "mailboxes",
     )
@@ -89,7 +90,7 @@ def _ensure_workspace_layout(paths: WorkspacePaths) -> None:
     paths.logs.mkdir(parents=True, exist_ok=True)
     paths.mailbox_fixtures_dir.mkdir(parents=True, exist_ok=True)
     workspace_gitignore = paths.agent_root / ".gitignore"
-    workspace_gitignore.write_text("env/\nlogs/\n", encoding="utf-8")
+    workspace_gitignore.write_text("env/\nlogs/\nvenv/\n", encoding="utf-8")
 
 
 def _resolve_source_remote(repo_root: Path) -> str:
@@ -203,16 +204,60 @@ def run_workspace_tests(*, agent: str, workspace_root: str | None = None) -> dic
     env = dict(os.environ)
     env["AIOS_ENV_FILE"] = str(paths.runtime_env_file)
     env["AIOS_MAILBOX_FIXTURES_DIR"] = str(paths.mailbox_fixtures_dir)
-    command: list[str]
-    if shutil.which("pytest"):
-        command = ["pytest", "-q"]
+    python3_bin = os.environ.get("AIOS_PYTHON3_BIN", "").strip() or "python3"
+    ensure_commands: list[list[str]] = []
+    if not (paths.venv / "bin" / "python").is_file():
+        create_venv = subprocess.run(
+            [python3_bin, "-m", "venv", str(paths.venv)],
+            cwd=paths.repo,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if create_venv.returncode != 0:
+            raise AgentWorkspaceError(
+                "DENY_AGENT_WORKSPACE_RUNTIME_MISSING",
+                (create_venv.stderr or create_venv.stdout or "python3 venv creation failed").strip(),
+            )
+        ensure_commands.append([python3_bin, "-m", "venv", str(paths.venv)])
+
+    venv_python = paths.venv / "bin" / "python"
+    requirements_dev = paths.repo / "requirements-dev.txt"
+    requirements = paths.repo / "requirements.txt"
+    if requirements_dev.is_file():
+        install_command = [str(venv_python), "-m", "pip", "install", "-r", "requirements-dev.txt"]
+    elif requirements.is_file():
+        install_command = [str(venv_python), "-m", "pip", "install", "-r", "requirements.txt"]
     else:
-        python_bin = shutil.which("python3") or shutil.which("python")
-        if not python_bin:
-            raise AgentWorkspaceError("DENY_AGENT_WORKSPACE_RUNTIME_MISSING", "pytest and python are not available")
-        command = [python_bin, "-m", "pytest", "-q"]
+        install_command = [str(venv_python), "-m", "pip", "install", "pytest"]
+
+    install_proc = subprocess.run(
+        install_command,
+        cwd=paths.repo,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if install_proc.returncode != 0:
+        return {
+            "status": "failed",
+            "agent": _normalize_name(agent, field="agent"),
+            "workspace_repo": str(paths.repo),
+            "runtime_env_file": str(paths.runtime_env_file),
+            "mailbox_fixtures_dir": str(paths.mailbox_fixtures_dir),
+            "venv_path": str(paths.venv),
+            "command": " ".join(install_command),
+            "exit_code": int(install_proc.returncode),
+            "stdout_tail": "\n".join(install_proc.stdout.splitlines()[-10:]),
+            "stderr_tail": "\n".join(install_proc.stderr.splitlines()[-10:]),
+            "bootstrap_commands": [" ".join(cmd) for cmd in ensure_commands],
+        }
+
+    test_command = [str(venv_python), "-m", "pytest", "-q"]
     proc = subprocess.run(
-        command,
+        test_command,
         cwd=paths.repo,
         env=env,
         capture_output=True,
@@ -225,10 +270,12 @@ def run_workspace_tests(*, agent: str, workspace_root: str | None = None) -> dic
         "workspace_repo": str(paths.repo),
         "runtime_env_file": str(paths.runtime_env_file),
         "mailbox_fixtures_dir": str(paths.mailbox_fixtures_dir),
-        "command": " ".join(command),
+        "venv_path": str(paths.venv),
+        "command": " ".join(test_command),
         "exit_code": int(proc.returncode),
         "stdout_tail": "\n".join(proc.stdout.splitlines()[-10:]),
         "stderr_tail": "\n".join(proc.stderr.splitlines()[-10:]),
+        "bootstrap_commands": [" ".join(cmd) for cmd in ensure_commands + [install_command]],
     }
 
 
