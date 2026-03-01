@@ -127,3 +127,27 @@ def test_activate_capability_fails_when_approved_by_mismatch() -> None:
     with pytest.raises(CapabilityActivationError) as exc:
         activate_capability(repo, "email.send", env=_email_env())
     assert exc.value.reason_code == "DENY_CAPABILITY_APPROVAL_INVALID"
+
+
+def test_activate_capability_dirty_worktree_rejects_without_state_mutation() -> None:
+    repo = _init_repo_with_registry(
+        {
+            "state": "IMPLEMENTED_NOT_ACTIVE",
+            "granted": False,
+            "proposal_issue": 60,
+            "approved_by": "Don",
+            "activated_by": None,
+            "timestamps": {},
+        }
+    )
+    ledger_path = repo / "state/supervisor_capabilities.json"
+    head_before = _git(repo, ["rev-parse", "HEAD"])
+    ledger_before = ledger_path.read_text(encoding="utf-8")
+    # Introduce dirt before activation guard evaluation.
+    (repo / "scratch.txt").write_text("dirty\n", encoding="utf-8")
+    with pytest.raises(CapabilityActivationError) as exc:
+        activate_capability(repo, "email.send", env=_email_env())
+    assert exc.value.reason_code == "DENY_DIRTY_WORKTREE"
+    assert _git(repo, ["rev-parse", "HEAD"]) == head_before
+    assert ledger_path.read_text(encoding="utf-8") == ledger_before
+    assert not (repo / "logs/control/capability_activation.jsonl").exists()

@@ -362,6 +362,16 @@ def activate_capability(
     updated_ledger[cap] = updated_entry
 
     _write_json(resolved_ledger_path, {key: updated_ledger[key] for key in sorted(updated_ledger.keys())})
+
+    _run_git(
+        repo_root,
+        [
+            "add",
+            str(resolved_ledger_path.relative_to(repo_root)),
+        ],
+    )
+    _commit(repo_root, f"chore(capabilities): activate {cap}")
+
     audit_record = {
         "capability": cap,
         "activated_by": approver,
@@ -372,15 +382,6 @@ def activate_capability(
     }
     resolved_audit_path = repo_root / audit_path
     _append_jsonl(resolved_audit_path, audit_record)
-
-    _run_git(
-        repo_root,
-        [
-            "add",
-            str(resolved_ledger_path.relative_to(repo_root)),
-        ],
-    )
-    _commit(repo_root, f"chore(capabilities): activate {cap}")
 
     return {
         "status": "ok",
