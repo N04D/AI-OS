@@ -145,6 +145,27 @@ with open(path, "w", encoding="utf-8") as fh:
     fh.write("\n")
 PY
 
+# Poll helper: when IMAP vars are not set, derive deterministic defaults from SMTP.
+# This keeps day-to-day runs ergonomic while still requiring explicit credentials.
+if [[ "$MODE" == "poll" ]]; then
+  if [[ -z "${IMAP_HOST:-}" ]]; then
+    if [[ "${SMTP_HOST:-}" == "smtp.gmail.com" ]]; then
+      export IMAP_HOST="imap.gmail.com"
+    elif [[ -n "${SMTP_HOST:-}" ]]; then
+      export IMAP_HOST="${SMTP_HOST}"
+    fi
+  fi
+  if [[ -z "${IMAP_PORT:-}" ]]; then
+    export IMAP_PORT="993"
+  fi
+  if [[ -z "${IMAP_USER:-}" && -n "${SMTP_USER:-}" ]]; then
+    export IMAP_USER="${SMTP_USER}"
+  fi
+  if [[ -z "${IMAP_PASS:-}" && -n "${SMTP_PASS:-}" ]]; then
+    export IMAP_PASS="${SMTP_PASS}"
+  fi
+fi
+
 FINAL_ARGS=()
 for arg in "${ARGS[@]}"; do
   if [[ "$arg" != "--json" ]]; then
