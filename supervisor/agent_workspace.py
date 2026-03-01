@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import urllib.error
 import urllib.request
@@ -202,8 +203,16 @@ def run_workspace_tests(*, agent: str, workspace_root: str | None = None) -> dic
     env = dict(os.environ)
     env["AIOS_ENV_FILE"] = str(paths.runtime_env_file)
     env["AIOS_MAILBOX_FIXTURES_DIR"] = str(paths.mailbox_fixtures_dir)
+    command: list[str]
+    if shutil.which("pytest"):
+        command = ["pytest", "-q"]
+    else:
+        python_bin = shutil.which("python3") or shutil.which("python")
+        if not python_bin:
+            raise AgentWorkspaceError("DENY_AGENT_WORKSPACE_RUNTIME_MISSING", "pytest and python are not available")
+        command = [python_bin, "-m", "pytest", "-q"]
     proc = subprocess.run(
-        ["pytest", "-q"],
+        command,
         cwd=paths.repo,
         env=env,
         capture_output=True,
@@ -216,6 +225,7 @@ def run_workspace_tests(*, agent: str, workspace_root: str | None = None) -> dic
         "workspace_repo": str(paths.repo),
         "runtime_env_file": str(paths.runtime_env_file),
         "mailbox_fixtures_dir": str(paths.mailbox_fixtures_dir),
+        "command": " ".join(command),
         "exit_code": int(proc.returncode),
         "stdout_tail": "\n".join(proc.stdout.splitlines()[-10:]),
         "stderr_tail": "\n".join(proc.stderr.splitlines()[-10:]),

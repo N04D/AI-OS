@@ -9,6 +9,7 @@ from unittest.mock import patch
 from supervisor.agent_workspace import AgentWorkspaceError
 from supervisor.agent_workspace import push_workspace_pr
 from supervisor.agent_workspace import resolve_workspace_paths
+from supervisor.agent_workspace import run_workspace_tests
 from supervisor.agent_workspace import sync_workspace
 
 
@@ -142,6 +143,36 @@ class AgentWorkspaceTests(unittest.TestCase):
                         workspace_root=str(Path(tmp_dir) / "agents"),
                     )
             self.assertEqual(ctx.exception.reason_code, "DENY_DIRTY_WORKTREE")
+
+    def test_run_workspace_tests_falls_back_to_python_module(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "agents" / "zeta" / "repo"
+            repo.mkdir(parents=True, exist_ok=True)
+            (repo / ".git").mkdir()
+
+            calls: list[list[str]] = []
+
+            def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+                calls.append(args[0])
+                return subprocess.CompletedProcess(args[0], 0, stdout="ok\n", stderr="")
+
+            with (
+                patch("supervisor.agent_workspace.shutil.which", side_effect=lambda x: None if x == "pytest" else "/usr/bin/python3"),
+                patch("supervisor.agent_workspace.subprocess.run", side_effect=fake_run),
+            ):
+                result = run_workspace_tests(agent="zeta", workspace_root=str(Path(tmp_dir) / "agents"))
+            self.assertEqual(result["status"], "ok")
+            self.assertEqual(calls[0], ["/usr/bin/python3", "-m", "pytest", "-q"])
+
+    def test_run_workspace_tests_rejects_when_no_python_or_pytest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "agents" / "eta" / "repo"
+            repo.mkdir(parents=True, exist_ok=True)
+            (repo / ".git").mkdir()
+            with patch("supervisor.agent_workspace.shutil.which", return_value=None):
+                with self.assertRaises(AgentWorkspaceError) as ctx:
+                    run_workspace_tests(agent="eta", workspace_root=str(Path(tmp_dir) / "agents"))
+            self.assertEqual(ctx.exception.reason_code, "DENY_AGENT_WORKSPACE_RUNTIME_MISSING")
 
 
 if __name__ == "__main__":
