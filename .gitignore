@@ -47,3 +47,4 @@ state/scheduler_jobs.json
 state/scheduler_state.json
 state/supervisor/state_integrity.json
 state/autonomy/
+runtime/channels/email_gateway/

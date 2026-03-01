@@ -71,6 +71,9 @@ from supervisor.agent_workspace import create_workspace_branch
 from supervisor.agent_workspace import push_workspace_pr
 from supervisor.agent_workspace import run_workspace_tests
 from supervisor.agent_workspace import sync_workspace
+from supervisor.channels.email_gateway import EmailGatewayError
+from supervisor.channels.email_gateway import poll_email_direct
+from supervisor.channels.email_gateway import send_email_direct
 
 
 DRYRUN_QUEUE_YAML = """\
@@ -216,6 +219,22 @@ def _print_agent_workspace_result(data: dict[str, Any]) -> None:
     if data.get("stderr_tail"):
         print("stderr_tail:")
         print(str(data.get("stderr_tail", "")))
+
+
+def _print_email_gateway_result(data: dict[str, Any]) -> None:
+    print(f"status: {data.get('status', '')}")
+    if data.get("reason_code"):
+        print(f"reason_code: {data.get('reason_code', '')}")
+    if data.get("reason"):
+        print(f"reason: {data.get('reason', '')}")
+    if data.get("agent"):
+        print(f"agent: {data.get('agent', '')}")
+    if data.get("artifact_path"):
+        print(f"artifact_path: {data.get('artifact_path', '')}")
+    if data.get("messages") is not None:
+        print(f"messages: {data.get('messages', 0)}")
+    if data.get("audit_path"):
+        print(f"audit_path: {data.get('audit_path', '')}")
 
 
 def _print_night_run_result(data: dict[str, Any]) -> None:
@@ -1012,6 +1031,34 @@ def _cmd_agent_workspace_push_pr(args: argparse.Namespace) -> tuple[int, dict[st
         return 2, {"status": "rejected", "reason_code": exc.reason_code, "reason": str(exc)}, "agent_workspace"
 
 
+def _cmd_email_send(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]:
+    try:
+        payload = send_email_direct(
+            repo_root=Path.cwd(),
+            agent=args.agent,
+            to=args.to,
+            subject=args.subject,
+            body=args.body,
+            epoch=args.epoch,
+        )
+        return 0, payload, "email_gateway"
+    except EmailGatewayError as exc:
+        return 2, {"status": "rejected", "reason_code": exc.reason_code, "reason": str(exc)}, "email_gateway"
+
+
+def _cmd_email_poll(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]:
+    try:
+        payload = poll_email_direct(
+            repo_root=Path.cwd(),
+            agent=args.agent,
+            max_messages=int(args.max),
+            epoch=args.epoch,
+        )
+        return 0, payload, "email_gateway"
+    except EmailGatewayError as exc:
+        return 2, {"status": "rejected", "reason_code": exc.reason_code, "reason": str(exc)}, "email_gateway"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="aiosctl", description="AI-OS control CLI")
     parser.add_argument("--json", action="store_true", help="Emit raw JSON output")
@@ -1189,6 +1236,23 @@ def build_parser() -> argparse.ArgumentParser:
     plugin_disable.add_argument("--registry-path", default=plugin_common["registry_path"])
     plugin_disable.set_defaults(handler=_cmd_plugin_disable)
 
+    email = subparsers.add_parser("email", help="Email gateway direct-dispatch commands")
+    email_sub = email.add_subparsers(dest="email_command", required=True)
+
+    email_send = email_sub.add_parser("send", help="Send outbound email via governed gateway")
+    email_send.add_argument("--agent", required=True)
+    email_send.add_argument("--to", required=True)
+    email_send.add_argument("--subject", required=True)
+    email_send.add_argument("--body", required=True)
+    email_send.add_argument("--epoch", default="")
+    email_send.set_defaults(handler=_cmd_email_send)
+
+    email_poll = email_sub.add_parser("poll", help="Poll inbound email via governed gateway")
+    email_poll.add_argument("--agent", required=True)
+    email_poll.add_argument("--max", required=True, type=int)
+    email_poll.add_argument("--epoch", default="")
+    email_poll.set_defaults(handler=_cmd_email_poll)
+
     night_run = subparsers.add_parser("night-run", help="Run deterministic night mode loop")
     night_run.add_argument("--source", default="gitea", choices=["gitea", "local", "remote", "both"], help="Issue source backend")
     night_run.add_argument("--epoch", default="", help="UTC epoch id YYYY-MM-DD")
@@ -1248,6 +1312,8 @@ def main(argv: list[str] | None = None) -> int:
                 _print_scheduler_tick_result(payload)
             elif kind == "agent_workspace":
                 _print_agent_workspace_result(payload)
+            elif kind == "email_gateway":
+                _print_email_gateway_result(payload)
             elif kind == "night_run":
                 _print_night_run_result(payload)
             elif kind == "phase_acceptance":

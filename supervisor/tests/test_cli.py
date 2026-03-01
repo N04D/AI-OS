@@ -358,6 +358,42 @@ class CliTests(unittest.TestCase):
             self.assertEqual(blocked_out["status"], "rejected")
             self.assertEqual(blocked_out["reason"], "budget_exceeded")
 
+    def test_email_send_returns_structured_rejection(self) -> None:
+        error = cli.EmailGatewayError("DENY_AGENT_CHANNEL_DISABLED", "module disabled")
+        with patch("supervisor.cli.send_email_direct", side_effect=error):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                code = cli.main(
+                    [
+                        "--json",
+                        "email",
+                        "send",
+                        "--agent",
+                        "codex",
+                        "--to",
+                        "ops@example.com",
+                        "--subject",
+                        "s",
+                        "--body",
+                        "b",
+                    ]
+                )
+            out = json.loads(buf.getvalue().strip())
+            self.assertEqual(code, 2)
+            self.assertEqual(out["status"], "rejected")
+            self.assertEqual(out["reason_code"], "DENY_AGENT_CHANNEL_DISABLED")
+
+    def test_email_poll_returns_structured_rejection(self) -> None:
+        error = cli.EmailGatewayError("DENY_CAPABILITY_MISSING", "email.poll")
+        with patch("supervisor.cli.poll_email_direct", side_effect=error):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                code = cli.main(["--json", "email", "poll", "--agent", "codex", "--max", "5"])
+            out = json.loads(buf.getvalue().strip())
+            self.assertEqual(code, 2)
+            self.assertEqual(out["status"], "rejected")
+            self.assertEqual(out["reason_code"], "DENY_CAPABILITY_MISSING")
+
 
 if __name__ == "__main__":
     unittest.main()

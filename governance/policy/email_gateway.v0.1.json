@@ -1,0 +1,19 @@
+{
+  "agents": {
+    "codex": {
+      "domains_allowlist": [
+        "example.com"
+      ],
+      "max_body_bytes": 65536,
+      "receive_allowlist": [
+        "ops@example.com"
+      ],
+      "send_allowlist": [
+        "ops@example.com",
+        "alerts@example.com"
+      ]
+    }
+  },
+  "default_action": "deny",
+  "version": "v0.1"
+}
