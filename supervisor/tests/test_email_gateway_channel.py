@@ -13,6 +13,7 @@ from supervisor.channels.email_gateway import DENY_CAPABILITY_MISSING
 from supervisor.channels.email_gateway import DENY_DOMAIN_NOT_ALLOWED
 from supervisor.channels.email_gateway import DENY_POLICY_MISSING
 from supervisor.channels.email_gateway import DENY_REPLY_NOT_ALLOWED
+from supervisor.channels.email_gateway import DENY_REPLY_RATE_LIMITED
 from supervisor.channels.email_gateway import EmailGatewayError
 from supervisor.channels.email_gateway import _artifact_name
 from supervisor.channels.email_gateway import poll_email_direct
@@ -270,9 +271,44 @@ class EmailGatewayChannelTests(unittest.TestCase):
                 to="ops@example.com",
                 subject="Re: Hello",
                 body="reply",
+                epoch="2026-03-01",
                 transport=_FakeSMTPTransport(),
             )
             self.assertEqual(result["status"], "ok")
+
+    def test_reply_subject_rate_limited_per_thread_and_epoch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            self._bootstrap_repo(root)
+            policy_path = root / "governance/policy/email_gateway.v0.1.json"
+            payload = json.loads(policy_path.read_text(encoding="utf-8"))
+            payload["agents"]["codex"]["reply_policy"] = {
+                "enabled": True,
+                "allowed_senders": ["ops@example.com"],
+                "require_subject_match": True,
+                "max_replies_per_thread_per_day": 1,
+            }
+            policy_path.write_text(json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+            send_email_direct(
+                repo_root=root,
+                agent="codex",
+                to="ops@example.com",
+                subject="Re: Thread A",
+                body="first reply",
+                epoch="2026-03-01",
+                transport=_FakeSMTPTransport(),
+            )
+            with self.assertRaises(EmailGatewayError) as ctx:
+                send_email_direct(
+                    repo_root=root,
+                    agent="codex",
+                    to="ops@example.com",
+                    subject="Re: Thread A",
+                    body="second reply",
+                    epoch="2026-03-01",
+                    transport=_FakeSMTPTransport(),
+                )
+            self.assertEqual(ctx.exception.reason_code, DENY_REPLY_RATE_LIMITED)
 
     def test_poll_denies_when_capability_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

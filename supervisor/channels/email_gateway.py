@@ -24,6 +24,7 @@ DENY_ADDRESS_NOT_ALLOWED = "DENY_ADDRESS_NOT_ALLOWED"
 DENY_DOMAIN_NOT_ALLOWED = "DENY_DOMAIN_NOT_ALLOWED"
 DENY_BODY_TOO_LARGE = "DENY_BODY_TOO_LARGE"
 DENY_REPLY_NOT_ALLOWED = "DENY_REPLY_NOT_ALLOWED"
+DENY_REPLY_RATE_LIMITED = "DENY_REPLY_RATE_LIMITED"
 
 DEFAULT_EMAIL_CONFIG_PATH = Path("config/channels/email_gateway.json")
 DEFAULT_EMAIL_POLICY_PATH = Path("governance/policy/email_gateway.v0.1.json")
@@ -32,6 +33,7 @@ DEFAULT_CAPABILITY_DENYLIST_PATH = Path("state/supervisor_capability_denies.json
 DEFAULT_OUTBOX_ROOT = Path("runtime/channels/email_gateway/outbox")
 DEFAULT_INBOX_ROOT = Path("runtime/channels/email_gateway/inbox")
 DEFAULT_AUDIT_PATH = Path("logs/control/email_gateway_audit.jsonl")
+DEFAULT_REPLY_LEDGER_PATH = Path("runtime/channels/email_gateway/reply_ledger.json")
 
 
 class EmailGatewayError(RuntimeError):
@@ -48,6 +50,16 @@ def _safe_epoch(value: str) -> str:
     if not re.fullmatch(r"[A-Za-z0-9._:-]+", normalized):
         raise EmailGatewayError(DENY_POLICY_INVALID, "epoch contains unsupported characters")
     return normalized
+
+
+def _load_json_object(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def _canonical_json(payload: dict[str, Any]) -> str:
@@ -144,6 +156,12 @@ def _is_reply_subject(subject: str) -> bool:
     return subject.strip().lower().startswith("re:")
 
 
+def _thread_key(subject: str) -> str:
+    remainder = subject.strip()[3:].strip() if _is_reply_subject(subject) else subject.strip()
+    cleaned = re.sub(r"\s+", " ", remainder).strip().lower()
+    return cleaned
+
+
 def _assert_reply_policy_allow(policy: dict[str, Any], *, agent: str, to: str, subject: str) -> None:
     if not _is_reply_subject(subject):
         return
@@ -161,6 +179,63 @@ def _assert_reply_policy_allow(policy: dict[str, Any], *, agent: str, to: str, s
         remainder = subject.strip()[3:].strip()
         if not remainder:
             raise EmailGatewayError(DENY_REPLY_NOT_ALLOWED, "reply subject missing thread content")
+
+
+def _enforce_reply_rate_limit(
+    *,
+    repo_root: Path,
+    policy: dict[str, Any],
+    agent: str,
+    to: str,
+    subject: str,
+    epoch: str,
+) -> None:
+    if not _is_reply_subject(subject):
+        return
+    agent_policy = (policy.get("agents") or {}).get(agent)
+    if not isinstance(agent_policy, dict):
+        return
+    reply_policy = agent_policy.get("reply_policy")
+    if not isinstance(reply_policy, dict) or not bool(reply_policy.get("enabled", False)):
+        return
+    limit = int(reply_policy.get("max_replies_per_thread_per_day", 1))
+    if limit < 1:
+        raise EmailGatewayError(DENY_REPLY_RATE_LIMITED, "invalid reply rate limit")
+
+    ledger_path = repo_root / DEFAULT_REPLY_LEDGER_PATH
+    ledger = _load_json_object(ledger_path)
+    day_bucket = str(epoch)
+    agent_bucket = str(agent)
+    to_bucket = _normalize_address(to)
+    thread_bucket = _thread_key(subject)
+    if not thread_bucket:
+        thread_bucket = "<empty>"
+
+    days = ledger.setdefault("days", {})
+    if not isinstance(days, dict):
+        days = {}
+        ledger["days"] = days
+    day_entry = days.setdefault(day_bucket, {})
+    if not isinstance(day_entry, dict):
+        day_entry = {}
+        days[day_bucket] = day_entry
+    agent_entry = day_entry.setdefault(agent_bucket, {})
+    if not isinstance(agent_entry, dict):
+        agent_entry = {}
+        day_entry[agent_bucket] = agent_entry
+    to_entry = agent_entry.setdefault(to_bucket, {})
+    if not isinstance(to_entry, dict):
+        to_entry = {}
+        agent_entry[to_bucket] = to_entry
+
+    current = int(to_entry.get(thread_bucket, 0))
+    if current >= limit:
+        raise EmailGatewayError(
+            DENY_REPLY_RATE_LIMITED,
+            f"reply limit exceeded for thread: {thread_bucket}",
+        )
+    to_entry[thread_bucket] = current + 1
+    _write_json(ledger_path, ledger)
 
 
 def _load_config_and_policy(repo_root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -215,6 +290,14 @@ def send_email_direct(
         _assert_capability(repo_root, "email.send")
         _assert_policy_allow(policy, agent=agent, direction="send", address=to, body=body)
         _assert_reply_policy_allow(policy, agent=agent, to=to, subject=subject)
+        _enforce_reply_rate_limit(
+            repo_root=repo_root,
+            policy=policy,
+            agent=agent,
+            to=to,
+            subject=subject,
+            epoch=safe_epoch,
+        )
     except EmailGatewayError as exc:
         _append_deny_audit(
             repo_root=repo_root,
