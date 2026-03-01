@@ -42,3 +42,7 @@ state/night-reports/
 logs/
 *.swp
 state/supervisor/approval_tokens.json
+state/budgets.json
+state/scheduler_jobs.json
+state/scheduler_state.json
+state/supervisor/state_integrity.json
