@@ -25,6 +25,7 @@ from supervisor.budgets.autonomy import load_or_init_budget_state
 from supervisor.budgets.autonomy import roll_window_if_needed
 from supervisor.autonomy_capabilities import apply_revoke_request
 from supervisor.autonomy_capabilities import create_revoke_request
+from supervisor.autonomy_promotion_gate import AutonomyPromotionGateError
 from supervisor.autonomy_promotion_gate import create_draft_proposals_prs
 from supervisor.autonomy_review_intake_gate import intake_approved_autonomy_proposals
 from supervisor.night_executor import run_night_executor
@@ -325,12 +326,27 @@ def _write_interrupt_artifact(*, checkpoint: str, now_utc: datetime) -> str:
 
 
 def _cmd_autonomy_promote(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]:
-    results = create_draft_proposals_prs(
-        proposals_dir=args.proposals_dir,
-        repo_owner=args.repo_owner,
-        repo_name=args.repo_name,
-        base_branch=args.base_branch,
-    )
+    try:
+        results = create_draft_proposals_prs(
+            proposals_dir=args.proposals_dir,
+            repo_owner=args.repo_owner,
+            repo_name=args.repo_name,
+            base_branch=args.base_branch,
+        )
+    except AutonomyPromotionGateError as exc:
+        reason = str(exc)
+        if reason == "missing_gitea_token":
+            return (
+                2,
+                {
+                    "status": "error",
+                    "reason": reason,
+                    "expected_env_key": "GITEA_TOKEN",
+                    "token_present": bool(str(os.environ.get("GITEA_TOKEN", "")).strip()),
+                },
+                "gate:promotion",
+            )
+        raise
     rejected = _budget_rejection(results)
     if rejected is not None:
         return (
