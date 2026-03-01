@@ -18,8 +18,8 @@ from supervisor.ledger import ingest_evaluation_record_linked
 from supervisor.ledger import mark_run_committed
 from supervisor.autonomy_observer import analyze_ledger
 from supervisor.autonomy_planner import generate_proposals
-from supervisor.autonomy_budget_gate import DEFAULT_HOST_STATE_DIR
-from supervisor.autonomy_budget_gate import check_and_consume
+from supervisor.budgets.autonomy import DEFAULT_HOST_STATE_DIR
+from supervisor.budgets.autonomy import consume_budget
 from supervisor.autonomy_promotion_gate import create_draft_proposals_prs
 from supervisor.autonomy_review_intake_gate import intake_approved_autonomy_proposals
 from supervisor.night_task_runner import execute_night_task
@@ -42,6 +42,36 @@ SUPPORTED_QUEUE_MODES = {
     "night-autonomy-promote-v0.1",
     "night-autonomy-intake-v0.1",
 }
+
+TEST_HARNESS_EXIT_CATEGORY = {
+    0: "success",
+    20: "git_untrusted",
+    21: "git_dirty",
+    22: "runner_missing",
+    23: "tests_failed",
+}
+
+
+def _check_and_consume_budget(action_type: str, *, subject_id: str, host_state_dir: str) -> dict[str, Any]:
+    result = consume_budget(
+        action_type,
+        context_id="",
+        host_state_dir=host_state_dir,
+    )
+    raw_reason = str(result.get("reason") or "budget_internal_error")
+    reason = "daily_limit_exhausted" if raw_reason == "budget_exceeded" else raw_reason
+    return {
+        "allowed": bool(result.get("consumed", False)),
+        "reason": reason,
+    }
+
+
+def check_and_consume(action_type: str, *, subject_id: str, host_state_dir: str) -> dict[str, Any]:
+    return _check_and_consume_budget(
+        action_type,
+        subject_id=subject_id,
+        host_state_dir=host_state_dir,
+    )
 
 
 def _utc_now() -> datetime:
@@ -214,6 +244,7 @@ def _run_preflight() -> dict[str, Any]:
         "git_clean": False,
         "tests_passed": False,
         "test_harness_exit_code": None,
+        "test_harness_exit_category": "unknown",
         "test_harness_stdout": "",
         "test_harness_stderr": "",
     }
@@ -234,11 +265,17 @@ def _run_preflight() -> dict[str, Any]:
         env=harness_env,
     )
     preflight["test_harness_exit_code"] = harness.returncode
+    preflight["test_harness_exit_category"] = TEST_HARNESS_EXIT_CATEGORY.get(
+        harness.returncode,
+        "unknown",
+    )
     preflight["test_harness_stdout"] = harness.stdout
     preflight["test_harness_stderr"] = harness.stderr
     preflight["tests_passed"] = harness.returncode == 0
     if harness.returncode != 0:
-        raise RuntimeError("preflight_failed:test_harness_failed")
+        raise RuntimeError(
+            f"preflight_failed:test_harness_failed:{preflight['test_harness_exit_category']}"
+        )
     return preflight
 
 

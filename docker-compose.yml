@@ -1,0 +1,55 @@
+name: aios
+
+x-hardening-defaults: &hardening_defaults
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  pids_limit: 256
+
+# Prepared profile for future plugin-runner containerization.
+# Keep runner private and never publish container ports.
+x-plugin-runner-safe-profile: &plugin_runner_safe_profile
+  <<: *hardening_defaults
+  networks:
+    - aios-internal
+  restart: unless-stopped
+
+services:
+  aios-telegram-webhook:
+    build:
+      context: .
+      dockerfile: Dockerfile.webhook
+    container_name: aios-telegram-webhook
+    <<: *hardening_defaults
+    user: "10001:10001"
+    working_dir: /app
+    environment:
+      AIOS_TELEGRAM_WEBHOOK_SECRET: ${AIOS_TELEGRAM_WEBHOOK_SECRET:?required}
+      AIOS_TELEGRAM_ALLOWED_CHAT_IDS: ${AIOS_TELEGRAM_ALLOWED_CHAT_IDS:?required}
+      AIOS_REGISTRY_PATH: /app/state/plugins/registry.json
+      AIOS_CONFIG_PATH: /app/state/plugins/config.json
+      AIOS_EVENT_AUDIT_LOG_PATH: /app/logs/control/kernel-events.jsonl
+      AIOS_TELEGRAM_INGRESS_AUDIT_LOG_PATH: /app/logs/control/channel-telegram.jsonl
+      AIOS_VALIDATE_WEBHOOK_ON_STARTUP: ${AIOS_VALIDATE_WEBHOOK_ON_STARTUP:-false}
+      AIOS_TELEGRAM_BOT_TOKEN: ${AIOS_TELEGRAM_BOT_TOKEN:-}
+      AIOS_TELEGRAM_WEBHOOK_URL: ${AIOS_TELEGRAM_WEBHOOK_URL:-}
+    volumes:
+      - ./state:/app/state:rw
+      - ./logs:/app/logs:rw
+      - ./plugins:/app/plugins:ro
+    # Intentionally no host port publishing. Access via reverse proxy on same Docker network.
+    expose:
+      - "8000"
+    restart: unless-stopped
+    cpus: "0.50"
+    mem_limit: "256m"
+    networks:
+      - aios-internal
+
+networks:
+  aios-internal:
+    internal: true

@@ -16,6 +16,10 @@ _ALLOWED_EXPIRY_KEYS = ("valid_for_sequence_range", "valid_for_commit")
 class InvalidPermitError(Exception):
     """Compatibility exception for invalid permit failures."""
 
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
 
 class PermitRequiredError(Exception):
     """Compatibility exception when a permit is required but missing."""
@@ -23,6 +27,10 @@ class PermitRequiredError(Exception):
 
 class KillSwitchError(Exception):
     """Compatibility exception used by secure execution kill-switch paths."""
+
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
 
 
 @dataclass(frozen=True)

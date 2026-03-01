@@ -1,0 +1,26 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Create non-root runtime user.
+RUN addgroup --system --gid 10001 aios && \
+    adduser --system --uid 10001 --ingroup aios --home /app --shell /usr/sbin/nologin aios
+
+# Install runtime dependencies from requirements.txt.
+COPY requirements.txt /app/requirements.txt
+RUN python -m pip install --no-cache-dir --upgrade pip && \
+    python -m pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy only runtime code needed by webhook ingress.
+COPY apps /app/apps
+COPY kernel /app/kernel
+COPY scripts /app/scripts
+
+USER aios:aios
+
+EXPOSE 8080
+
+CMD ["uvicorn", "apps.telegram_webhook_app:app", "--host", "0.0.0.0", "--port", "8080"]

@@ -1,25 +1,71 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENV_FILE="${AIOS_ENV_FILE:-$REPO_ROOT/.env}"
+
+PYTHON_BIN=""
+if command -v python >/dev/null 2>&1; then
+  PYTHON_BIN="python"
+elif command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+else
+  echo "ERROR: python3/python not found" >&2
+  exit 22
+fi
+
+SECRETS_DIR="${SECRETS_DIR:-$REPO_ROOT/.secrets}"
+
+if [ -f "$ENV_FILE" ]; then
+  while IFS= read -r raw_line || [ -n "$raw_line" ]; do
+    line="${raw_line%$'\r'}"
+    if [ -z "$line" ]; then
+      continue
+    fi
+    if [[ "$line" =~ ^[[:space:]]*# ]]; then
+      continue
+    fi
+    if [[ "$line" != *"="* ]]; then
+      continue
+    fi
+    key="${line%%=*}"
+    value="${line#*=}"
+    key="${key#"${key%%[![:space:]]*}"}"
+    key="${key%"${key##*[![:space:]]}"}"
+    if [[ ! "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+      continue
+    fi
+    if [ -z "${!key+x}" ]; then
+      export "$key=$value"
+    fi
+  done <"$ENV_FILE"
+fi
+
 if [ -z "${GITEA_TOKEN:-}" ]; then
-  if [ -f /home/infra/.secrets/gitea_token ]; then
-    export GITEA_TOKEN="$(cat /home/infra/.secrets/gitea_token)"
+  if [ -f "$SECRETS_DIR/gitea_token" ]; then
+    export GITEA_TOKEN="$(cat "$SECRETS_DIR/gitea_token")"
   fi
 fi
 
 if [ -z "${GITEA_BASE_URL:-}" ]; then
-  if [ -f /home/infra/.secrets/gitea_base_url ]; then
-    export GITEA_BASE_URL="$(cat /home/infra/.secrets/gitea_base_url)"
+  if [ -f "$SECRETS_DIR/gitea_base_url" ]; then
+    export GITEA_BASE_URL="$(cat "$SECRETS_DIR/gitea_base_url")"
   fi
 fi
 
-HOST_STATE_DIR="${HOST_STATE_DIR:-/home/infra/night/state}"
+DEFAULT_HOST_STATE_DIR="${REPO_ROOT}/state"
+HOST_STATE_DIR="${HOST_STATE_DIR:-$DEFAULT_HOST_STATE_DIR}"
+if [ "$HOST_STATE_DIR" = "/home/infra/night/state" ] && [ "${ALLOW_LEGACY_INFRA_PATHS:-0}" != "1" ]; then
+  echo "ERROR: legacy HOST_STATE_DIR /home/infra/night/state is forbidden; set ALLOW_LEGACY_INFRA_PATHS=1 to override intentionally." >&2
+  exit 22
+fi
 LEDGER_DIR="${LEDGER_DIR:-$HOST_STATE_DIR/ledger}"
 export HOST_STATE_DIR
 export LEDGER_DIR
 
 if [ "$#" -eq 0 ] && [ -t 0 ]; then
-  exec python -m supervisor.console
+  exec "$PYTHON_BIN" -m supervisor.console
 fi
 
-exec python -m supervisor.cli "$@"
+exec "$PYTHON_BIN" -m supervisor.cli "$@"

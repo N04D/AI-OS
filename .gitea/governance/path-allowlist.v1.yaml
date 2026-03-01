@@ -1,0 +1,9 @@
+version: 1
+policy_id: path-allowlist-v0.1
+mode: enforce
+default_decision: deny
+rules:
+  - id: allow-logs-only
+    allow:
+      paths:
+        - "logs/**"

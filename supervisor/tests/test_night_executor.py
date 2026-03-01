@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from supervisor.night_executor import TEST_HARNESS_EXIT_CATEGORY
 from supervisor.night_executor import load_queue
 from supervisor.night_executor import _run_preflight
 from supervisor.night_executor import run_night_executor
@@ -54,6 +55,28 @@ class NightExecutorTests(unittest.TestCase):
         self.assertTrue(result["tests_passed"])
         self.assertNotIn("GITEA_TOKEN", captured_env)
         self.assertNotIn("GITEA_BASE_URL", captured_env)
+
+    def test_preflight_failure_category_is_deterministic(self) -> None:
+        self.assertEqual(TEST_HARNESS_EXIT_CATEGORY[20], "git_untrusted")
+        self.assertEqual(TEST_HARNESS_EXIT_CATEGORY[21], "git_dirty")
+        self.assertEqual(TEST_HARNESS_EXIT_CATEGORY[22], "runner_missing")
+        self.assertEqual(TEST_HARNESS_EXIT_CATEGORY[23], "tests_failed")
+
+    def test_preflight_raises_with_harness_failure_category(self) -> None:
+        with (
+            patch("supervisor.night_executor._run_checked", return_value=""),
+            patch(
+                "supervisor.night_executor.subprocess.run",
+                return_value=SimpleNamespace(returncode=20, stdout="", stderr=""),
+            ),
+        ):
+            with self.assertRaises(RuntimeError) as ctx:
+                _run_preflight()
+
+        self.assertEqual(
+            str(ctx.exception),
+            "preflight_failed:test_harness_failed:git_untrusted",
+        )
 
     def test_queue_schema_validation_rejects_missing_required_keys(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

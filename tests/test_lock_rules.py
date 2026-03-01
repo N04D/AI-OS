@@ -23,6 +23,7 @@ def test_lock_required_for_high_risk_path():
     pr = {"number": 1, "title": "feature", "body": "", "base": {"ref": "develop"}, "head": {"ref": "feature/ok"}, "user": {"login": "a"}, "_open_prs": []}
     result = evaluate_pr(_policy(), pr, [], ["supervisor/supervisor.py"], [], [])
     assert "lock_required" in result["failed_gates"]
+    assert result["primary_failed_gate"] == "lock_required"
 
 
 def test_lock_conflict_detected():
@@ -37,3 +38,4 @@ def test_lock_conflict_detected():
     }
     result = evaluate_pr(_policy(), pr, [], ["supervisor/supervisor.py"], [], [])
     assert "lock_exclusive" in result["failed_gates"]
+    assert result["primary_failed_gate"] == "lock_exclusive"

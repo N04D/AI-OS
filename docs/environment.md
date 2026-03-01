@@ -29,3 +29,13 @@ The full API URL for a repository is constructed dynamically based on the Git re
 
 - **Gemini (Planner):** The planning and supervision agent, responsible for analyzing the repository, selecting tasks, and providing high-level guidance.
 - **Codex (Builder):** The implementation agent, responsible for writing, testing, and committing code based on the planner's instructions.
+
+## Python Dependency Contract
+
+Use the same deterministic install path in local, container, and CI contexts:
+
+```bash
+python3 -m pip install -r requirements.txt -r requirements-dev.txt
+```
+
+Requirements are pinned to avoid nondeterministic resolution drift.

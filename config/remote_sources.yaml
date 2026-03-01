@@ -1,0 +1,20 @@
+remote_sources:
+  - id: gitea-main
+    type: gitea
+    enabled: false
+    base_url: "https://gitea.example.com/api/v1"
+    owner: "N04D"
+    repo: "AI-OS"
+    auth_env: "GITEA_TOKEN"
+    labels_allowlist: ["aios", "autonomy"]
+    max_issues: 100
+
+  - id: github-main
+    type: github
+    enabled: false
+    base_url: "https://api.github.com"
+    owner: "N04D"
+    repo: "AI-OS"
+    auth_env: "GITHUB_TOKEN"
+    labels_allowlist: ["aios"]
+    max_issues: 100

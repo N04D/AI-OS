@@ -29,5 +29,6 @@ def test_system_evolution_escalates_requirements():
     statuses = [{"context": "lint", "state": "success"}]
     result = evaluate_pr(_policy(), pr, [], files, reviews, statuses)
     assert result["system_evolution"] is True
-    assert "insufficient_approvals" in result["failed_gates"]
+    assert "min_approvals_met" in result["failed_gates"]
     assert "required_status_checks" in result["failed_gates"]
+    assert result["primary_failed_gate"] == "system_evolution_escalation"

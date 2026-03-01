@@ -77,6 +77,17 @@ class AutonomyPromotionGateTests(unittest.TestCase):
                 )
             self.assertIn("missing_gitea_token", str(ctx.exception))
 
+    def test_missing_token_fails_closed_even_when_env_token_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.dict("os.environ", {"GITEA_TOKEN": "env-token"}, clear=False):
+                with self.assertRaises(AutonomyPromotionGateError) as ctx:
+                    create_draft_proposals_prs(
+                        tmp_dir,
+                        gitea_base_url="http://gitea.local",
+                        gitea_token="",
+                    )
+        self.assertIn("missing_gitea_token", str(ctx.exception))
+
     def test_dirty_tree_fails_closed(self) -> None:
         with patch("supervisor.autonomy_promotion_gate._git_is_clean", return_value=False):
             with self.assertRaises(AutonomyPromotionGateError) as ctx:

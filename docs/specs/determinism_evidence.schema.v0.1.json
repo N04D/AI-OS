@@ -1,0 +1,48 @@
+{
+  "version": "v0.1",
+  "type": "object",
+  "required": [
+    "version",
+    "risk_tier",
+    "input_fingerprint",
+    "output_fingerprint",
+    "rerun_consistent",
+    "timestamps_controlled",
+    "artifacts"
+  ],
+  "properties": {
+    "version": {
+      "const": "v0.1"
+    },
+    "risk_tier": {
+      "enum": [
+        "LOW",
+        "MED",
+        "HIGH"
+      ]
+    },
+    "input_fingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "output_fingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "rerun_consistent": {
+      "type": "boolean"
+    },
+    "timestamps_controlled": {
+      "type": "boolean"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    }
+  },
+  "additionalProperties": false
+}

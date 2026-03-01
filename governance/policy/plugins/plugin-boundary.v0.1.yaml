@@ -1,0 +1,16 @@
+version: 1
+policy_id: plugin-boundary-v0.1
+deny_by_default: true
+require_manifest: true
+require_out_of_process: true
+allowed_runtime_modes:
+  - subprocess
+forbidden_paths:
+  - governance/**
+  - kernel/**
+  - supervisor/**
+  - pr_gate/**
+  - .gitea/**
+disallowed_protocols:
+  - http
+  - websocket

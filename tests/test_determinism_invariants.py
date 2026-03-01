@@ -15,7 +15,7 @@ def _policy():
                 "require_human_approval": False,
             },
         },
-        "issue_link": {"required": True, "patterns": [r"(^|\\s)#([0-9]+)(\\s|$)"]},
+        "issue_link": {"required": True, "patterns": [r"(^|\s)#([0-9]+)(\s|$)"]},
         "pr_template": {
             "required_sections": ["Subsystem", "Risk Level"],
             "reject_placeholders": ["TBD", "TODO", "N/A"],
@@ -70,6 +70,11 @@ def test_determinism_invariants():
 
     assert result1 == result2
     assert result1["failed_gates"] == sorted(result1["failed_gates"])
+    assert result1["primary_failed_gate"] == result2["primary_failed_gate"]
+    assert (
+        result1["primary_failed_gate"] is None
+        or result1["primary_failed_gate"] in result1["failed_gates"]
+    )
     assert all(isinstance(x, str) for x in result1["failed_reasons"])
 
     gate_order = [e["gate"] for e in result1["gate_events"]]

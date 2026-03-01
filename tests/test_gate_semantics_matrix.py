@@ -18,7 +18,7 @@ def _base_policy():
                 "require_human_approval": False,
             },
         },
-        "issue_link": {"required": True, "patterns": [r"(^|\\s)#([0-9]+)(\\s|$)"]},
+        "issue_link": {"required": True, "patterns": [r"(^|\s)#([0-9]+)(\s|$)"]},
         "pr_template": {
             "required_sections": ["Subsystem", "Risk Level"],
             "reject_placeholders": ["TBD", "TODO", "N/A"],
@@ -109,6 +109,7 @@ def test_fail_template_placeholder_and_issue_ref():
     result = evaluate_pr(_base_policy(), pr, _ok_commits(), [], _ok_reviews(), _ok_statuses())
     assert "issue_reference_required" in result["failed_gates"]
     assert "pr_template_placeholders" in result["failed_gates"]
+    assert result["primary_failed_gate"] == "pr_template_placeholders"
 
 
 def test_high_risk_detection_never_blocks_but_lock_required_blocks():
@@ -116,6 +117,7 @@ def test_high_risk_detection_never_blocks_but_lock_required_blocks():
     result = evaluate_pr(_base_policy(), pr, _ok_commits(), ["supervisor/supervisor.py"], _ok_reviews(), _ok_statuses(system=True))
     assert "high_risk_path_detection" not in result["failed_gates"]
     assert "lock_required" in result["failed_gates"]
+    assert result["primary_failed_gate"] == "lock_required"
 
 
 def test_lock_exclusive_conflict_blocks():
@@ -123,6 +125,7 @@ def test_lock_exclusive_conflict_blocks():
     pr["_open_prs"] = [{"number": 2, "title": "x", "body": "LOCK:supervisor/"}]
     result = evaluate_pr(_base_policy(), pr, _ok_commits(), ["supervisor/supervisor.py"], _ok_reviews(), _ok_statuses(system=True))
     assert "lock_exclusive" in result["failed_gates"]
+    assert result["primary_failed_gate"] == "lock_exclusive"
 
 
 def test_system_evolution_pass_and_fail_modes():
@@ -135,6 +138,7 @@ def test_system_evolution_pass_and_fail_modes():
     fail_statuses = [{"context": "lint", "state": "success"}]
     fail_result = evaluate_pr(policy, pr, _ok_commits(), ["supervisor/supervisor.py"], fail_reviews, fail_statuses)
     assert "system_evolution_escalation" in fail_result["failed_gates"]
+    assert fail_result["primary_failed_gate"] == "system_evolution_escalation"
     assert any("required_status_checks=False" in r for r in fail_result["failed_reasons"])
 
 
@@ -152,3 +156,4 @@ def test_commit_signing_required_pass_and_fail():
         _ok_statuses(),
     )
     assert "commit_signing_required" in fail_result["failed_gates"]
+    assert fail_result["primary_failed_gate"] == "commit_signing_required"

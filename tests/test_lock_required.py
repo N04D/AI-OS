@@ -30,6 +30,7 @@ def _pr(body="", open_prs=None):
 def test_high_risk_without_lock_fails_lock_required():
     result = evaluate_pr(_policy(), _pr(""), [], ["supervisor/supervisor.py"], [], [])
     assert "lock_required" in result["failed_gates"]
+    assert result["primary_failed_gate"] == "lock_required"
     assert any("missing LOCK:supervisor/" in reason for reason in result["failed_reasons"])
 
 
@@ -49,4 +50,5 @@ def test_lock_conflict_fails_lock_exclusive():
         [],
     )
     assert "lock_exclusive" in result["failed_gates"]
+    assert result["primary_failed_gate"] == "lock_exclusive"
     assert any("conflicts=2" in reason for reason in result["failed_reasons"])

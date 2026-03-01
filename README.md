@@ -236,3 +236,21 @@ But structured evolution.
 
 Under law.
 
+
+## VIII. Deterministic Python Toolchain Contract
+
+Runtime and test environments must install from the same pinned requirement files.
+
+Local/container install:
+
+```bash
+python3 -m pip install -r requirements.txt -r requirements-dev.txt
+```
+
+Canonical test harness:
+
+```bash
+./scripts/test-all.sh
+```
+
+CI workflows use the same install command before running Python checks.

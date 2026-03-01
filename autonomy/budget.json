@@ -1,0 +1,44 @@
+{
+  "cooldowns_seconds": {
+    "commit": 0,
+    "exec_attempt": 5,
+    "improvement": 0,
+    "intake": 15,
+    "materialize": 15,
+    "promotion": 60
+  },
+  "counts": {
+    "commit": 0,
+    "exec_attempt": 0,
+    "improvement": 5,
+    "intake": 0,
+    "materialize": 0,
+    "promotion": 0
+  },
+  "daily_limits": {
+    "commit": 5,
+    "exec_attempt": 30,
+    "improvement": 8,
+    "intake": 20,
+    "materialize": 20,
+    "promotion": 10
+  },
+  "last_action_epoch_s": {
+    "commit": 0,
+    "exec_attempt": 0,
+    "improvement": 1772150400,
+    "intake": 0,
+    "materialize": 0,
+    "promotion": 0
+  },
+  "last_consume_keys": {
+    "commit": "",
+    "exec_attempt": "",
+    "improvement": "improvement|pr:001-helloworld:338d0021c7c7de77|tier:LOW|1772150400",
+    "intake": "",
+    "materialize": "",
+    "promotion": ""
+  },
+  "version": "autonomy-budget.v0.1",
+  "window_utc_day": "2026-02-27"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "002-send-email",
+  "title": "Send me an email",
+  "labels": ["self-improvement", "MED"],
+  "required_capabilities": ["email_send"],
+  "body": "Send an email to <YOUR_EMAIL> saying: Autonomous system test successful."
+}

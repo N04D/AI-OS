@@ -1,0 +1,43 @@
+version: "0.1"
+default_decision: "deny"
+skills:
+  send-message:
+    description: "Send a constrained notification message via notifier plugin"
+    target:
+      plugin_id: "notifier-telegram"
+      method: "notify"
+    input_schema:
+      type: "object"
+      required:
+        - text
+        - recipient
+      properties:
+        text:
+          type: "string"
+        recipient:
+          type: "string"
+    safe_defaults:
+      priority: "normal"
+    rate_limit:
+      cooldown_seconds: 10
+    allowed_recipients:
+      - "alerts-room"
+      - "ops-room"
+  status:
+    description: "Read notifier status through notifier plugin"
+    target:
+      plugin_id: "notifier-telegram"
+      method: "notify"
+    input_schema:
+      type: "object"
+      required: []
+      properties: {}
+channels:
+  telegram:
+    allowed_users:
+      - "111"
+    allowed_skills:
+      - "send-message"
+      - "status"
+    quotas:
+      per_user_per_hour: 30

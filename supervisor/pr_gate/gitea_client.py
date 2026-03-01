@@ -4,6 +4,8 @@ import subprocess
 import urllib.error
 import urllib.request
 
+from supervisor.git_remote import preferred_remote_name
+
 
 class GiteaClientError(Exception):
     pass
@@ -111,9 +113,10 @@ def _detect_gitea_signature(commit):
 
 
 def _fetch_pr_ref(pr_number):
+    remote_name = preferred_remote_name()
     candidates = [
-        ["git", "fetch", "--quiet", "origin", f"refs/pull/{pr_number}/head"],
-        ["git", "fetch", "--quiet", "origin", f"pull/{pr_number}/head"],
+        ["git", "fetch", "--quiet", remote_name, f"refs/pull/{pr_number}/head"],
+        ["git", "fetch", "--quiet", remote_name, f"pull/{pr_number}/head"],
     ]
     for cmd in candidates:
         result = subprocess.run(cmd, capture_output=True, text=True)

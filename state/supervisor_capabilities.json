@@ -1,0 +1,23 @@
+{
+  "email.poll": {
+    "activated_by": null,
+    "approved_by": null,
+    "granted": false,
+    "proposal_issue": null,
+    "state": "IMPLEMENTED_NOT_ACTIVE",
+    "timestamps": {}
+  },
+  "email.send": {
+    "activated_by": "Don",
+    "approved_by": "Don",
+    "granted": true,
+    "proposal_issue": 60,
+    "state": "ACTIVE",
+    "timestamps": {
+      "IMPLEMENTED_NOT_ACTIVE->ACTIVE": "2026-03-01T10:57:31Z"
+    }
+  },
+  "scheduler_guarded_skill_run": {
+    "granted": true
+  }
+}

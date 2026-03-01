@@ -1,0 +1,33 @@
+manifest_version: 1
+plugin_id: telegram
+plugin_version: 1.0.0
+api_version: 1
+description: "Send escalation notifications to Telegram."
+publisher:
+  publisher_id: N04D
+  trust_tier: official
+  source_repo: "gitea://N04D/ai-os-plugins/telegram"
+entrypoint:
+  command: ["./bin/telegram-notifier"]
+  protocol: stdin_stdout_json
+runtime:
+  mode: subprocess
+  user: "nobody"
+  timeout_seconds: 15
+permissions:
+  capabilities:
+    - notify:escalation
+  filesystem:
+    read:
+      - "requests/escalations/**"
+    write:
+      - "state/plugins/telegram/**"
+  network:
+    allow:
+      - host: "api.telegram.org"
+        port: 443
+  secrets:
+    grants:
+      - name: "TELEGRAM_BOT_TOKEN"
+        tier: "task_secrets"
+        exposure: "plugin_env"

@@ -1,0 +1,9 @@
+{
+  "agents": {
+    "codex": {
+      "enabled": false
+    }
+  },
+  "enabled": false,
+  "version": "v0.1"
+}

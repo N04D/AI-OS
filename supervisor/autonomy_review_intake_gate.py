@@ -8,9 +8,9 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from supervisor.autonomy_budget import DEFAULT_HOST_STATE_DIR
-from supervisor.autonomy_budget import check_budget
-from supervisor.autonomy_budget import consume_budget
+from supervisor.budgets.autonomy import DEFAULT_HOST_STATE_DIR
+from supervisor.budgets.autonomy import check_budget
+from supervisor.budgets.autonomy import consume_budget
 
 
 class AutonomyReviewIntakeGateError(RuntimeError):
@@ -110,7 +110,7 @@ def intake_approved_autonomy_proposals(
     gitea_base_url: str | None = None,
     gitea_token: str | None = None,
 ) -> list[dict[str, Any]]:
-    token = (gitea_token or os.environ.get("GITEA_TOKEN", "")).strip()
+    token = (os.environ.get("GITEA_TOKEN", "") if gitea_token is None else gitea_token).strip()
     if not token:
         raise AutonomyReviewIntakeGateError("missing_gitea_token")
     if not _git_is_clean():

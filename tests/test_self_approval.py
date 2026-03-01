@@ -23,3 +23,4 @@ def test_self_approval_forbidden():
     reviews = [{"state": "APPROVED", "submitted_at": "2026-01-01T00:00:00Z", "user": {"login": "alice", "type": "User"}}]
     result = evaluate_pr(_policy(), pr, [], [], reviews, [])
     assert "self_approval_forbidden" in result["failed_gates"]
+    assert result["primary_failed_gate"] == "distinct_reviewer_required"

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-os.local/schema/supervisor/capability-revoke.v0.1.json",
+  "title": "Supervisor Capability Revoke Request v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revoke_id",
+    "supervisor_id",
+    "capability",
+    "revoked_at",
+    "justification",
+    "baseline_commit",
+    "policy_sha",
+    "status"
+  ],
+  "properties": {
+    "revoke_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "supervisor_id": {
+      "type": "string",
+      "const": "core"
+    },
+    "capability": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revoked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "justification": {
+      "type": "string",
+      "minLength": 20
+    },
+    "baseline_commit": {
+      "type": "string",
+      "minLength": 7
+    },
+    "policy_sha": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "const": "requested"
+    }
+  }
+}

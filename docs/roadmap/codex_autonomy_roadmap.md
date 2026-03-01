@@ -1,0 +1,985 @@
+# AI-OS Codex Autonomy Roadmap
+
+Status: Phase 4
+Authority: Supervisor (Human)  
+Promotion Model: Earned Autonomy  
+Fail-Closed: Always
+
+---
+
+## Rules
+
+- Codex may only mark checkboxes.
+- Codex may NOT change phase status.
+- Promotion requires explicit supervisor approval.
+- All changes must preserve deterministic behavior.
+- Governance may never be weakened.
+
+---
+
+# Phase 1 — Runtime Consolidation
+
+## Objective
+Unify and stabilize the runtime control plane.
+
+## Tasks
+
+- [x] Remove legacy budget overlap (supervisor/autonomy_budget.py)
+- [x] Verified unused
+- [x] Eliminate implicit `origin` remote assumptions
+- [x] Confirm Gitea is canonical runtime remote
+- [x] Ensure night_mode flows through supervisor kernel
+- [x] Verify mutation boundary restricts allowed files only
+- [x] Confirm deterministic JSON serialization where required
+- [x] Confirm UTC-only time handling in scheduler/budgets
+
+## Validation Criteria
+
+- [x] No duplicate budget logic paths remain
+- [x] No implicit remote assumptions
+- [x] Night mode executes without manual intervention
+- [x] No fail-open behavior detected
+- [x] No broad `git add .` in governed flows
+
+Phase 1: ACCEPTED
+
+---
+
+# Phase 2 — Deterministic Night Autonomy
+
+## Objective
+Night run must be reproducible and stable.
+
+## Tasks
+
+- [x] Night mode executes full autonomy loop
+- [x] Scheduler deterministic ordering confirmed
+- [x] Budget consumption recorded deterministically
+- [x] Status publication to Gitea verified
+- [x] No non-deterministic timestamps outside controlled areas
+
+## Validation Criteria
+
+- [x] 3 consecutive successful night runs
+- [x] Identical output for identical state
+- [x] Audit artifacts produced consistently
+- [x] No governance bypass possible
+
+## Execution Plan (Phase 2)
+
+- [x] Step 1: Baseline Phase 2 scope vs current code/tests (status: completed)
+- [x] Step 2: Identify objective/criteria gaps (status: completed)
+- [x] Step 3: Implement minimal Phase 2 runtime changes (status: completed)
+- [x] Step 4: Add/update deterministic scheduler and budget tests (status: completed)
+- [x] Step 5: Add/update Gitea status publication verification tests (status: completed)
+- [x] Step 6: Add/update timestamp determinism guards/tests (status: completed)
+- [x] Step 7: Run and stabilize targeted Phase 2 tests (status: completed)
+- [x] Step 8: Run full test suite and fix Phase 2 regressions (status: completed)
+- [x] Step 9: Update roadmap and progress with evidence (status: completed)
+- [x] Step 10: Publish completion report and HALT (status: completed)
+
+## Remediation Plan (Conditional Acceptance)
+
+- [x] Remediation 1: Normalize plugin-loader tests to environment Python (`sys.executable`)
+- [x] Remediation 2: Make Phase-K policy-path tests environment-agnostic
+- [x] Remediation 3: Add explicit skip justification if policy file is unavailable
+- [x] Remediation 4: Re-run full `pytest -q` and verify zero failures
+
+Phase 2: ACCEPTED
+
+---
+
+# Phase 3 – Supervisor Hardening & Control Plane
+
+## Objective
+Harden supervisor control-plane enforcement with explicit authorization, deterministic halt behavior, strict boundaries, and integrity checks.
+
+## Tasks
+
+- [x] 3.1 Approval Token Mechanism (Hard Gate)
+- [x] 3.2 Deterministic Interrupt Mechanism
+- [x] 3.3 Supervisor Boundary Hardening
+- [x] 3.4 State Integrity Verification
+- [x] 3.5 Permanent Phase Acceptance Rule
+
+## Validation Criteria
+
+- [x] Execution without valid token denied
+- [x] Token reuse rejected deterministically
+- [x] Expired token fails closed
+- [x] Interrupt leads to deterministic HALT with persisted state
+- [x] No governance-core boundary bypasses
+- [x] State tampering detected and denied (fail-closed)
+- [x] Phase completion blocked when contract requirements fail
+- [x] Full pytest suite green
+
+## Phase 3 Scope Details
+
+### 3.1 Approval Token Mechanism (Hard Gate)
+- [x] Add approval token structure (scope-bound, time-bound, single-use)
+- [x] Implement token validation in supervisor layer only
+- [x] Store token hash (SHA256) in audit log (never plaintext)
+- [x] Reject expired or reused tokens
+- [x] Integrate token requirement into:
+  - phase start
+  - budget override paths
+  - high-risk autonomy actions
+
+### 3.2 Deterministic Interrupt Mechanism
+- [x] Add `INTERRUPT_FLAG` in autonomy state
+- [x] Check interrupt at:
+  - scheduler tick
+  - before budget consume
+  - at phase boundary
+- [x] On interrupt:
+  - finish current atomic action
+  - persist state
+  - enter HALT
+  - log interrupt event
+
+### 3.3 Supervisor Boundary Hardening
+- [x] Enforce canonical supervisor interface for:
+  - budget
+  - scheduler
+  - task materialization
+- [x] Add static import scan test:
+  - detect direct governance-core imports outside supervisor boundary
+- [x] Refactor bypass paths if detected
+
+### 3.4 State Integrity Verification
+- [x] Compute SHA256 hash for:
+  - autonomy state
+  - budget state
+- [x] Store reference hash in controlled metadata
+- [x] Validate integrity before execution
+- [x] On mismatch:
+  - fail-closed
+  - log integrity violation
+
+### 3.5 Permanent Phase Acceptance Rule
+- [x] Add governance rule document defining:
+  - full suite must pass
+  - roadmap updated
+  - progress updated
+  - HALT entered
+- [x] Add automated verification test:
+  - block phase completion if any failures exist
+
+## Execution Plan (Phase 3)
+
+- [x] Step 1: Replace legacy Phase 3 roadmap bullets with hardening scope + acceptance checks (status: completed)
+- [x] Step 2: Implement approval token validator + audit hashing + single-use store (status: completed)
+- [x] Step 3: Wire token gate into phase start, budget override, and high-risk actions (status: completed)
+- [x] Step 4: Add deterministic interrupt flag handling and HALT artifacts (status: completed)
+- [x] Step 5: Add canonical supervisor boundary interface and static bypass scan test (status: completed)
+- [x] Step 6: Add state integrity metadata + pre-execution verification (status: completed)
+- [x] Step 7: Add permanent phase acceptance rule document + enforcement test (status: completed)
+- [x] Step 8: Run targeted tests for each hardening stream and stabilize (status: completed)
+- [x] Step 9: Run full `pytest -q` and fix regressions until zero failures (status: completed)
+- [x] Step 10: Update roadmap/progress evidence and enter HALT state (status: completed)
+
+---
+
+# Phase 4 — Bounded Self-Improvement
+
+## Objective
+Codex may propose and implement internal improvements strictly under governance.
+Self-improvement is allowed only as work — never as authority.
+
+- [x] Auditable
+- [x] Deterministic
+- [x] Fail-closed
+- [x] Budget-accounted
+- [x] Boundary-enforced
+
+## Tasks
+
+### 4.1 Improvement Proposal Pipeline (PR-Only)
+- [x] Objective: All self-improvements must flow through a governed PR process.
+- [x] Add canonical proposal template: `docs/specs/self_improvement_proposal.v0.1.md`
+- [x] Proposal requires problem statement.
+- [x] Proposal requires risk tier (LOW / MED / HIGH).
+- [x] Proposal requires affected components.
+- [x] Proposal requires determinism impact.
+- [x] Proposal requires test plan (mandatory).
+- [x] Proposal requires rollback strategy.
+- [x] Require PR checklist for self-improvement changes.
+- [x] Tag PRs with self-improvement label.
+- [x] Require supervisor approval before merge.
+- [x] Validation: No self-improvement merged without proposal template.
+- [x] Validation: Proposal includes explicit risk tier.
+- [x] Validation: Proposal includes deterministic test plan.
+- [x] Validation: Full pytest suite passes before merge.
+
+### 4.2 Allowed Change Boundary (Hard Constraints)
+- [x] Objective: Prevent self-improvement from mutating governance authority.
+- [x] Define allowlist for self-improvement changes.
+- [x] Allowlist: `docs/`
+- [x] Allowlist: `tests/`
+- [x] Allowlist: Explicit runtime modules (if declared in proposal).
+- [x] Denylist: Governance core (unless HIGH-risk + token).
+- [x] Add static boundary scan test for PR validation.
+- [x] Fail-closed if disallowed files modified.
+- [x] Validation: Disallowed path modification -> denied.
+- [x] Validation: Direct governance-core edits without HIGH-tier -> rejected.
+- [x] Validation: All runtime changes include test updates.
+
+### 4.3 Risk Classification & Approval Tokens (Tiered Control)
+- [x] Objective: Improvements must be classified and gated by risk.
+- [x] Risk tier LOW: Docs/tests only, no runtime change.
+- [x] Risk tier MED: Refactor preserving behavior.
+- [x] Risk tier HIGH: Scheduler, budget, governance, approval tokens, phase acceptance, integrity.
+- [x] Define canonical risk-tier specification document.
+- [x] Require approval token for HIGH-risk changes.
+- [x] Require golden-determinism evidence for MED/HIGH.
+- [x] Log tier classification in audit record.
+- [x] Validation: HIGH-risk without token -> denied.
+- [x] Validation: MED/HIGH without determinism evidence -> denied.
+- [x] Validation: Audit log contains tier + decision.
+
+### 4.4 Determinism Guardrails (Golden Evidence)
+- [x] Objective: Ensure improvements preserve deterministic behavior.
+- [x] Define `determinism_evidence.json` schema.
+- [x] Add identical-input -> identical-output validation tests.
+- [x] Ensure no uncontrolled timestamps introduced.
+- [x] Require rerun consistency tests for runtime changes.
+- [x] Validation: Identical state produces identical artifacts.
+- [x] Validation: No wall-clock dependency in governance logic.
+- [x] Validation: Determinism evidence included in PR.
+
+### 4.5 Budget Accounting for Improvements
+- [x] Objective: Self-improvement consumes autonomy budget.
+- [x] Introduce improvement budget category.
+- [x] Record PR ID + tier in audit.
+- [x] Deny improvement if budget exhausted.
+- [x] Fail-closed on corrupt budget state.
+- [x] Validation: Improvement without budget -> denied.
+- [x] Validation: Budget consumption deterministic and logged.
+- [x] Validation: Corrupt state -> fixed deny code.
+
+### 4.6 No Mutation Outside Governed Execution
+- [x] Objective: Prevent direct runtime mutation outside PR workflow.
+- [x] Enforce PR-only mutation rule.
+- [x] Add test detecting direct write attempts.
+- [x] Fail-closed on unauthorized mutation path.
+- [x] Validation: Direct mutation attempt -> denied + audit.
+- [x] Validation: Only governed workflow may modify runtime logic.
+
+### 4.7 Integration with Phase Acceptance Rule
+- [x] Objective: Self-improvement merges require phase acceptance verification.
+- [x] Require phase-acceptance verify before merge.
+- [x] Evidence includes full suite result (0 failed).
+- [x] Evidence includes skip justifications.
+- [x] Evidence includes roadmap update.
+- [x] Evidence includes progress update.
+- [x] Evidence includes HALT state.
+- [x] Add negative tests for missing evidence.
+- [x] Validation: Merge denied without acceptance evidence.
+- [x] Validation: Full suite must be green.
+- [x] Validation: Skips explicitly justified.
+
+### 4.8 HALT Discipline for Self-Improvement
+- [x] Objective: Prevent continuous self-expansion.
+- [x] Enforce "HALT after PR creation" rule.
+- [x] Require explicit authorization to implement beyond proposal.
+- [x] Log awaiting-approval state.
+- [x] Validation: No commits beyond proposal without authorization.
+- [x] Validation: HALT state recorded after proposal.
+
+## Validation Criteria
+
+Phase 4 Exit Condition:
+- [x] All self-improvement flows via governed PR.
+- [x] Risk tiers enforced.
+- [x] Approval tokens integrated for HIGH-risk.
+- [x] Determinism preserved.
+- [x] Budget accounted.
+- [x] Phase acceptance verify integrated.
+- [x] No red tests.
+- [x] HALT discipline respected.
+
+## Execution Plan (Phase 4)
+
+- [x] Step 1: Add canonical self-improvement proposal template and checklist structure.
+- [x] Step 2: Enforce PR-only proposal pipeline validation hooks.
+- [x] Step 3: Implement hard boundary allowlist/denylist checks for self-improvement changes.
+- [x] Step 4: Add/extend static boundary scan tests for Phase 4 constraints.
+- [x] Step 5: Define and enforce LOW/MED/HIGH risk tier classification.
+- [x] Step 6: Integrate HIGH-risk approval token requirement into self-improvement flow.
+- [x] Step 7: Add determinism evidence schema + verification guardrails.
+- [x] Step 8: Integrate improvement budget accounting and deterministic audit logs.
+- [x] Step 9: Enforce no direct mutation outside governed workflow.
+- [x] Step 10: Integrate phase-acceptance verification gate for self-improvement merges.
+- [x] Step 11: Enforce HALT-after-proposal discipline with explicit authorization resume path.
+- [x] Step 12: Run full suite, update roadmap/progress, produce report, enter HALT.
+
+---
+
+# Phase 5 — Autonomous Night-Run Integration
+
+## Objective
+
+Validate a fully governed autonomous night-run loop where:
+
+- Issues are detected and processed deterministically
+- Tasks are materialized via governed flow
+- Capability requests are handled explicitly
+- Budget and approval rules are enforced
+- Execution halts when no issues remain
+
+Self-execution must remain auditable, deterministic, fail-closed, and boundary-enforced.
+
+---
+
+# Test Scenario
+
+## Setup
+
+- Inject test issue in controlled test repository or mocked Gitea layer.
+- Issue type: `self-improvement` with LOW or MED risk tier.
+- If required capability is missing -> system must generate a capability request.
+- No implicit auto-grant allowed.
+
+---
+
+# Required System Behavior
+
+## Step 1 — Issue Detection
+
+- Night mode pulls open issues.
+- Issues are ordered deterministically.
+- Issue is converted into governed task materialization.
+- Audit artifact is logged for detection + materialization.
+
+## Step 2 — Capability Handling
+
+If required capability is not present:
+
+- System creates `capability_request` object.
+- Capability request is logged with reason.
+- System enters waiting state OR denies execution.
+- No silent auto-grant.
+
+If capability is present:
+
+- Continue normal governed processing.
+
+## Step 3 — Execution
+
+- Governed PR flow enforced.
+- Risk tier classification validated.
+- Budget consumed under `improvement` category.
+- Determinism evidence generated (if runtime affected).
+- Phase acceptance verify invoked when applicable.
+
+## Step 4 — Completion
+
+- Issue marked resolved/closed.
+- Audit artifact written.
+- Queue rechecked deterministically.
+- If no remaining issues -> enter HALT.
+
+---
+
+# 5.1 Issue -> Task Loop
+
+- [x] Night mode detects new issues.
+- [x] Deterministic ordering enforced.
+- [x] Task materialization via governed flow.
+- [x] Audit artifact created per issue.
+- [x] Issue closure verified after execution.
+
+---
+
+# 5.2 Capability Request System
+
+- [x] Missing capability triggers `capability_request` object.
+- [x] Capability request logged and auditable.
+- [x] No silent auto-grant allowed.
+- [x] Capability execution requires supervisor approval token.
+- [x] Deny execution if approval token missing.
+
+---
+
+# 5.3 Autonomous Completion Loop
+
+- [x] Process issues sequentially.
+- [x] Respect budget limits.
+- [x] Respect interrupt flag.
+- [x] Re-check issue queue after each completion.
+- [x] Stop when no issues remain.
+- [x] Enter HALT deterministically.
+
+---
+
+# Validation Criteria
+
+Phase 5 is complete only if:
+
+- [x] Issue -> task -> execution loop is fully deterministic.
+- [x] Capability request system is enforced and auditable.
+- [x] No silent privilege escalation possible.
+- [x] Budget consumption logged for each processed issue.
+- [x] Negative tests prove denial without required capability token.
+- [x] Full pytest suite passes (0 failed).
+- [x] HALT entered when issue queue empty.
+
+## Execution Plan (Phase 5)
+
+- [x] Step 1: Baseline current night-run issue ingestion and deterministic ordering paths.
+- [x] Step 2: Add/verify issue fixture injection via mocked Gitea or controlled test repo.
+- [x] Step 3: Implement governed issue -> task materialization audit trail assertions.
+- [x] Step 4: Implement capability-missing path to emit `capability_request` and fail/wait explicitly.
+- [x] Step 5: Enforce no auto-grant behavior and require explicit supervisor token for capability execution.
+- [x] Step 6: Enforce governed PR flow + risk-tier validation within autonomous execution.
+- [x] Step 7: Enforce improvement-budget consumption per processed issue with deterministic logs.
+- [x] Step 8: Generate/verify determinism evidence for runtime-affecting execution paths.
+- [x] Step 9: Add completion-loop checks (queue recheck, close issue, deterministic HALT on empty queue).
+- [x] Step 10: Add negative tests for missing capability token and unauthorized capability execution.
+- [x] Step 11: Run targeted Phase 5 suites and stabilize.
+- [x] Step 12: Run full `pytest -q`, update roadmap/progress evidence, publish completion report, enter HALT.
+
+---
+
+# Phase 5 Extension — Local Night-Run Intake (Deterministic Test Mode)
+
+## Objective
+
+Implement a minimal local issue intake system for night-run testing.
+
+No Gitea.
+No multi-user separation.
+No external dependencies.
+
+This is a deterministic kernel-level integration test only.
+
+## Execution Plan (Phase 5 Extension)
+
+- [x] Step 1: Add deterministic local intake source from `state/issues/open/*.md` and `*.json`.
+- [x] Step 2: Define explicit local issue schema requirements with fail-closed validation (no implicit defaults).
+- [x] Step 3: Integrate local intake mode in night-run with strict deterministic ordering.
+- [x] Step 4: Process local issues sequentially and re-check queue after each completed issue.
+- [x] Step 5: Add explicit local capability registry load from `state/capabilities/enabled.json`.
+- [x] Step 6: Enforce no implicit capability grants in local mode.
+- [x] Step 7: Emit capability request artifacts to `state/capability_requests/` on missing capability.
+- [x] Step 8: Deny execution on missing capability with deterministic reason code (no fallback).
+- [x] Step 9: Add positive test: hello-world local issue creates `helloworld.txt` via governed flow.
+- [x] Step 10: Add negative test: email capability missing -> request artifact + deny.
+- [x] Step 11: Add completion test: queue empty after processing -> deterministic HALT.
+- [x] Step 12: Run full `pytest -q`, update roadmap/progress with evidence, and enter HALT.
+
+## Exit Condition
+
+Phase 5 Extension is complete only if:
+
+- [x] Local issue intake works deterministically.
+- [x] Capability request system enforced.
+- [x] No silent privilege escalation possible.
+- [x] Full test suite green.
+- [x] HALT entered.
+
+## Debug Closure (Post-Validation)
+
+- [x] Diagnosed `DENY_TOKEN_MISSING` on user machine as HIGH-risk input issue (`state/issues/open/901-high-star.json`), not branch mismatch.
+- [x] Confirmed runtime gate is HIGH-only in `autonomy_orchestrator/night_mode.py` (`is_self_improvement and risk_tier == "HIGH"`).
+- [x] Revalidated no-token local run with LOW/MED issues: hello-world executed, email denied with `DENY_CAPABILITY_MISSING`.
+- [x] Revalidated full suite remains green (`433 passed, 14 skipped`).
+
+---
+
+# Phase 6 — Documentation Consolidation
+
+## Scope
+
+- [x] No new runtime code.
+- [x] No feature development.
+- [x] Only docs reorganization and canonicalization.
+
+## Tasks
+
+- [x] Create `docs/core_manifest.md` with canonical specs, version, and LOCKED status.
+- [x] Move orphaned conceptual docs to `docs/archive/conceptual/`.
+- [x] Identify duplicate governance versions and archive obsolete versions.
+- [x] Convert roadmap proofs to ADR format in `docs/adr/`.
+- [x] Reduce missing refs in canonical core to zero.
+- [x] Regenerate spec inventory outputs.
+- [x] Verify deterministic outputs (byte-identical).
+- [x] Keep full pytest suite green.
+- [x] Commit scope-tight (docs-only).
+
+## Validation
+
+- [x] Canonical core manifest references have zero missing refs.
+- [x] Spec inventory outputs are deterministic across repeated runs.
+- [x] Full suite status preserved: `433 passed, 14 skipped`.
+
+Phase 6: COMPLETED
+
+---
+
+# Phase 7 — Git Issue Ingestion (Governed)
+
+## Objective
+Allow AI-OS to deterministically ingest issues from Git (Gitea/GitHub) and process them via the existing governed night-run pipeline.
+
+Git becomes an intake source — not an authority.
+
+---
+
+## 7.1 Remote Issue Sync Layer
+
+### Tasks
+
+- [ ] Add deterministic Git issue fetch module (read-only).
+- [ ] Support Gitea API v1 and GitHub REST v3 (config-driven).
+- [ ] No mutation on remote during ingestion.
+- [ ] Normalize remote issue -> local intake schema.
+- [ ] Store fetched issues under `state/issues/remote/<source>/<issue_id>.json`.
+- [ ] Add ETag or last_sync marker to avoid duplicate ingestion.
+- [ ] Add deterministic ordering (sort by issue number asc).
+- [ ] Add rate-limit awareness (fail-closed if exceeded).
+
+### Validation
+
+- [ ] Fetching same state twice produces identical artifacts.
+- [ ] No duplicate issue ingestion.
+- [ ] Remote issues never bypass intake validation.
+- [ ] Remote API failures do not crash night-run (graceful deny + log).
+
+---
+
+## 7.2 Unified Intake Adapter
+
+### Tasks
+
+- [ ] Extend night-run to support `--source local`, `--source remote`, and `--source both`.
+- [ ] Ensure remote issues pass through same normalization pipeline as local.
+- [ ] Ensure risk-tier detection is enforced for remote issues.
+- [ ] Missing capability from remote issue triggers capability_request.
+- [ ] HIGH-risk remote issue requires approval token (no bypass).
+
+### Validation
+
+- [ ] Remote LOW issue executes.
+- [ ] Remote MED issue produces capability_request if needed.
+- [ ] Remote HIGH issue without token -> DENY_TOKEN_MISSING.
+- [ ] Deterministic halt when queue empty.
+
+---
+
+## 7.3 Capability Request Feedback Loop (Optional Safe Mode)
+
+### Tasks
+
+- [x] When capability_request is generated from a remote issue, add comment to original Git issue (read-only mode OFF by default).
+- [ ] Config flag `REMOTE_FEEDBACK_ENABLED=false` (default).
+- [ ] If enabled, comment must include deterministic artifact hash.
+
+### Validation
+
+- [ ] Feedback disabled by default.
+- [ ] Enabling feedback requires explicit config.
+- [ ] No automatic capability grant from remote issue.
+
+---
+
+## 7.4 Security Boundaries
+
+- [ ] Remote issue content treated as untrusted input.
+- [ ] No shell execution.
+- [ ] No direct filesystem mutation outside governed pipeline.
+- [ ] Sanitize markdown/code blocks.
+- [ ] Enforce max size limit on issue body.
+
+---
+
+## 7.5 Determinism & Audit
+
+- [ ] Record remote fetch audit artifact at `logs/control/remote_sync/<epoch>.json`.
+- [ ] Include source, issue_count, and hash of normalized intake set.
+- [ ] Re-running same epoch must produce identical intake artifacts.
+
+---
+
+## Phase 7 Exit Criteria
+
+- [ ] Remote issues deterministically ingested.
+- [ ] No governance bypass possible via remote issue.
+- [ ] Capability requests triggered correctly.
+- [ ] Approval tokens enforced for HIGH.
+- [ ] Deterministic night-run preserved.
+- [ ] Full pytest suite green.
+- [ ] Remote sync tests added.
+- [ ] HALT state after completion.
+
+---
+
+## Execution Plan
+
+- [ ] Step 1: Implement read-only remote fetch module.
+- [ ] Step 2: Normalize remote issue schema to local intake format.
+- [ ] Step 3: Integrate remote source into night-run pipeline.
+- [ ] Step 4: Add deterministic sync artifact + hash validation.
+- [ ] Step 5: Add remote ingestion test suite (mocked API).
+- [ ] Step 6: Verify full suite.
+- [ ] Step 7: Commit scope-tight.
+- [ ] Step 8: HALT.
+
+---
+
+# Phase 7A — Pull-Only Remote Issue Sync
+
+## Objective
+Allow deterministic remote issue ingestion during night-run startup.
+Remote issues are read-only input sources.
+
+- [ ] No background scheduler.
+- [ ] No automatic mutation of remote state.
+
+---
+
+## 7A.1 Remote Config Schema
+
+Add canonical config file:
+
+config/remote_sources.yaml
+
+Example schema:
+
+remote_sources:
+  - id: gitea-main
+    type: gitea
+    enabled: true
+    base_url: "https://gitea.example.com/api/v1"
+    owner: "N04D"
+    repo: "AI-OS"
+    auth_env: "GITEA_TOKEN"
+    labels_allowlist: ["aios", "autonomy"]
+    max_issues: 100
+
+  - id: github-main
+    type: github
+    enabled: false
+    base_url: "https://api.github.com"
+    owner: "N04D"
+    repo: "AI-OS"
+    auth_env: "GITHUB_TOKEN"
+    labels_allowlist: ["aios"]
+    max_issues: 100
+
+Rules:
+
+- [ ] Missing auth_env -> fail-closed (deny remote sync).
+- [ ] Only enabled: true sources are used.
+- [ ] max_issues must enforce deterministic upper bound.
+
+---
+
+## 7A.2 Night-Run Integration
+
+Extend night-run:
+
+./scripts/aiosctl night-run --source local|remote|both
+
+Behavior:
+
+- [ ] local source reads only `state/issues/open`.
+- [ ] remote source fetches remote issues, normalizes them, and stores under `state/issues/remote/<source>/<issue_id>.json`.
+- [ ] both source merges local and remote deterministically.
+- [ ] both source sorts by risk tier (LOW, MED, HIGH), then issue number asc, then source id.
+
+---
+
+## 7A.3 Deterministic Fetch Rules
+
+- [ ] Fetch only OPEN issues.
+- [ ] Sort by issue number asc.
+- [ ] Strip non-deterministic fields (timestamps, updated_at, avatar URLs).
+- [ ] Normalize to canonical intake schema with fields `id`, `title`, `body`, `risk_tier`, and `source`.
+
+- [ ] Hash normalized issue body for audit.
+- [ ] Store sync artifact at `logs/control/remote_sync/<epoch>.json`.
+- [ ] Sync artifact includes `source id`, `issue_count`, and `normalized_hash`.
+
+- [ ] Re-run same epoch -> identical artifact required.
+
+---
+
+## 7A.4 Governance Enforcement
+
+Remote issues must pass:
+
+- [ ] Intake validation
+- [ ] Risk tier detection
+- [ ] Capability checks
+- [ ] HIGH -> approval token required
+- [ ] Budget enforcement
+
+Remote input can NEVER:
+
+- [ ] Modify runtime directly
+- [ ] Enable capability
+- [ ] Override risk tier
+
+---
+
+## 7A.5 Security Constraints
+
+- [ ] Max body size (e.g. 64KB).
+- [ ] Reject binary attachments.
+- [ ] Strip HTML.
+- [ ] No direct shell execution.
+- [ ] Fail-closed on malformed JSON.
+
+---
+
+## 7A.6 Tests Required
+
+- [ ] Mocked Gitea API test.
+- [ ] Mocked GitHub API test.
+- [ ] Deterministic re-fetch test.
+- [ ] HIGH remote issue without token -> DENY_TOKEN_MISSING.
+- [ ] MED remote issue missing capability -> capability_request.
+- [ ] Remote disabled -> no fetch occurs.
+
+---
+
+## Exit Criteria
+
+- [ ] Remote issues ingested deterministically.
+- [ ] No governance bypass.
+- [ ] No mutation on remote.
+- [ ] Full suite green.
+- [ ] HALT.
+
+---
+
+# Phase 7B — Repository Canonicalization & Workspace Unification
+
+## Completion
+
+- [x] Single canonical working tree confirmed: `/data/srv/aios/AI-OS`.
+- [x] Spec root audit produced: `docs/index/spec_root_audit.md`.
+- [x] Canonical spec root enforced: `docs/specs/`.
+- [x] Legacy spec roots archived under `docs/archive/legacy_specs/`.
+- [x] Config directory normalized with canonical `config/remote_sources.yaml`.
+- [x] Structural drift removed: no specs outside `docs/`, no roadmap files outside `docs/roadmap/`, and no ADR files outside `docs/adr/`.
+- [x] Vault alignment produced: `docs/index/vault_alignment.md`.
+- [x] Obsidian visibility issue resolved (file explorer filter disabled; `config/remote_sources.yaml` confirmed visible).
+- [x] Spec inventory rebuilt deterministically.
+- [x] Canonical core integrity preserved.
+- [x] Full suite green (`440 passed, 14 skipped`).
+
+Phase 7B: COMPLETED
+
+---
+
+## Tomorrow Test Plan (Execution Checklist)
+
+- [ ] Baseline repo state: `cd /data/srv/aios/AI-OS`, `git rev-parse --abbrev-ref HEAD`, `git rev-parse HEAD`.
+- [ ] Validate canonical config presence: `ls -la config/remote_sources.yaml` and `cat config/remote_sources.yaml`.
+- [ ] Run local intake smoke: `env -u SUPERVISOR_CAPABILITY_EXECUTION_TOKEN ./scripts/aiosctl --json night-run --source local --epoch 2026-02-28`; expect LOW task execution and MED capability deny path when applicable.
+- [ ] Run remote pull-only smoke (disabled by default): `./scripts/aiosctl --json night-run --source remote --epoch 2026-02-28`; expect deterministic no-op if all sources are `enabled: false`.
+- [ ] Enable one remote source temporarily and run deterministic re-fetch check: run same epoch twice, compare `logs/control/remote_sync/2026-02-28.json` hash, and expect identical artifact.
+- [ ] Run full verification suite: `pytest -q`.
+- [ ] Capture evidence in progress log and return HALT.
+
+---
+
+# Phase 7C — Final Integrity Verification (Freeze Gate)
+
+## Objective
+Validate that Git Issue ingestion, governance enforcement, capability boundaries, determinism, and replay protection are fully correct before any core freeze.
+
+All tests must be reproducible and deterministic.
+
+---
+
+## 7C.1 Remote Replay Protection
+
+### Tasks
+
+- [x] Introduce remote_issue_execution_ledger (persistent record of executed remote issue IDs).
+- [x] Ensure remote issue cannot execute twice (even if closed + reopened).
+- [x] Deny replay with fixed reason code (e.g., DENY_ALREADY_EXECUTED).
+- [x] Log replay-deny artifact.
+
+### Validation
+
+- [x] Execute remote issue once -> success.
+- [x] Close + reopen same issue -> re-run denied.
+- [x] Ledger contains issue ID.
+- [x] No duplicate side effects.
+- [x] Deterministic audit artifact.
+
+---
+
+## 7C.2 Deterministic Risk-Tier Detection
+
+### Tasks
+
+- [ ] Ensure risk-tier detection is pure function of normalized issue body.
+- [ ] No external dependency (no time, no environment).
+- [x] Add explicit determinism tests for LOW / MED / HIGH classification.
+
+### Validation
+
+- [x] Run same epoch twice -> identical artifacts.
+- [x] Normalized intake hash identical across runs.
+- [x] Execution order identical.
+- [x] No non-deterministic metadata retained.
+
+---
+
+## 7C.3 Local + Remote Merge Stability
+
+### Tasks
+
+- [x] Define canonical merge order:
+- [x] Risk tier (LOW -> MED -> HIGH)
+- [x] Issue number ascending
+- [x] Source ID as tie-breaker
+- [x] Add deterministic ordering test covering local + remote mix.
+
+### Validation
+
+- [x] Mixed local + remote run produces stable order.
+- [x] Re-run with same epoch -> byte-identical artifacts.
+- [x] No order drift across runs.
+
+---
+
+## 7C.4 Capability Escalation Safety
+
+### Tasks
+
+- [x] MED remote issue with missing capability must generate capability_request.
+- [x] HIGH remote issue requires approval token.
+- [x] Token must not auto-enable capability.
+- [ ] Capability registry must remain explicit and local-only.
+
+### Validation
+
+- [x] MED without capability -> capability_request artifact.
+- [x] HIGH without token -> DENY_TOKEN_MISSING.
+- [x] HIGH with token but capability absent -> still denied.
+- [ ] No remote mutation occurs.
+
+---
+
+## 7C.5 Governance Bypass Resistance
+
+### Tasks
+
+- [ ] Reject inline risk override attempts.
+- [ ] Ensure risk-tier derived only from validated schema.
+- [x] Add adversarial test for manipulated body.
+
+### Validation
+
+- [x] Inline override attempt does not downgrade HIGH to LOW.
+- [x] Risk-tier enforcement cannot be bypassed.
+- [ ] Audit reflects correct tier detection.
+
+---
+
+## 7C.6 Remote Failure Handling
+
+### Tasks
+
+- [x] Handle 401 Unauthorized.
+- [x] Handle 429 Rate Limit.
+- [x] Handle malformed JSON.
+- [x] Fail-closed without crashing night-run.
+
+### Validation
+
+- [x] Remote failure logs deterministic deny artifact.
+- [x] Night-run continues safely.
+- [x] No partial intake artifacts written.
+
+---
+
+## 7C.7 Budget Enforcement Under Remote Intake
+
+### Tasks
+
+- [x] Ensure improvement budget applies to remote issues.
+- [x] Deny when budget exhausted.
+- [x] Log deterministic budget_exceeded reason.
+
+### Validation
+
+- [x] First issue consumes budget.
+- [x] Second issue denied.
+- [x] Ledger updated deterministically.
+
+---
+
+## 7C.8 Full Regression Integrity
+
+### Tasks
+
+- [x] Run full test suite.
+- [x] Verify 0 failed.
+- [x] Ensure no new skips introduced.
+- [x] Record summary in progress log.
+
+### Validation
+
+- [x] `pytest -q` -> 0 failed.
+- [x] Determinism artifacts verified.
+- [x] HALT state recorded.
+
+---
+
+# Phase 7 Freeze Gate Criteria
+
+Core freeze is allowed only if:
+
+- [x] Remote replay execution impossible.
+- [x] Determinism verified across repeated epochs.
+- [x] Merge ordering stable.
+- [x] Capability escalation safe.
+- [x] Governance bypass impossible.
+- [x] Budget enforcement verified.
+- [x] Full suite green.
+- [x] HALT state confirmed.
+
+---
+
+## Execution Plan
+
+- [x] Step 1: Implement remote execution ledger.
+- [x] Step 2: Add deterministic replay tests.
+- [x] Step 3: Add merge stability tests.
+- [x] Step 4: Add adversarial risk-tier tests.
+- [x] Step 5: Add remote failure handling tests.
+- [x] Step 6: Add budget enforcement verification.
+- [x] Step 7: Run full suite.
+- [x] Step 8: Update roadmap + progress.
+- [x] Step 9: Enter HALT.
+
+---
+
+Phase 7C: INTEGRITY VERIFICATION — COMPLETED
+
+---
+
+# Promotion Log
+
+## Phase 1 → Phase 2
+Approved by: ____________________  Don
+Date: ____________________  27-02-2026
+
+## Phase 2 → Phase 3
+Approved by: ____________________  Don
+Date: ____________________  27-02-2026
+
+## Phase 3 → Phase 4
+Approved by: ____________________  Don
+Date: ____________________  27-02-2026
+
+---
+
+End of Roadmap.

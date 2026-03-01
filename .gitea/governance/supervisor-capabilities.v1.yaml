@@ -1,0 +1,12 @@
+{
+  "version": "supervisor-capabilities.v1",
+  "allowed_scopes": [
+    "create_job"
+  ],
+  "auto_signing_max_risk": "medium",
+  "lease": {
+    "max_jobs": 20,
+    "duration_s": 3600,
+    "max_denials": 3
+  }
+}
