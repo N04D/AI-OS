@@ -40,3 +40,5 @@ state/night-reports/
 
 # Runtime logs
 logs/
+*.swp
+state/supervisor/approval_tokens.json
