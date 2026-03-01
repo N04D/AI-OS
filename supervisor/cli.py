@@ -208,6 +208,14 @@ def _print_agent_workspace_result(data: dict[str, Any]) -> None:
         print(f"pr_url: {data.get('pr_url', '')}")
     if data.get("exit_code") is not None:
         print(f"exit_code: {data.get('exit_code')}")
+    if data.get("command"):
+        print(f"command: {data.get('command', '')}")
+    if data.get("stdout_tail"):
+        print("stdout_tail:")
+        print(str(data.get("stdout_tail", "")))
+    if data.get("stderr_tail"):
+        print("stderr_tail:")
+        print(str(data.get("stderr_tail", "")))
 
 
 def _print_night_run_result(data: dict[str, Any]) -> None:
