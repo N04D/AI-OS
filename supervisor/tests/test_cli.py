@@ -414,6 +414,8 @@ class CliTests(unittest.TestCase):
                         "don@",
                         "--subject-contains",
                         "hello",
+                        "--seen-mode",
+                        "all",
                     ]
                 )
             out = json.loads(buf.getvalue().strip())
@@ -422,6 +424,7 @@ class CliTests(unittest.TestCase):
             called = poll_mock.call_args.kwargs
             self.assertEqual(called["from_contains"], "don@")
             self.assertEqual(called["subject_contains"], "hello")
+            self.assertEqual(called["seen_mode"], "all")
 
 
 if __name__ == "__main__":

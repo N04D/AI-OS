@@ -276,6 +276,7 @@ class EmailGatewayChannelTests(unittest.TestCase):
                 epoch="2026-03-01",
                 from_contains="alerts@",
                 subject_contains="ai-os",
+                seen_mode="all",
                 transport=transport,
             )
             self.assertEqual(result["messages"], 1)
@@ -301,6 +302,20 @@ class EmailGatewayChannelTests(unittest.TestCase):
             audit_path = root / "logs/control/email_gateway_audit.jsonl"
             self.assertTrue(audit_path.is_file())
             self.assertIn("DENY_DOMAIN_NOT_ALLOWED", audit_path.read_text(encoding="utf-8"))
+
+    def test_poll_rejects_invalid_seen_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            self._bootstrap_repo(root, poll_granted=True)
+            with self.assertRaises(EmailGatewayError) as ctx:
+                poll_email_direct(
+                    repo_root=root,
+                    agent="codex",
+                    max_messages=5,
+                    seen_mode="future",
+                    transport=_FakeIMAPTransport(),
+                )
+            self.assertEqual(ctx.exception.reason_code, "DENY_POLICY_INVALID")
 
     def test_artifact_name_is_stable(self) -> None:
         payload = {

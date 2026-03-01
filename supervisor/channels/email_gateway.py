@@ -261,6 +261,7 @@ def poll_email_direct(
     epoch: str = "",
     from_contains: str = "",
     subject_contains: str = "",
+    seen_mode: str = "unseen",
     transport: IMAPTransportAdapter | None = None,
 ) -> dict[str, Any]:
     safe_epoch = _safe_epoch(epoch or os.environ.get("AIOS_EPOCH", ""))
@@ -270,6 +271,8 @@ def poll_email_direct(
         _assert_capability(repo_root, "email.poll")
         if max_messages < 1:
             raise EmailGatewayError(DENY_POLICY_INVALID, "max_messages must be >= 1")
+        if seen_mode not in {"unseen", "seen", "all"}:
+            raise EmailGatewayError(DENY_POLICY_INVALID, "seen_mode must be one of: unseen, seen, all")
     except EmailGatewayError as exc:
         _append_deny_audit(
             repo_root=repo_root,
@@ -293,6 +296,7 @@ def poll_email_direct(
         username=imap_user,
         password=imap_pass,
         max_messages=max_messages,
+        seen_mode=seen_mode,
     )
 
     from_filter = from_contains.strip().lower()

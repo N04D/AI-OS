@@ -1055,6 +1055,7 @@ def _cmd_email_poll(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]
             epoch=args.epoch,
             from_contains=args.from_contains,
             subject_contains=args.subject_contains,
+            seen_mode=args.seen_mode,
         )
         return 0, payload, "email_gateway"
     except EmailGatewayError as exc:
@@ -1255,6 +1256,7 @@ def build_parser() -> argparse.ArgumentParser:
     email_poll.add_argument("--epoch", default="")
     email_poll.add_argument("--from-contains", default="")
     email_poll.add_argument("--subject-contains", default="")
+    email_poll.add_argument("--seen-mode", default="unseen", choices=["unseen", "seen", "all"])
     email_poll.set_defaults(handler=_cmd_email_poll)
 
     night_run = subparsers.add_parser("night-run", help="Run deterministic night mode loop")

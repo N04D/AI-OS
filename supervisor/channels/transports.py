@@ -71,15 +71,23 @@ class IMAPTransportAdapter:
         username: str,
         password: str,
         max_messages: int,
+        seen_mode: str = "unseen",
     ) -> list[dict[str, Any]]:
         with imaplib.IMAP4_SSL(host, port=port) as imap:
             imap.login(username, password)
             imap.select("INBOX")
-            status, data = imap.search(None, "UNSEEN")
+            criteria = "UNSEEN"
+            if seen_mode == "seen":
+                criteria = "SEEN"
+            elif seen_mode == "all":
+                criteria = "ALL"
+            status, data = imap.search(None, criteria)
             if status != "OK" or not data:
                 return []
             raw_ids = data[0].decode("utf-8").split()
-            selected = sorted(raw_ids, key=lambda v: int(v))[:max_messages]
+            # Prefer newest messages first so filtered polls can retrieve recent replies
+            # from large mailboxes without scanning thousands of older entries.
+            selected = sorted(raw_ids, key=lambda v: int(v), reverse=True)[:max_messages]
             out: list[dict[str, Any]] = []
             for uid in selected:
                 fetch_status, msg_data = imap.fetch(uid, "(RFC822)")
