@@ -37,3 +37,6 @@ scripts/*
 !scripts/aiosctl
 *.log
 state/night-reports/
+
+# Runtime logs
+logs/
