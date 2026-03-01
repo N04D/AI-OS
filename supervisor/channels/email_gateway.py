@@ -148,6 +148,32 @@ def _load_config_and_policy(repo_root: Path) -> tuple[dict[str, Any], dict[str, 
     return config, policy
 
 
+def _append_deny_audit(
+    *,
+    repo_root: Path,
+    action: str,
+    agent: str,
+    epoch: str,
+    reason_code: str,
+    detail: str,
+    target: str = "",
+) -> None:
+    payload = {
+        "action": action,
+        "agent": agent,
+        "epoch": epoch,
+        "reason_code": reason_code,
+        "status": "rejected",
+        "reason": detail,
+    }
+    if target:
+        if action == "send":
+            payload["to"] = target
+        elif action == "poll":
+            payload["from"] = target
+    _append_audit(repo_root / DEFAULT_AUDIT_PATH, payload)
+
+
 def send_email_direct(
     *,
     repo_root: Path,
@@ -158,10 +184,23 @@ def send_email_direct(
     epoch: str = "",
     transport: SMTPTransportAdapter | None = None,
 ) -> dict[str, Any]:
-    config, policy = _load_config_and_policy(repo_root)
-    _assert_agent_enabled(config, agent)
-    _assert_capability(repo_root, "email.send")
-    _assert_policy_allow(policy, agent=agent, direction="send", address=to, body=body)
+    safe_epoch = _safe_epoch(epoch or os.environ.get("AIOS_EPOCH", ""))
+    try:
+        config, policy = _load_config_and_policy(repo_root)
+        _assert_agent_enabled(config, agent)
+        _assert_capability(repo_root, "email.send")
+        _assert_policy_allow(policy, agent=agent, direction="send", address=to, body=body)
+    except EmailGatewayError as exc:
+        _append_deny_audit(
+            repo_root=repo_root,
+            action="send",
+            agent=agent,
+            epoch=safe_epoch,
+            reason_code=exc.reason_code,
+            detail=exc.detail,
+            target=_normalize_address(to),
+        )
+        raise
 
     smtp_host = (os.environ.get("SMTP_HOST", "") or "").strip()
     smtp_port = int((os.environ.get("SMTP_PORT", "587") or "587").strip())
@@ -181,7 +220,6 @@ def send_email_direct(
         body=body,
     )
 
-    safe_epoch = _safe_epoch(epoch or os.environ.get("AIOS_EPOCH", ""))
     record = {
         "action": "send",
         "agent": agent,
@@ -221,13 +259,27 @@ def poll_email_direct(
     agent: str,
     max_messages: int,
     epoch: str = "",
+    from_contains: str = "",
+    subject_contains: str = "",
     transport: IMAPTransportAdapter | None = None,
 ) -> dict[str, Any]:
-    config, policy = _load_config_and_policy(repo_root)
-    _assert_agent_enabled(config, agent)
-    _assert_capability(repo_root, "email.poll")
-    if max_messages < 1:
-        raise EmailGatewayError(DENY_POLICY_INVALID, "max_messages must be >= 1")
+    safe_epoch = _safe_epoch(epoch or os.environ.get("AIOS_EPOCH", ""))
+    try:
+        config, policy = _load_config_and_policy(repo_root)
+        _assert_agent_enabled(config, agent)
+        _assert_capability(repo_root, "email.poll")
+        if max_messages < 1:
+            raise EmailGatewayError(DENY_POLICY_INVALID, "max_messages must be >= 1")
+    except EmailGatewayError as exc:
+        _append_deny_audit(
+            repo_root=repo_root,
+            action="poll",
+            agent=agent,
+            epoch=safe_epoch,
+            reason_code=exc.reason_code,
+            detail=exc.detail,
+        )
+        raise
 
     imap_host = (os.environ.get("IMAP_HOST", "") or "").strip()
     imap_port = int((os.environ.get("IMAP_PORT", "993") or "993").strip())
@@ -243,13 +295,31 @@ def poll_email_direct(
         max_messages=max_messages,
     )
 
-    safe_epoch = _safe_epoch(epoch or os.environ.get("AIOS_EPOCH", ""))
+    from_filter = from_contains.strip().lower()
+    subject_filter = subject_contains.strip().lower()
+    if from_filter:
+        unseen = [item for item in unseen if from_filter in str(item.get("from", "")).lower()]
+    if subject_filter:
+        unseen = [item for item in unseen if subject_filter in str(item.get("subject", "")).lower()]
+
     written: list[str] = []
     seen_uids: list[str] = []
     for item in unseen:
         from_addr = str(item.get("from", ""))
         body = str(item.get("body", ""))
-        _assert_policy_allow(policy, agent=agent, direction="receive", address=from_addr, body=body)
+        try:
+            _assert_policy_allow(policy, agent=agent, direction="receive", address=from_addr, body=body)
+        except EmailGatewayError as exc:
+            _append_deny_audit(
+                repo_root=repo_root,
+                action="poll",
+                agent=agent,
+                epoch=safe_epoch,
+                reason_code=exc.reason_code,
+                detail=exc.detail,
+                target=_normalize_address(from_addr),
+            )
+            continue
         record = {
             "action": "poll",
             "agent": agent,

@@ -394,6 +394,35 @@ class CliTests(unittest.TestCase):
             self.assertEqual(out["status"], "rejected")
             self.assertEqual(out["reason_code"], "DENY_CAPABILITY_MISSING")
 
+    def test_email_poll_accepts_deterministic_filters(self) -> None:
+        with patch(
+            "supervisor.cli.poll_email_direct",
+            return_value={"status": "ok", "agent": "codex", "messages": 0, "artifacts": [], "audit_path": "logs/control/email_gateway_audit.jsonl"},
+        ) as poll_mock:
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                code = cli.main(
+                    [
+                        "--json",
+                        "email",
+                        "poll",
+                        "--agent",
+                        "codex",
+                        "--max",
+                        "5",
+                        "--from-contains",
+                        "don@",
+                        "--subject-contains",
+                        "hello",
+                    ]
+                )
+            out = json.loads(buf.getvalue().strip())
+            self.assertEqual(code, 0)
+            self.assertEqual(out["status"], "ok")
+            called = poll_mock.call_args.kwargs
+            self.assertEqual(called["from_contains"], "don@")
+            self.assertEqual(called["subject_contains"], "hello")
+
 
 if __name__ == "__main__":
     unittest.main()

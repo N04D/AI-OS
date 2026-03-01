@@ -3,9 +3,37 @@ from __future__ import annotations
 import imaplib
 import smtplib
 from email.message import EmailMessage
+from email.message import Message
 from email.parser import BytesParser
 from email.policy import default
 from typing import Any
+
+
+def _extract_message_body(parsed: Message) -> str:
+    preferred = parsed.get_body(preferencelist=("plain", "html"))
+    if preferred is not None:
+        try:
+            return str(preferred.get_content())
+        except Exception:
+            payload = preferred.get_payload()
+            return str(payload if payload is not None else "")
+
+    payload = parsed.get_payload()
+    if isinstance(payload, list):
+        for item in payload:
+            if isinstance(item, Message):
+                try:
+                    content = str(item.get_content())
+                    if content:
+                        return content
+                except Exception:
+                    sub = item.get_payload()
+                    if isinstance(sub, str) and sub:
+                        return sub
+        return ""
+    if isinstance(payload, str):
+        return payload
+    return str(payload if payload is not None else "")
 
 
 class SMTPTransportAdapter:
@@ -71,7 +99,7 @@ class IMAPTransportAdapter:
                         "from": str(parsed.get("From", "")),
                         "to": str(parsed.get("To", "")),
                         "subject": str(parsed.get("Subject", "")),
-                        "body": str(parsed.get_body(preferencelist=("plain",)).get_content() if parsed.get_body() else parsed.get_payload()),
+                        "body": _extract_message_body(parsed),
                     }
                 )
             return out
