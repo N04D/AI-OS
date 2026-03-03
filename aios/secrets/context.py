@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC
+from datetime import datetime
 from typing import ClassVar
 
 from .types import AccessDenied
@@ -11,6 +13,8 @@ class SecretAccessContext:
     context_id: str
     trust_level: str
     elevated: bool = False
+    agent_id: str = "default-agent"
+    epoch_id: str = "1970-01-01"
 
 
 class ContextFactory:
@@ -26,12 +30,26 @@ class ContextFactory:
     }
 
     @classmethod
-    def from_id(cls, context_id: str) -> SecretAccessContext:
+    def from_id(
+        cls,
+        context_id: str,
+        *,
+        agent_id: str | None = None,
+        epoch_id: str | None = None,
+    ) -> SecretAccessContext:
         selected = cls._REGISTRY.get(str(context_id or "").strip())
         if selected is None:
             raise AccessDenied(f"Unknown capability context '{context_id}'.")
         trust_level, elevated = selected
-        return SecretAccessContext(context_id=context_id, trust_level=trust_level, elevated=elevated)
+        resolved_agent = str(agent_id or "default-agent").strip() or "default-agent"
+        resolved_epoch = str(epoch_id or datetime.now(UTC).strftime("%Y-%m-%d")).strip()
+        return SecretAccessContext(
+            context_id=context_id,
+            trust_level=trust_level,
+            elevated=elevated,
+            agent_id=resolved_agent,
+            epoch_id=resolved_epoch,
+        )
 
     @classmethod
     def validate(cls, context: SecretAccessContext) -> None:
@@ -44,35 +62,69 @@ class ContextFactory:
             raise AccessDenied(f"Unknown capability context '{context.context_id}'.")
         if expected != (context.trust_level, context.elevated):
             raise AccessDenied("Context shape does not match registered context definition")
+        if not context.agent_id.strip():
+            raise AccessDenied("Context agent_id is required")
+        if not context.epoch_id.strip():
+            raise AccessDenied("Context epoch_id is required")
 
     @classmethod
-    def interactive_cli(cls) -> SecretAccessContext:
-        return cls.from_id("interactive_cli")
+    def interactive_cli(cls, *, agent_id: str | None = None, epoch_id: str | None = None) -> SecretAccessContext:
+        return cls.from_id("interactive_cli", agent_id=agent_id, epoch_id=epoch_id)
 
     @classmethod
-    def ui_test_connection(cls) -> SecretAccessContext:
-        return cls.from_id("ui.test_connection")
+    def ui_test_connection(cls, *, agent_id: str | None = None, epoch_id: str | None = None) -> SecretAccessContext:
+        return cls.from_id("ui.test_connection", agent_id=agent_id, epoch_id=epoch_id)
 
     @classmethod
-    def supervisor_autonomy_promotion_gate(cls) -> SecretAccessContext:
-        return cls.from_id("supervisor.autonomy_promotion_gate")
+    def supervisor_autonomy_promotion_gate(
+        cls,
+        *,
+        agent_id: str | None = None,
+        epoch_id: str | None = None,
+    ) -> SecretAccessContext:
+        return cls.from_id("supervisor.autonomy_promotion_gate", agent_id=agent_id, epoch_id=epoch_id)
 
     @classmethod
-    def supervisor_autonomy_review_intake_gate(cls) -> SecretAccessContext:
-        return cls.from_id("supervisor.autonomy_review_intake_gate")
+    def supervisor_autonomy_review_intake_gate(
+        cls,
+        *,
+        agent_id: str | None = None,
+        epoch_id: str | None = None,
+    ) -> SecretAccessContext:
+        return cls.from_id("supervisor.autonomy_review_intake_gate", agent_id=agent_id, epoch_id=epoch_id)
 
     @classmethod
-    def supervisor_autonomy_task_materializer(cls) -> SecretAccessContext:
-        return cls.from_id("supervisor.autonomy_task_materializer")
+    def supervisor_autonomy_task_materializer(
+        cls,
+        *,
+        agent_id: str | None = None,
+        epoch_id: str | None = None,
+    ) -> SecretAccessContext:
+        return cls.from_id("supervisor.autonomy_task_materializer", agent_id=agent_id, epoch_id=epoch_id)
 
     @classmethod
-    def supervisor_agent_workspace_push_pr(cls) -> SecretAccessContext:
-        return cls.from_id("supervisor.agent_workspace.push_pr")
+    def supervisor_agent_workspace_push_pr(
+        cls,
+        *,
+        agent_id: str | None = None,
+        epoch_id: str | None = None,
+    ) -> SecretAccessContext:
+        return cls.from_id("supervisor.agent_workspace.push_pr", agent_id=agent_id, epoch_id=epoch_id)
 
     @classmethod
-    def supervisor_cli_night_run(cls) -> SecretAccessContext:
-        return cls.from_id("supervisor.cli.night_run")
+    def supervisor_cli_night_run(
+        cls,
+        *,
+        agent_id: str | None = None,
+        epoch_id: str | None = None,
+    ) -> SecretAccessContext:
+        return cls.from_id("supervisor.cli.night_run", agent_id=agent_id, epoch_id=epoch_id)
 
     @classmethod
-    def supervisor_auth_headers(cls) -> SecretAccessContext:
-        return cls.from_id("supervisor.supervisor.auth_headers")
+    def supervisor_auth_headers(
+        cls,
+        *,
+        agent_id: str | None = None,
+        epoch_id: str | None = None,
+    ) -> SecretAccessContext:
+        return cls.from_id("supervisor.supervisor.auth_headers", agent_id=agent_id, epoch_id=epoch_id)

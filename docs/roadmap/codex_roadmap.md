@@ -107,10 +107,10 @@ Rule: Each checkbox may only be checked when:
 
 ### PR-07 Cross-Agent Quota
 
-- [ ] Implement quota per agent_id + epoch
-- [ ] Add quota exceed test
-- [ ] Ensure agent isolation
-- [ ] All tests pass
+- [x] Implement quota per agent_id + epoch
+- [x] Add quota exceed test
+- [x] Ensure agent isolation
+- [x] All tests pass
 
 ---
 

@@ -36,11 +36,14 @@ class BudgetGate:
             "standard": 300,
             "elevated": 150,
         }
-        self._spent: dict[str, int] = {}
+        self._spent: dict[tuple[str, str, str], int] = {}
         self._lock = threading.RLock()
 
     def evaluate_and_charge(self, *, key: SecretKey, context: SecretAccessContext, operation: str) -> BudgetDecision:
         classification = context.trust_level
+        agent_id = context.agent_id
+        epoch_id = context.epoch_id
+        quota_key = (classification, agent_id, epoch_id)
         limit = int(self._limits.get(classification, 0))
 
         if self.mode == "off":
@@ -49,7 +52,7 @@ class BudgetGate:
                 mode=self.mode,
                 classification=classification,
                 cost=0,
-                spent=self._spent.get(classification, 0),
+                spent=self._spent.get(quota_key, 0),
                 limit=limit,
             )
 
@@ -59,7 +62,7 @@ class BudgetGate:
         event = self._sink.charge(key=key, context=context, operation=operation)
         cost = int(event.get("cost", 0))
         with self._lock:
-            spent = int(self._spent.get(classification, 0))
+            spent = int(self._spent.get(quota_key, 0))
             projected = spent + cost
             if self.mode == "enforce" and projected > limit:
                 return BudgetDecision(
@@ -71,7 +74,7 @@ class BudgetGate:
                     limit=limit,
                     reason_code="BUDGET_EXCEEDED",
                 )
-            self._spent[classification] = projected
+            self._spent[quota_key] = projected
             return BudgetDecision(
                 allowed=True,
                 mode=self.mode,
