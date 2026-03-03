@@ -1,0 +1,10 @@
+# AI-OS Nightly Report + Morning Dispatch (example)
+# Keep these entries in operator-controlled cron.
+#
+# 1) Night run: execute governed autonomy + write report + enqueue 09:30 item
+#    Runs every day at 02:00 local operator time.
+0 2 * * * cd /data/srv/aios/AI-OS && /usr/bin/env python3 -m supervisor.night_executor >> logs/cron/night_run.log 2>&1
+#
+# 2) Morning dispatch worker: send queued report items only (no night execution)
+#    Runs every day at 09:30 local operator time.
+30 9 * * * cd /data/srv/aios/AI-OS && /usr/bin/env python3 -c "from supervisor.dispatch_worker import run_dispatch_worker; run_dispatch_worker()" >> logs/cron/morning_dispatch.log 2>&1
