@@ -12,6 +12,8 @@ from .eventbus import MultiplexerSink
 from .eventbus import SupervisorEventSink
 from .context import ContextFactory
 from .context import SecretAccessContext
+from .rate_limits import FixedWindowRateLimiter
+from .rate_limits import RateLimitDecision
 
 __all__ = [
     "SecretsManager",
@@ -28,4 +30,6 @@ __all__ = [
     "EventBusEmitFailed",
     "ContextFactory",
     "SecretAccessContext",
+    "FixedWindowRateLimiter",
+    "RateLimitDecision",
 ]

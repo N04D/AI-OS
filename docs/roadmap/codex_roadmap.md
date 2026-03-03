@@ -57,14 +57,14 @@ Rule: Each checkbox may only be checked when:
 
 ### PR-03 Rate Limits + Anomaly
 
-- [ ] Implement fixed-window rate limiter
-- [ ] Enforce per classification limits
-- [ ] Emit RATE_LIMIT_EXCEEDED
-- [ ] Emit anomaly signals
-- [ ] Add limit exceed test
-- [ ] Add window reset test
-- [ ] Add anomaly spike test
-- [ ] All tests pass
+- [x] Implement fixed-window rate limiter
+- [x] Enforce per classification limits
+- [x] Emit RATE_LIMIT_EXCEEDED
+- [x] Emit anomaly signals
+- [x] Add limit exceed test
+- [x] Add window reset test
+- [x] Add anomaly spike test
+- [x] All tests pass
 
 ---
 
@@ -139,7 +139,7 @@ Rule: Each checkbox may only be checked when:
 - [ ] No secret values appear in logs (grep test)
 - [ ] Store v1 readable
 - [ ] Event schema unchanged
-- [ ] All tests pass
+- [ ] All tests pass1
 - [ ] Feature flags documented
 
 ---

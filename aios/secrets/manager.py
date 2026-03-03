@@ -11,6 +11,7 @@ from .policy import allow_fallback_lookup
 from .policy import is_capability_allowed
 from .context import ContextFactory
 from .context import SecretAccessContext
+from .rate_limits import FixedWindowRateLimiter
 from .types import AccessDenied
 from .types import BackendUnavailable
 from .types import NotInitialized
@@ -36,11 +37,13 @@ class SecretsManager:
         fallback_backend: EncryptedStoreBackend | None = None,
         fallback_passphrase: str | None = None,
         data_dir: Path | None = None,
+        rate_limiter: FixedWindowRateLimiter | None = None,
     ) -> None:
         base = data_dir or (Path.home() / ".local" / "share" / "aios" / "secrets")
         self._audit = AuditLogger(path=base / "audit.jsonl")
         self._fallback = fallback_backend or EncryptedStoreBackend(store_path=base / "store.v1")
         self._keyring = keyring_backend
+        self._rate_limiter = rate_limiter or FixedWindowRateLimiter()
         self._last_error: str | None = None
         self._fallback_passphrase = fallback_passphrase
         if self._keyring is None:
@@ -112,6 +115,29 @@ class SecretsManager:
             )
             raise AccessDenied(
                 f"Capability context '{context.context_id}' is not authorized for key '{key.as_str()}'."
+            )
+        decision = self._rate_limiter.check_and_increment(
+            classification=context.trust_level,
+            bucket=context.context_id,
+        )
+        if not decision.allowed:
+            self._audit.log(
+                action="get",
+                key=key.as_str(),
+                backend="rate_limiter",
+                result="denied",
+                error_code="RATE_LIMIT_EXCEEDED",
+            )
+            if decision.anomaly:
+                self._audit.log(
+                    action="backend_error",
+                    key=key.as_str(),
+                    backend="rate_limiter",
+                    result="error",
+                    error_code="ANOMALY_SPIKE_DETECTED",
+                )
+            raise AccessDenied(
+                f"Rate limit exceeded for context '{context.context_id}'. Retry in next window."
             )
 
         used_backend = "unknown"
