@@ -13,6 +13,7 @@ from .backends.keyring_backend import KeyringBackend
 from .hardening import disable_core_dumps_best_effort
 from .policy import allow_fallback_lookup
 from .policy import is_capability_allowed
+from .policy import requires_approval_token
 from .context import ContextFactory
 from .context import SecretAccessContext
 from .rate_limits import FixedWindowRateLimiter
@@ -22,6 +23,8 @@ from .types import NotInitialized
 from .types import SecretKey
 from .types import SecretValue
 from .types import SecretsError
+from supervisor.approval_tokens import ApprovalTokenError
+from supervisor.approval_tokens import require_approval_token
 
 
 @dataclass
@@ -49,6 +52,7 @@ class SecretsManager:
         budget_gate: BudgetGate | None = None,
     ) -> None:
         base = data_dir or (Path.home() / ".local" / "share" / "aios" / "secrets")
+        self._base_dir = base
         self._core_dumps_disabled = disable_core_dumps_best_effort() if disable_core_dumps else False
         self._audit = AuditLogger(path=base / "audit.jsonl")
         if budget_mode not in {"off", "observe", "enforce"}:
@@ -121,6 +125,24 @@ class SecretsManager:
 
     def get(self, key: SecretKey, *, context: SecretAccessContext) -> SecretValue | None:
         ContextFactory.validate(context)
+        if requires_approval_token(key):
+            try:
+                require_approval_token(
+                    scope="critical_secret_access",
+                    operation=f"secrets.get:{key.as_str()}",
+                    token=(context.approval_token or "").strip(),
+                    state_path=self._base_dir / "approval_tokens.json",
+                    audit_path=self._base_dir / "approval_token_audit.jsonl",
+                )
+            except ApprovalTokenError as exc:
+                self._audit.log(
+                    action="get",
+                    key=key.as_str(),
+                    backend="approval_token",
+                    result="denied",
+                    error_code=exc.reason_code,
+                )
+                raise AccessDenied("Approval token required for critical secret retrieval") from exc
         if not is_capability_allowed(key, context):
             self._audit.log(
                 action="get",

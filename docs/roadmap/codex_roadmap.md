@@ -116,11 +116,11 @@ Rule: Each checkbox may only be checked when:
 
 ### PR-08 Approval Tokens (CRITICAL)
 
-- [ ] Require approval token for CRITICAL secrets
-- [ ] Implement token validation
-- [ ] Add missing-token deny test
-- [ ] Add valid-token allow test
-- [ ] All tests pass
+- [x] Require approval token for CRITICAL secrets
+- [x] Implement token validation
+- [x] Add missing-token deny test
+- [x] Add valid-token allow test
+- [x] All tests pass
 
 ---
 

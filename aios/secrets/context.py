@@ -15,6 +15,7 @@ class SecretAccessContext:
     elevated: bool = False
     agent_id: str = "default-agent"
     epoch_id: str = "1970-01-01"
+    approval_token: str | None = None
 
 
 class ContextFactory:
@@ -36,6 +37,7 @@ class ContextFactory:
         *,
         agent_id: str | None = None,
         epoch_id: str | None = None,
+        approval_token: str | None = None,
     ) -> SecretAccessContext:
         selected = cls._REGISTRY.get(str(context_id or "").strip())
         if selected is None:
@@ -49,6 +51,7 @@ class ContextFactory:
             elevated=elevated,
             agent_id=resolved_agent,
             epoch_id=resolved_epoch,
+            approval_token=approval_token,
         )
 
     @classmethod
@@ -68,12 +71,24 @@ class ContextFactory:
             raise AccessDenied("Context epoch_id is required")
 
     @classmethod
-    def interactive_cli(cls, *, agent_id: str | None = None, epoch_id: str | None = None) -> SecretAccessContext:
-        return cls.from_id("interactive_cli", agent_id=agent_id, epoch_id=epoch_id)
+    def interactive_cli(
+        cls,
+        *,
+        agent_id: str | None = None,
+        epoch_id: str | None = None,
+        approval_token: str | None = None,
+    ) -> SecretAccessContext:
+        return cls.from_id("interactive_cli", agent_id=agent_id, epoch_id=epoch_id, approval_token=approval_token)
 
     @classmethod
-    def ui_test_connection(cls, *, agent_id: str | None = None, epoch_id: str | None = None) -> SecretAccessContext:
-        return cls.from_id("ui.test_connection", agent_id=agent_id, epoch_id=epoch_id)
+    def ui_test_connection(
+        cls,
+        *,
+        agent_id: str | None = None,
+        epoch_id: str | None = None,
+        approval_token: str | None = None,
+    ) -> SecretAccessContext:
+        return cls.from_id("ui.test_connection", agent_id=agent_id, epoch_id=epoch_id, approval_token=approval_token)
 
     @classmethod
     def supervisor_autonomy_promotion_gate(
@@ -81,8 +96,14 @@ class ContextFactory:
         *,
         agent_id: str | None = None,
         epoch_id: str | None = None,
+        approval_token: str | None = None,
     ) -> SecretAccessContext:
-        return cls.from_id("supervisor.autonomy_promotion_gate", agent_id=agent_id, epoch_id=epoch_id)
+        return cls.from_id(
+            "supervisor.autonomy_promotion_gate",
+            agent_id=agent_id,
+            epoch_id=epoch_id,
+            approval_token=approval_token,
+        )
 
     @classmethod
     def supervisor_autonomy_review_intake_gate(
@@ -90,8 +111,14 @@ class ContextFactory:
         *,
         agent_id: str | None = None,
         epoch_id: str | None = None,
+        approval_token: str | None = None,
     ) -> SecretAccessContext:
-        return cls.from_id("supervisor.autonomy_review_intake_gate", agent_id=agent_id, epoch_id=epoch_id)
+        return cls.from_id(
+            "supervisor.autonomy_review_intake_gate",
+            agent_id=agent_id,
+            epoch_id=epoch_id,
+            approval_token=approval_token,
+        )
 
     @classmethod
     def supervisor_autonomy_task_materializer(
@@ -99,8 +126,14 @@ class ContextFactory:
         *,
         agent_id: str | None = None,
         epoch_id: str | None = None,
+        approval_token: str | None = None,
     ) -> SecretAccessContext:
-        return cls.from_id("supervisor.autonomy_task_materializer", agent_id=agent_id, epoch_id=epoch_id)
+        return cls.from_id(
+            "supervisor.autonomy_task_materializer",
+            agent_id=agent_id,
+            epoch_id=epoch_id,
+            approval_token=approval_token,
+        )
 
     @classmethod
     def supervisor_agent_workspace_push_pr(
@@ -108,8 +141,14 @@ class ContextFactory:
         *,
         agent_id: str | None = None,
         epoch_id: str | None = None,
+        approval_token: str | None = None,
     ) -> SecretAccessContext:
-        return cls.from_id("supervisor.agent_workspace.push_pr", agent_id=agent_id, epoch_id=epoch_id)
+        return cls.from_id(
+            "supervisor.agent_workspace.push_pr",
+            agent_id=agent_id,
+            epoch_id=epoch_id,
+            approval_token=approval_token,
+        )
 
     @classmethod
     def supervisor_cli_night_run(
@@ -117,8 +156,14 @@ class ContextFactory:
         *,
         agent_id: str | None = None,
         epoch_id: str | None = None,
+        approval_token: str | None = None,
     ) -> SecretAccessContext:
-        return cls.from_id("supervisor.cli.night_run", agent_id=agent_id, epoch_id=epoch_id)
+        return cls.from_id(
+            "supervisor.cli.night_run",
+            agent_id=agent_id,
+            epoch_id=epoch_id,
+            approval_token=approval_token,
+        )
 
     @classmethod
     def supervisor_auth_headers(
@@ -126,5 +171,11 @@ class ContextFactory:
         *,
         agent_id: str | None = None,
         epoch_id: str | None = None,
+        approval_token: str | None = None,
     ) -> SecretAccessContext:
-        return cls.from_id("supervisor.supervisor.auth_headers", agent_id=agent_id, epoch_id=epoch_id)
+        return cls.from_id(
+            "supervisor.supervisor.auth_headers",
+            agent_id=agent_id,
+            epoch_id=epoch_id,
+            approval_token=approval_token,
+        )
