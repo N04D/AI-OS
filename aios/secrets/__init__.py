@@ -17,6 +17,8 @@ from .rate_limits import RateLimitDecision
 from .hardening import disable_core_dumps_best_effort
 from .budget_sink import BudgetChargeSink
 from .budget_sink import BudgetSink
+from .budget_gate import BudgetDecision
+from .budget_gate import BudgetGate
 
 __all__ = [
     "SecretsManager",
@@ -38,4 +40,6 @@ __all__ = [
     "disable_core_dumps_best_effort",
     "BudgetSink",
     "BudgetChargeSink",
+    "BudgetGate",
+    "BudgetDecision",
 ]

@@ -7,6 +7,7 @@ from typing import Any
 from .audit import AuditLogger
 from .budget_sink import BudgetChargeSink
 from .budget_sink import BudgetSink
+from .budget_gate import BudgetGate
 from .backends.encrypted_store_backend import EncryptedStoreBackend
 from .backends.keyring_backend import KeyringBackend
 from .hardening import disable_core_dumps_best_effort
@@ -42,14 +43,20 @@ class SecretsManager:
         data_dir: Path | None = None,
         rate_limiter: FixedWindowRateLimiter | None = None,
         disable_core_dumps: bool = False,
+        budget_mode: str = "off",
         observe_budget_charges: bool = False,
         budget_sink: BudgetSink | None = None,
+        budget_gate: BudgetGate | None = None,
     ) -> None:
         base = data_dir or (Path.home() / ".local" / "share" / "aios" / "secrets")
         self._core_dumps_disabled = disable_core_dumps_best_effort() if disable_core_dumps else False
         self._audit = AuditLogger(path=base / "audit.jsonl")
-        self._observe_budget_charges = bool(observe_budget_charges)
+        if budget_mode not in {"off", "observe", "enforce"}:
+            raise ValueError("budget_mode must be one of: off, observe, enforce")
+        self._budget_mode = "observe" if observe_budget_charges and budget_mode == "off" else budget_mode
+        self._observe_budget_charges = self._budget_mode in {"observe", "enforce"}
         self._budget_sink = budget_sink or BudgetChargeSink(path=base / "budget_events.jsonl")
+        self._budget_gate = budget_gate or BudgetGate(mode=self._budget_mode, sink=self._budget_sink)
         self._fallback = fallback_backend or EncryptedStoreBackend(store_path=base / "store.v1")
         self._keyring = keyring_backend
         self._rate_limiter = rate_limiter or FixedWindowRateLimiter()
@@ -149,7 +156,16 @@ class SecretsManager:
                 f"Rate limit exceeded for context '{context.context_id}'. Retry in next window."
             )
         if self._observe_budget_charges:
-            self._budget_sink.charge(key=key, context=context, operation="get")
+            budget_decision = self._budget_gate.evaluate_and_charge(key=key, context=context, operation="get")
+            if not budget_decision.allowed:
+                self._audit.log(
+                    action="get",
+                    key=key.as_str(),
+                    backend="budget_gate",
+                    result="denied",
+                    error_code=str(budget_decision.reason_code or "BUDGET_EXCEEDED"),
+                )
+                raise AccessDenied("Budget policy denied secret retrieval")
 
         used_backend = "unknown"
         try:
@@ -243,6 +259,7 @@ class SecretsManager:
             "keyring_available": keyring_available,
             "fallback_initialized": fallback_initialized,
             "core_dumps_disabled": self._core_dumps_disabled,
+            "budget_mode": self._budget_mode,
             "observe_budget_charges": self._observe_budget_charges,
             "last_error": self._last_error,
         }

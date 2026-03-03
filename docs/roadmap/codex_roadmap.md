@@ -97,11 +97,11 @@ Rule: Each checkbox may only be checked when:
 
 ### PR-06 Budget Enforcement
 
-- [ ] Implement BudgetGate wrapper
-- [ ] Add feature flag (off|observe|enforce)
-- [ ] Deny with BUDGET_EXCEEDED
-- [ ] Add enforcement test
-- [ ] All tests pass
+- [x] Implement BudgetGate wrapper
+- [x] Add feature flag (off|observe|enforce)
+- [x] Deny with BUDGET_EXCEEDED
+- [x] Add enforcement test
+- [x] All tests pass
 
 ---
 
