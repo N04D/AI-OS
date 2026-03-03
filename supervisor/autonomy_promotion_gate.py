@@ -9,6 +9,9 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from aios.secrets.context import ContextFactory
+from aios.secrets.integration import resolve_gitea_token
+from supervisor.gitea_config import resolve_gitea_base_url
 from supervisor.budgets.autonomy import DEFAULT_HOST_STATE_DIR
 from supervisor.budgets.autonomy import check_budget
 from supervisor.budgets.autonomy import consume_budget
@@ -119,7 +122,10 @@ def create_draft_proposals_prs(
     gitea_base_url: str | None = None,
     gitea_token: str | None = None,
 ) -> list[dict[str, Any]]:
-    token = (os.environ.get("GITEA_TOKEN", "") if gitea_token is None else gitea_token).strip()
+    token = resolve_gitea_token(
+        explicit_token=gitea_token,
+        context=ContextFactory.supervisor_autonomy_promotion_gate(),
+    )
     if not token:
         raise AutonomyPromotionGateError("missing_gitea_token")
     if not _git_is_clean():
@@ -178,9 +184,7 @@ def create_draft_proposals_prs(
     if not resolved_proposals:
         return []
 
-    api_base = _normalize_api_base(
-        (gitea_base_url or os.environ.get("GITEA_BASE_URL", "")).strip()
-    )
+    api_base = _normalize_api_base(resolve_gitea_base_url(explicit_base_url=gitea_base_url))
     pulls_url = f"{api_base}/repos/{repo_owner}/{repo_name}/pulls?state=open&base={base_branch}&limit=300"
     status, pulls_data = _api_json_request("GET", pulls_url, token)
     if status != 200 or not isinstance(pulls_data, list):

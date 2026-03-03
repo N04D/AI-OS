@@ -10,6 +10,8 @@ from .eventbus import EventBusEmitFailed
 from .eventbus import EventSink
 from .eventbus import MultiplexerSink
 from .eventbus import SupervisorEventSink
+from .context import ContextFactory
+from .context import SecretAccessContext
 
 __all__ = [
     "SecretsManager",
@@ -24,4 +26,6 @@ __all__ = [
     "MultiplexerSink",
     "SupervisorEventSink",
     "EventBusEmitFailed",
+    "ContextFactory",
+    "SecretAccessContext",
 ]

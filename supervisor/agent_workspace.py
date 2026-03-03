@@ -10,6 +10,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from aios.secrets.context import ContextFactory
+from aios.secrets.integration import resolve_gitea_token
+from supervisor.gitea_config import resolve_gitea_base_url
 
 DEFAULT_WORKSPACE_ROOT = Path("/var/lib/aios/agents")
 
@@ -341,10 +344,12 @@ def push_workspace_pr(
         raise AgentWorkspaceError("DENY_AGENT_WORKSPACE_MISSING", "workspace repo missing; run sync first")
     if _run_git(paths.repo, ["status", "--porcelain"]).strip():
         raise AgentWorkspaceError("DENY_DIRTY_WORKTREE", "workspace repo must be clean before push-pr")
-    token = os.environ.get("GITEA_TOKEN", "").strip()
+    token = resolve_gitea_token(
+        context=ContextFactory.supervisor_agent_workspace_push_pr(),
+    )
     if not token:
-        raise AgentWorkspaceError("DENY_AGENT_WORKSPACE_ENV_MISSING", "GITEA_TOKEN is required")
-    api_base = _normalize_api_base(os.environ.get("GITEA_BASE_URL", "").strip())
+        raise AgentWorkspaceError("DENY_AGENT_WORKSPACE_SECRET_MISSING", "Secret key 'gitea.token' is required")
+    api_base = _normalize_api_base(resolve_gitea_base_url())
     current_branch = _run_git(paths.repo, ["branch", "--show-current"]).strip()
     if not current_branch:
         raise AgentWorkspaceError("DENY_AGENT_WORKSPACE_GIT_FAILED", "could not resolve current branch")

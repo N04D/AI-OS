@@ -45,13 +45,13 @@ Rule: Each checkbox may only be checked when:
 
 ### PR-02 ContextFactory Enforcement
 
-- [ ] Implement ContextFactory
-- [ ] Remove all raw string contexts
-- [ ] Enforce context required in SecretsManager
-- [ ] Add unknown-context deny test
-- [ ] Add trust-level validation test
-- [ ] Add elevated-context test
-- [ ] All tests pass
+- [x] Implement ContextFactory
+- [x] Remove all raw string contexts
+- [x] Enforce context required in SecretsManager
+- [x] Add unknown-context deny test
+- [x] Add trust-level validation test
+- [x] Add elevated-context test
+- [x] All tests pass
 
 ---
 
