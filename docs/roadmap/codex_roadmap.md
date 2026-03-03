@@ -3,7 +3,7 @@
 ---
 # Secrets A → B Execution Roadmap
 
-Status: ACTIVE BUILD
+Status: ACTIVE BUILD1
 
 Owner: Codex
 Rule: Each checkbox may only be checked when:
@@ -33,13 +33,13 @@ Rule: Each checkbox may only be checked when:
 
 ### PR-01 EventBus Adapter
 
-- [ ] Implement EventSink interface
-- [ ] Implement MultiplexerSink
-- [ ] Implement SupervisorEventSink (file mode)
-- [ ] Add failure handling (EVENTBUS_EMIT_FAILED)
-- [ ] Add fan-out test
-- [ ] Validate emitted events against schema
-- [ ] All tests pass
+- [x] Implement EventSink interface
+- [x] Implement MultiplexerSink
+- [x] Implement SupervisorEventSink (file mode)
+- [x] Add failure handling (EVENTBUS_EMIT_FAILED)
+- [x] Add fan-out test
+- [x] Validate emitted events against schema
+- [x] All tests pass
 
 ---
 
