@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 
 from .audit import AuditLogger
+from .budget_sink import BudgetChargeSink
+from .budget_sink import BudgetSink
 from .backends.encrypted_store_backend import EncryptedStoreBackend
 from .backends.keyring_backend import KeyringBackend
 from .hardening import disable_core_dumps_best_effort
@@ -40,10 +42,14 @@ class SecretsManager:
         data_dir: Path | None = None,
         rate_limiter: FixedWindowRateLimiter | None = None,
         disable_core_dumps: bool = False,
+        observe_budget_charges: bool = False,
+        budget_sink: BudgetSink | None = None,
     ) -> None:
         base = data_dir or (Path.home() / ".local" / "share" / "aios" / "secrets")
         self._core_dumps_disabled = disable_core_dumps_best_effort() if disable_core_dumps else False
         self._audit = AuditLogger(path=base / "audit.jsonl")
+        self._observe_budget_charges = bool(observe_budget_charges)
+        self._budget_sink = budget_sink or BudgetChargeSink(path=base / "budget_events.jsonl")
         self._fallback = fallback_backend or EncryptedStoreBackend(store_path=base / "store.v1")
         self._keyring = keyring_backend
         self._rate_limiter = rate_limiter or FixedWindowRateLimiter()
@@ -142,6 +148,8 @@ class SecretsManager:
             raise AccessDenied(
                 f"Rate limit exceeded for context '{context.context_id}'. Retry in next window."
             )
+        if self._observe_budget_charges:
+            self._budget_sink.charge(key=key, context=context, operation="get")
 
         used_backend = "unknown"
         try:
@@ -235,6 +243,7 @@ class SecretsManager:
             "keyring_available": keyring_available,
             "fallback_initialized": fallback_initialized,
             "core_dumps_disabled": self._core_dumps_disabled,
+            "observe_budget_charges": self._observe_budget_charges,
             "last_error": self._last_error,
         }
 

@@ -15,6 +15,8 @@ from .context import SecretAccessContext
 from .rate_limits import FixedWindowRateLimiter
 from .rate_limits import RateLimitDecision
 from .hardening import disable_core_dumps_best_effort
+from .budget_sink import BudgetChargeSink
+from .budget_sink import BudgetSink
 
 __all__ = [
     "SecretsManager",
@@ -34,4 +36,6 @@ __all__ = [
     "FixedWindowRateLimiter",
     "RateLimitDecision",
     "disable_core_dumps_best_effort",
+    "BudgetSink",
+    "BudgetChargeSink",
 ]

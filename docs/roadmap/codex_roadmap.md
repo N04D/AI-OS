@@ -86,12 +86,12 @@ Rule: Each checkbox may only be checked when:
 
 ### PR-05 BudgetSink (Observe Mode)
 
-- [ ] Implement BudgetChargeSink
-- [ ] Map classification to cost
-- [ ] Emit secret.budget.charge events
-- [ ] Add observe mode flag
-- [ ] Add telemetry test
-- [ ] All tests pass
+- [x] Implement BudgetChargeSink
+- [x] Map classification to cost
+- [x] Emit secret.budget.charge events
+- [x] Add observe mode flag
+- [x] Add telemetry test
+- [x] All tests pass
 
 ---
 
