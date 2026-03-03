@@ -1,0 +1,92 @@
+version: "v0.1"
+policy_id: "kernel-enforcement-checklist"
+mode: "strict"
+fail_closed: true
+
+enforcement_order:
+  - governance_baseline_verification
+  - branch_pattern_validation
+  - metadata_completeness_check
+  - distinct_reviewer_verification
+  - sensitive_path_detection
+  - escalation_level_validation
+  - deterministic_toolchain_verification
+  - ci_status_verification
+  - mirror_integrity_check
+  - final_merge_authorization
+
+governance_baseline:
+  files:
+    - "governance/policy/pr-governance.v0.2.yaml"
+    - "governance/policy/kernel-enforcement-checklist.v0.1.yaml"
+  halt_on_mismatch: true
+
+branch_rules:
+  allowed_patterns:
+    - "^feat\\/.+$"
+    - "^fix\\/.+$"
+    - "^docs\\/.+$"
+    - "^refactor\\/.+$"
+    - "^chore\\/.+$"
+    - "^proposal\\/.+$"
+
+required_metadata:
+  - "intent_id"
+  - "issue_reference"
+  - "risk_level"
+  - "touched_paths"
+  - "rollback_strategy"
+  - "determinism_proof"
+
+review:
+  require_distinct_reviewer: true
+
+sensitive_paths:
+  - "governance/"
+  - "supervisor/"
+  - "kernel/"
+  - "enforcement/"
+  - "branch_protection_config/"
+  - ".gitea/workflows/"
+  - ".github/workflows/"
+
+escalation:
+  levels:
+    L0:
+      max_scope:
+        - "docs/"
+        - "ui/"
+    L1:
+      max_scope:
+        - "app/"
+        - "src/"
+        - "orchestrator/"
+    L2:
+      max_scope:
+        - "infra/"
+        - "config/"
+        - "environment/"
+      require_owner_approval: true
+    L3:
+      max_scope:
+        - "*"
+      require_owner_approval: true
+  sensitive_path_min_level: "L3"
+
+determinism:
+  required_toolchain_fields:
+    - "python_version"
+    - "dependency_lock_sha"
+    - "ci_runtime_fingerprint"
+  require_container_digest: false
+  halt_on_violation: true
+
+ci:
+  required_checks:
+    - "lint"
+    - "unit-tests"
+    - "smoke-test"
+
+mirror_integrity:
+  enabled: true
+  halt_on_drift: true
