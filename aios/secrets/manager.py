@@ -11,6 +11,7 @@ from .budget_gate import BudgetGate
 from .backends.encrypted_store_backend import EncryptedStoreBackend
 from .backends.keyring_backend import KeyringBackend
 from .hardening import disable_core_dumps_best_effort
+from .kill_switch import ContextKillSwitch
 from .policy import allow_fallback_lookup
 from .policy import is_capability_allowed
 from .policy import requires_approval_token
@@ -50,6 +51,8 @@ class SecretsManager:
         observe_budget_charges: bool = False,
         budget_sink: BudgetSink | None = None,
         budget_gate: BudgetGate | None = None,
+        kill_switch: ContextKillSwitch | None = None,
+        auto_suspend_on_anomaly: bool = False,
     ) -> None:
         base = data_dir or (Path.home() / ".local" / "share" / "aios" / "secrets")
         self._base_dir = base
@@ -61,6 +64,8 @@ class SecretsManager:
         self._observe_budget_charges = self._budget_mode in {"observe", "enforce"}
         self._budget_sink = budget_sink or BudgetChargeSink(path=base / "budget_events.jsonl")
         self._budget_gate = budget_gate or BudgetGate(mode=self._budget_mode, sink=self._budget_sink)
+        self._kill_switch = kill_switch or ContextKillSwitch(path=base / "kill_switch.json")
+        self._auto_suspend_on_anomaly = bool(auto_suspend_on_anomaly)
         self._fallback = fallback_backend or EncryptedStoreBackend(store_path=base / "store.v1")
         self._keyring = keyring_backend
         self._rate_limiter = rate_limiter or FixedWindowRateLimiter()
@@ -125,6 +130,15 @@ class SecretsManager:
 
     def get(self, key: SecretKey, *, context: SecretAccessContext) -> SecretValue | None:
         ContextFactory.validate(context)
+        if self._kill_switch.is_suspended(context.context_id):
+            self._audit.log(
+                action="get",
+                key=key.as_str(),
+                backend="kill_switch",
+                result="denied",
+                error_code="AccessDenied",
+            )
+            raise AccessDenied(f"Context '{context.context_id}' is suspended")
         if requires_approval_token(key):
             try:
                 require_approval_token(
@@ -167,6 +181,8 @@ class SecretsManager:
                 error_code="RATE_LIMIT_EXCEEDED",
             )
             if decision.anomaly:
+                if self._auto_suspend_on_anomaly:
+                    self._kill_switch.suspend(context.context_id)
                 self._audit.log(
                     action="backend_error",
                     key=key.as_str(),
@@ -283,6 +299,7 @@ class SecretsManager:
             "core_dumps_disabled": self._core_dumps_disabled,
             "budget_mode": self._budget_mode,
             "observe_budget_charges": self._observe_budget_charges,
+            "suspended_contexts": self._kill_switch.list_suspended(),
             "last_error": self._last_error,
         }
 
@@ -327,3 +344,12 @@ class SecretsManager:
             error_code="MIGRATION_PARTIAL" if failed else None,
         )
         return {"moved": moved, "failed": failed, "details": details}
+
+    def suspend_context(self, context_id: str) -> None:
+        self._kill_switch.suspend(context_id)
+
+    def unlock_context(self, context_id: str) -> None:
+        self._kill_switch.unlock(context_id)
+
+    def suspended_contexts(self) -> list[str]:
+        return self._kill_switch.list_suspended()

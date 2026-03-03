@@ -19,6 +19,7 @@ from .budget_sink import BudgetChargeSink
 from .budget_sink import BudgetSink
 from .budget_gate import BudgetDecision
 from .budget_gate import BudgetGate
+from .kill_switch import ContextKillSwitch
 
 __all__ = [
     "SecretsManager",
@@ -42,4 +43,5 @@ __all__ = [
     "BudgetChargeSink",
     "BudgetGate",
     "BudgetDecision",
+    "ContextKillSwitch",
 ]

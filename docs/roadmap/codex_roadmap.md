@@ -126,11 +126,11 @@ Rule: Each checkbox may only be checked when:
 
 ### PR-09 Kill Switch
 
-- [ ] Implement context suspension mechanism
-- [ ] Add anomaly-triggered suspension
-- [ ] Add manual unlock
-- [ ] Add suspension test
-- [ ] All tests pass
+- [x] Implement context suspension mechanism
+- [x] Add anomaly-triggered suspension
+- [x] Add manual unlock
+- [x] Add suspension test
+- [x] All tests pass
 
 ---
 
