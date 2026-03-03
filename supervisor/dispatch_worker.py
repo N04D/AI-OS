@@ -61,6 +61,7 @@ def _write_ledger(ledger_path: Path, payload: dict[str, Any]) -> None:
 
 def _write_queue_item(path: Path, payload: dict[str, Any]) -> None:
     validate_queue_schema(payload)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 
 
