@@ -136,11 +136,11 @@ Rule: Each checkbox may only be checked when:
 
 ## FINAL VERIFICATION
 
-- [ ] No secret values appear in logs (grep test)
-- [ ] Store v1 readable
-- [ ] Event schema unchanged
-- [ ] All tests pass1
-- [ ] Feature flags documented
+- [x] No secret values appear in logs (grep test)
+- [x] Store v1 readable
+- [x] Event schema unchanged
+- [x] All tests pass
+- [x] Feature flags documented
 
 ---
 
