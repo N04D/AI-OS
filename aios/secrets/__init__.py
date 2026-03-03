@@ -14,6 +14,7 @@ from .context import ContextFactory
 from .context import SecretAccessContext
 from .rate_limits import FixedWindowRateLimiter
 from .rate_limits import RateLimitDecision
+from .hardening import disable_core_dumps_best_effort
 
 __all__ = [
     "SecretsManager",
@@ -32,4 +33,5 @@ __all__ = [
     "SecretAccessContext",
     "FixedWindowRateLimiter",
     "RateLimitDecision",
+    "disable_core_dumps_best_effort",
 ]

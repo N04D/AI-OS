@@ -8,6 +8,7 @@ from pathlib import Path
 import socket
 import struct
 from tempfile import NamedTemporaryFile
+import threading
 from typing import Any
 
 from cryptography.exceptions import InvalidTag
@@ -33,6 +34,7 @@ class EncryptedStoreBackend:
 
     def __init__(self, *, store_path: Path) -> None:
         self.store_path = store_path
+        self._lock = threading.RLock()
         self.store_path.parent.mkdir(parents=True, exist_ok=True)
         os.chmod(self.store_path.parent, 0o700)
 
@@ -46,24 +48,27 @@ class EncryptedStoreBackend:
         passphrase = str(kwargs.get("passphrase") or "")
         if not passphrase:
             raise SecretsError("Passphrase is required to initialize fallback store")
-        if self.is_initialized():
-            raise SecretsError("Fallback store already initialized")
-        self._write_payload({}, passphrase)
+        with self._lock:
+            if self.is_initialized():
+                raise SecretsError("Fallback store already initialized")
+            self._write_payload({}, passphrase)
 
     def set(self, key: SecretKey, value: SecretValue, *, overwrite: bool = False, passphrase: str | None = None) -> None:
         if not passphrase:
             raise NotInitialized("Fallback store access requires passphrase")
-        payload = self._read_payload(passphrase)
-        k = key.as_str()
-        if not overwrite and k in payload:
-            raise InvalidKey(f"Secret '{k}' already exists; use overwrite=True")
-        payload[k] = base64.b64encode(value.as_bytes()).decode("ascii")
-        self._write_payload(payload, passphrase)
+        with self._lock:
+            payload = self._read_payload(passphrase)
+            k = key.as_str()
+            if not overwrite and k in payload:
+                raise InvalidKey(f"Secret '{k}' already exists; use overwrite=True")
+            payload[k] = base64.b64encode(value.as_bytes()).decode("ascii")
+            self._write_payload(payload, passphrase)
 
     def get(self, key: SecretKey, *, passphrase: str | None = None) -> SecretValue | None:
         if not passphrase:
             raise NotInitialized("Fallback store access requires passphrase")
-        payload = self._read_payload(passphrase)
+        with self._lock:
+            payload = self._read_payload(passphrase)
         encoded = payload.get(key.as_str())
         if encoded is None:
             return None
@@ -72,14 +77,16 @@ class EncryptedStoreBackend:
     def delete(self, key: SecretKey, *, passphrase: str | None = None) -> None:
         if not passphrase:
             raise NotInitialized("Fallback store access requires passphrase")
-        payload = self._read_payload(passphrase)
-        payload.pop(key.as_str(), None)
-        self._write_payload(payload, passphrase)
+        with self._lock:
+            payload = self._read_payload(passphrase)
+            payload.pop(key.as_str(), None)
+            self._write_payload(payload, passphrase)
 
     def list(self, prefix: str | None = None, *, passphrase: str | None = None) -> list[SecretKey]:
         if not passphrase:
             raise NotInitialized("Fallback store access requires passphrase")
-        payload = self._read_payload(passphrase)
+        with self._lock:
+            payload = self._read_payload(passphrase)
         out: list[SecretKey] = []
         for raw in sorted(payload.keys()):
             if prefix and not raw.startswith(prefix):
@@ -91,8 +98,9 @@ class EncryptedStoreBackend:
         return out
 
     def rotate_passphrase(self, old: str, new: str) -> None:
-        payload = self._read_payload(old)
-        self._write_payload(payload, new)
+        with self._lock:
+            payload = self._read_payload(old)
+            self._write_payload(payload, new)
 
     def _build_aad(self) -> bytes:
         uid = os.getuid() if hasattr(os, "getuid") else 0

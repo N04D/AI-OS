@@ -70,15 +70,15 @@ Rule: Each checkbox may only be checked when:
 
 ### PR-04 Engine Hardening
 
-- [ ] Refactor SecretValue to bytearray storage
-- [ ] Implement wipe()
-- [ ] Implement context manager support
-- [ ] Redacted __repr__
-- [ ] Optional core dump disable (Unix)
-- [ ] Add wipe test
-- [ ] Add no-log-leak test
-- [ ] Add concurrent write safety test
-- [ ] All tests pass
+- [x] Refactor SecretValue to bytearray storage
+- [x] Implement wipe()
+- [x] Implement context manager support
+- [x] Redacted __repr__
+- [x] Optional core dump disable (Unix)
+- [x] Add wipe test
+- [x] Add no-log-leak test
+- [x] Add concurrent write safety test
+- [x] All tests pass
 
 ---
 

@@ -57,20 +57,39 @@ class SecretKey:
 class SecretValue:
     """Secret wrapper that avoids accidental repr leakage."""
 
-    __slots__ = ("_raw",)
+    __slots__ = ("_raw", "_wiped")
 
     def __init__(self, value: str | bytes) -> None:
         if isinstance(value, str):
-            self._raw = value.encode("utf-8")
+            self._raw = bytearray(value.encode("utf-8"))
         elif isinstance(value, bytes):
-            self._raw = bytes(value)
+            self._raw = bytearray(value)
         else:
             raise TypeError("SecretValue only supports str or bytes")
+        self._wiped = False
+
+    def wipe(self) -> None:
+        for idx in range(len(self._raw)):
+            self._raw[idx] = 0
+        self._wiped = True
+
+    def __enter__(self) -> "SecretValue":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:  # type: ignore[no-untyped-def]
+        del exc_type, exc, tb
+        self.wipe()
+
+    def _assert_not_wiped(self) -> None:
+        if self._wiped:
+            raise SecretsError("Secret value has been wiped")
 
     def as_bytes(self) -> bytes:
+        self._assert_not_wiped()
         return bytes(self._raw)
 
     def as_str(self) -> str:
+        self._assert_not_wiped()
         return self._raw.decode("utf-8")
 
     def __repr__(self) -> str:

@@ -7,6 +7,7 @@ from typing import Any
 from .audit import AuditLogger
 from .backends.encrypted_store_backend import EncryptedStoreBackend
 from .backends.keyring_backend import KeyringBackend
+from .hardening import disable_core_dumps_best_effort
 from .policy import allow_fallback_lookup
 from .policy import is_capability_allowed
 from .context import ContextFactory
@@ -38,8 +39,10 @@ class SecretsManager:
         fallback_passphrase: str | None = None,
         data_dir: Path | None = None,
         rate_limiter: FixedWindowRateLimiter | None = None,
+        disable_core_dumps: bool = False,
     ) -> None:
         base = data_dir or (Path.home() / ".local" / "share" / "aios" / "secrets")
+        self._core_dumps_disabled = disable_core_dumps_best_effort() if disable_core_dumps else False
         self._audit = AuditLogger(path=base / "audit.jsonl")
         self._fallback = fallback_backend or EncryptedStoreBackend(store_path=base / "store.v1")
         self._keyring = keyring_backend
@@ -231,6 +234,7 @@ class SecretsManager:
             "initialized": bool(keyring_available or fallback_initialized),
             "keyring_available": keyring_available,
             "fallback_initialized": fallback_initialized,
+            "core_dumps_disabled": self._core_dumps_disabled,
             "last_error": self._last_error,
         }
 
