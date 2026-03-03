@@ -18,6 +18,7 @@ UI_EDITABLE_KEYS: frozenset[str] = frozenset(
 CAPABILITY_ALLOWLIST: dict[str, frozenset[str]] = {
     "ui.test_connection": frozenset({"openai.api_key", "gitea.token", "openai.critical_api_key"}),
     "interactive_cli": frozenset({"openai.api_key", "gitea.token", "openai.critical_api_key"}),
+    "supervisor.mail_worker.transport": frozenset({"smtp.pass"}),
     "supervisor.autonomy_promotion_gate": frozenset({"gitea.token"}),
     "supervisor.autonomy_review_intake_gate": frozenset({"gitea.token"}),
     "supervisor.autonomy_task_materializer": frozenset({"gitea.token"}),
@@ -29,6 +30,7 @@ CAPABILITY_ALLOWLIST: dict[str, frozenset[str]] = {
 # Only explicit key/context pairs may search fallback when keyring misses.
 FALLBACK_SEARCH_ALLOWLIST: dict[str, frozenset[str]] = {
     "interactive_cli": frozenset({"openai.api_key", "gitea.token", "openai.critical_api_key"}),
+    "supervisor.mail_worker.transport": frozenset({"smtp.pass"}),
 }
 
 CRITICAL_SECRET_KEYS: frozenset[str] = frozenset({"openai.critical_api_key"})

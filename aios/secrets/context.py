@@ -22,6 +22,7 @@ class ContextFactory:
     _REGISTRY: ClassVar[dict[str, tuple[str, bool]]] = {
         "interactive_cli": ("standard", False),
         "ui.test_connection": ("standard", False),
+        "supervisor.mail_worker.transport": ("elevated", True),
         "supervisor.autonomy_promotion_gate": ("elevated", True),
         "supervisor.autonomy_review_intake_gate": ("elevated", True),
         "supervisor.autonomy_task_materializer": ("elevated", True),
@@ -100,6 +101,21 @@ class ContextFactory:
     ) -> SecretAccessContext:
         return cls.from_id(
             "supervisor.autonomy_promotion_gate",
+            agent_id=agent_id,
+            epoch_id=epoch_id,
+            approval_token=approval_token,
+        )
+
+    @classmethod
+    def supervisor_mail_worker_transport(
+        cls,
+        *,
+        agent_id: str | None = None,
+        epoch_id: str | None = None,
+        approval_token: str | None = None,
+    ) -> SecretAccessContext:
+        return cls.from_id(
+            "supervisor.mail_worker.transport",
             agent_id=agent_id,
             epoch_id=epoch_id,
             approval_token=approval_token,
