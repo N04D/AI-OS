@@ -1,0 +1,2 @@
+/data/srv/aios/AI-OS/scripts/security/attack_harness.sh:11:#   ATTACK_SECRET_STRING=SUPER_SECRET_TEST_ABC_123 ./scripts/security/attack_harness.sh
+/data/srv/aios/AI-OS/scripts/security/attack_harness.sh:31:: "${ATTACK_SECRET_STRING:=SUPER_SECRET_TEST_ABC_123}"

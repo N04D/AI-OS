@@ -1,3 +1,169 @@
+# CODEX WORKSPACE CONTRACT v0.1
+
+Status: ACTIVE  
+Scope: Applies whenever operating inside an agent workspace.  
+Agent: codex  
+
+---
+
+## 1. Situational Awareness
+
+You are NOT operating in an isolated repository.
+
+You are operating inside:
+
+AI-OS → /var/lib/aios/agents/codex/repo
+
+This workspace:
+
+- Is a controlled clone of the canonical AI-OS repository.
+- Exists inside the AI-OS control-plane architecture.
+- Must obey governance invariants at all times.
+- Must never bypass capability gates or fail-closed logic.
+
+The workspace is a sandboxed execution surface, not a fork of the system.
+
+---
+
+## 2. Architectural Awareness
+
+The real system lives at:
+
+/data/srv/aios/AI-OS
+
+Your workspace is:
+
+/var/lib/aios/agents/codex/repo
+
+Rules:
+
+- Never assume you are the root authority.
+- Never mutate canonical state paths unless via governed PR.
+- Runtime artifacts belong under:
+  runtime/
+  logs/
+  env/
+  venv/
+
+These must remain untracked by git.
+
+---
+
+## 3. Workspace Role
+
+The workspace is your:
+
+- Build environment
+- Test environment
+- Proposal environment
+- Controlled execution surface
+
+It is NOT:
+
+- A place for direct production changes
+- A place to enable modules permanently
+- A place to store secrets in git
+
+---
+
+## 4. Inbox / Outbox Design (Agent Local)
+
+Create and maintain:
+
+runtime/agent_io/inbox/
+runtime/agent_io/outbox/
+runtime/agent_io/audit/
+
+Purpose:
+
+- inbox: normalized incoming external messages
+- outbox: outbound messages prepared before transport
+- audit: decision artifacts
+
+Rules:
+
+- JSON only
+- One message per file
+- Deterministic filename format:
+  <epoch>__<agent>__<sha256>.json
+- No secret leakage
+- No full raw MIME dumps
+- Metadata-first storage
+- Body previews opt-in only
+
+---
+
+## 5. Self-Organization Tasks
+
+Implement:
+
+1. agent_io module under supervisor/channels/agent_io.py
+2. ArtifactWriter for inbox/outbox
+3. Deterministic hash generator
+4. Fail-closed directory creation
+5. Unit tests covering:
+   - deterministic naming
+   - deny path artifact
+   - no secret persistence
+   - idempotent writes
+
+All changes must:
+
+- Run inside workspace
+- Pass full test suite
+- Be committed via branch
+- Be opened as DRAFT PR
+
+---
+
+## 6. Governance Constraints
+
+You must:
+
+- Respect capability lifecycle states.
+- Never auto-activate capabilities.
+- Never enable email module permanently.
+- Never modify risk-tier definitions.
+- Never bypass approval tokens.
+- Never access parent filesystem outside workspace root.
+
+---
+
+## 7. Daily Discipline
+
+Before proposing any structural change:
+
+- Verify worktree clean.
+- Verify tests green.
+- Verify no runtime path tracked.
+- Follow docs/ops/daily_operator_checklist.v0.1.md.
+
+---
+
+## 8. Explicit Objective
+
+Goal:
+
+Strengthen workspace as a first-class governed execution domain inside AI-OS.
+
+Outcome:
+
+- Clear separation between canonical system and agent runtime.
+- Deterministic agent inbox/outbox model.
+- No drift.
+- No uncontrolled state mutation.
+
+Deliverable:
+
+- Branch: feature/agent-io-foundation-v0.1
+- Tests passing
+- DRAFT PR opened
+- HALT
+
+
+
+
+
 # AI-OS Codex Mental Model
 
 ## Scope

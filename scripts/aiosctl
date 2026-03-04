@@ -15,8 +15,6 @@ else
   exit 22
 fi
 
-SECRETS_DIR="${SECRETS_DIR:-$REPO_ROOT/.secrets}"
-
 if [ -f "$ENV_FILE" ]; then
   while IFS= read -r raw_line || [ -n "$raw_line" ]; do
     line="${raw_line%$'\r'}"
@@ -40,18 +38,6 @@ if [ -f "$ENV_FILE" ]; then
       export "$key=$value"
     fi
   done <"$ENV_FILE"
-fi
-
-if [ -z "${GITEA_TOKEN:-}" ]; then
-  if [ -f "$SECRETS_DIR/gitea_token" ]; then
-    export GITEA_TOKEN="$(cat "$SECRETS_DIR/gitea_token")"
-  fi
-fi
-
-if [ -z "${GITEA_BASE_URL:-}" ]; then
-  if [ -f "$SECRETS_DIR/gitea_base_url" ]; then
-    export GITEA_BASE_URL="$(cat "$SECRETS_DIR/gitea_base_url")"
-  fi
 fi
 
 DEFAULT_HOST_STATE_DIR="${REPO_ROOT}/state"

@@ -141,6 +141,7 @@ Rule: Each checkbox may only be checked when:
 - [x] Event schema unchanged
 - [x] All tests pass
 - [x] Feature flags documented
+- [x] `scripts/security/attack_harness.sh` passed (`20260303T215100Z`, artifact: `artifacts/security_attack_harness/20260303T215100Z`)
 
 ---
 
