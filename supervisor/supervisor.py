@@ -86,6 +86,8 @@ from executor.secure_execution_layer.audit_artifact_sink import (
 )
 from executor.secure_execution_layer.audit_event_taxonomy import AuditEvent
 from orchestrator.git import create_governed_commit
+from aios.secrets.context import ContextFactory
+from aios.secrets.integration import resolve_gitea_token
 
 TTL_SECONDS = 1800
 PR_GATE_TARGET_BRANCHES = {"main", "develop"}
@@ -299,12 +301,7 @@ def _auth_headers(env):
         or env.get("auth_token")
     )
     if not token:
-        token = None
-        try:
-            import os
-            token = os.environ.get("GITEA_TOKEN")
-        except Exception:
-            token = None
+        token = resolve_gitea_token(context=ContextFactory.supervisor_auth_headers())
 
     headers = {}
     if token:

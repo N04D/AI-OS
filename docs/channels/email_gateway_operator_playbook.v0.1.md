@@ -134,3 +134,33 @@ If unexpected behavior occurs:
 
 Always use `tools/email_safe_run.sh` for manual operations.  
 Do not manually keep the module enabled between runs.
+
+## 9) Systemd Auto Loop (Optional)
+
+To run inbox polling + outbox sending automatically in background:
+
+```bash
+chmod +x tools/email_auto_systemd_entry.sh tools/install_email_auto_systemd.sh
+tools/install_email_auto_systemd.sh install \
+  --smtp-user nova69.agent@gmail.com \
+  --smtp-from nova69.agent@gmail.com \
+  --agent codex
+```
+
+Check status/logs:
+
+```bash
+tools/install_email_auto_systemd.sh status
+journalctl --user -u aios-email-auto.service -f
+```
+
+Stop/remove:
+
+```bash
+tools/install_email_auto_systemd.sh uninstall
+```
+
+Notes:
+
+- SMTP password is read from secrets manager key `smtp.pass`.
+- Runtime config is stored in `~/.config/aios/email_auto.env` (mode `600`).

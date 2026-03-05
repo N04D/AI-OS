@@ -1,11 +1,13 @@
 {
   "email.poll": {
-    "activated_by": null,
-    "approved_by": null,
-    "granted": false,
+    "activated_by": "Don",
+    "approved_by": "Don",
+    "granted": true,
     "proposal_issue": null,
-    "state": "IMPLEMENTED_NOT_ACTIVE",
-    "timestamps": {}
+    "state": "ACTIVE",
+    "timestamps": {
+      "IMPLEMENTED_NOT_ACTIVE->ACTIVE": "2026-03-01T00:00:00Z"
+    }
   },
   "email.send": {
     "activated_by": "Don",

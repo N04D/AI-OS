@@ -1101,7 +1101,7 @@ def test_cli_night_run_success_uses_default_paths(tmp_path: Path, monkeypatch) -
 
     monkeypatch.setattr("supervisor.cli.NightModeRunner", _StubRunner)
     monkeypatch.setenv("GITEA_BASE_URL", "http://127.0.0.1:3000")
-    monkeypatch.setenv("GITEA_TOKEN", "token")
+    monkeypatch.setattr("supervisor.cli.resolve_gitea_token", lambda **_kwargs: "token")
     monkeypatch.setenv("GITEA_REPO", "org/repo")
     monkeypatch.setenv("NIGHT_AGENT_ID", "night-mode")
 

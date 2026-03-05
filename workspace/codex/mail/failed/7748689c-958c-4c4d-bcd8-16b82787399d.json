@@ -1,0 +1,1 @@
+{"attempts": 3, "body": "Testbericht vanuit AI-OS. Kun je bevestigen dat je deze hebt ontvangen?", "error": "SMTPAuthenticationError", "id": "7748689c-958c-4c4d-bcd8-16b82787399d", "last_error": "SMTPAuthenticationError", "status": "failed", "subject": "AI-OS mail test 20:47:52", "timestamp": "2026-03-05T20:47:52.510670Z", "to": "don.berghuijs@gmail.com"}

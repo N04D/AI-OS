@@ -60,7 +60,10 @@ exit 0
             env["PATH"] = f"{tmp / 'bin'}:{env.get('PATH', '')}"
             env["OBSERVED_PYTHON_ARGS"] = str(observed)
 
-            master_fd, slave_fd = pty.openpty()
+            try:
+                master_fd, slave_fd = pty.openpty()
+            except OSError as exc:
+                self.skipTest(f"pty unavailable in test environment: {exc}")
             try:
                 proc = subprocess.run(
                     ["bash", str(dst)],

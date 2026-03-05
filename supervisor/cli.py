@@ -74,6 +74,10 @@ from supervisor.agent_workspace import sync_workspace
 from supervisor.channels.email_gateway import EmailGatewayError
 from supervisor.channels.email_gateway import poll_email_direct
 from supervisor.channels.email_gateway import send_email_direct
+from aios.secrets.cli.secrets import add_secrets_subparser
+from aios.secrets.context import ContextFactory
+from aios.secrets.integration import resolve_gitea_token
+from supervisor.gitea_config import resolve_gitea_base_url
 
 
 DRYRUN_QUEUE_YAML = """\
@@ -409,8 +413,10 @@ def _cmd_autonomy_promote(args: argparse.Namespace) -> tuple[int, dict[str, Any]
                 {
                     "status": "error",
                     "reason": reason,
-                    "expected_env_key": "GITEA_TOKEN",
-                    "token_present": bool(str(os.environ.get("GITEA_TOKEN", "")).strip()),
+                    "expected_secret_key": "gitea.token",
+                    "token_present": bool(
+                        resolve_gitea_token(context=ContextFactory.supervisor_autonomy_promotion_gate())
+                    ),
                 },
                 "gate:promotion",
             )
@@ -792,8 +798,8 @@ def _cmd_autonomy_improvement_budget_consume(args: argparse.Namespace) -> tuple[
 
 def _cmd_night_run(args: argparse.Namespace) -> tuple[int, dict[str, Any], str]:
     source = str(getattr(args, "source", "gitea")).strip().lower()
-    gitea_base_url = str(os.environ.get("GITEA_BASE_URL", "")).strip()
-    gitea_token = str(os.environ.get("GITEA_TOKEN", "")).strip()
+    gitea_base_url = resolve_gitea_base_url()
+    gitea_token = resolve_gitea_token(context=ContextFactory.supervisor_cli_night_run())
     gitea_repo = str(os.environ.get("GITEA_REPO", "")).strip()
     night_agent_id = str(os.environ.get("NIGHT_AGENT_ID", "")).strip() or "night-mode"
 
@@ -1070,6 +1076,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("console", help="Launch interactive aiosctl console")
+    add_secrets_subparser(subparsers)
 
     autonomy = subparsers.add_parser("autonomy", help="Autonomy control commands")
     autonomy_sub = autonomy.add_subparsers(dest="autonomy_command", required=True)
@@ -1346,6 +1353,29 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"pr_id: {payload.get('pr_id', '')}")
                 if payload.get("tier"):
                     print(f"tier: {payload.get('tier', '')}")
+            elif kind == "secrets":
+                print(f"status: {payload.get('status', '')}")
+                if payload.get("backend"):
+                    print(f"backend: {payload.get('backend', '')}")
+                if payload.get("initialized") is not None:
+                    print(f"initialized: {payload.get('initialized')}")
+                if payload.get("key"):
+                    print(f"key: {payload.get('key', '')}")
+                if payload.get("stored") is not None:
+                    print(f"stored: {payload.get('stored')}")
+                if payload.get("value_redacted"):
+                    print(f"value: {payload.get('value_redacted', '')}")
+                if payload.get("keys") is not None:
+                    for item in payload.get("keys", []):
+                        print(item)
+                if payload.get("message"):
+                    print(f"message: {payload.get('message', '')}")
+                if payload.get("notice"):
+                    print(f"notice: {payload.get('notice', '')}")
+                if payload.get("moved") is not None:
+                    print(f"moved: {payload.get('moved')}")
+                if payload.get("failed") is not None:
+                    print(f"failed: {payload.get('failed')}")
             else:
                 print(json.dumps(payload, sort_keys=True))
         return int(exit_code)

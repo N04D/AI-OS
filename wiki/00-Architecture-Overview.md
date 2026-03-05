@@ -17,6 +17,7 @@ supervisor.cli -> supervisor.scheduler.* -> kernel.events.emit -> kernel.dispatc
              \-> supervisor.capabilities.guard (ledger + emergency deny-list)
              \-> supervisor.budgets.store (daily UTC budget enforcement)
              \-> orchestrator.git.create_governed_commit (mutation boundary + budget)
+             \-> supervisor.channels.email_gateway (governed send/poll)
 
 Phase K module (new, standalone):
   autonomy_budget.engine.BudgetEngine
@@ -33,6 +34,7 @@ Phase K module (new, standalone):
 - `orchestrator/git.py`: governed commit path and mutation boundary budget check.
 - `kernel/events.py` and `kernel/dispatch.py`: event fan-out and plugin method dispatch.
 - `autonomy_budget/engine.py`: Phase K policy-driven trust/risk/skill-quota + ledger subsystem.
+- `supervisor/channels/email_gateway.py` + `tools/mail_worker.py`: governed email send/poll + queued SMTP worker.
 
 ### Canonical state and artifacts
 - Scheduler config: `state/scheduler_jobs.json`
@@ -67,7 +69,7 @@ Phase K module (new, standalone):
 ## Known Limitations / TODOs
 - Phase K engine is implemented and tested but not yet wired into `supervisor.cli` command tree.
 - Some legacy autonomy budget modules (`supervisor/autonomy_budget.py`, `supervisor/autonomy_budget_gate.py`) coexist with Phase J/Phase K paths.
-- Default runtime still depends on explicit operator `tick`; no autonomous daemon loop.
+- Scheduler runtime still depends on explicit operator `tick`; optional user-level systemd daemon exists for email auto loop.
 
 ## Cross-links
 - [01 Governance Model](./01-Governance-Model.md)

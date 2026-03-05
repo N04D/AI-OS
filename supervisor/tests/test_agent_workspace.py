@@ -111,7 +111,8 @@ class AgentWorkspaceTests(unittest.TestCase):
             with (
                 patch("supervisor.agent_workspace._run_git", side_effect=fake_run_git),
                 patch("supervisor.agent_workspace._api_json_request", return_value=(201, {"number": 42, "html_url": "http://g/pr/42"})),
-                patch.dict("os.environ", {"GITEA_TOKEN": "token", "GITEA_BASE_URL": "http://127.0.0.1:3000"}, clear=False),
+                patch("supervisor.agent_workspace.resolve_gitea_token", return_value="token"),
+                patch.dict("os.environ", {"GITEA_BASE_URL": "http://127.0.0.1:3000"}, clear=False),
             ):
                 result = push_workspace_pr(
                     agent="delta",
