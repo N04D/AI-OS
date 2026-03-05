@@ -19,6 +19,10 @@ Define operator-facing configuration contracts and audit artifact formats curren
   - Shape: `{deny:[capability...], updated_at?}`
 - `governance_policy.yaml` (Phase K)
   - Strict keyset policy for trust/risk/skill quotas/ledger behavior
+- `config/channels/email_gateway.json`
+  - Email gateway module toggle + per-agent enable flags
+- `governance/policy/email_gateway.v0.1.json`
+  - Send/receive/reply allowlist policy envelope
 
 ### Plugin config and registry
 - Registry: `state/plugins/registry.json` (written by discovery/enable/disable flows)
@@ -32,6 +36,25 @@ Define operator-facing configuration contracts and audit artifact formats curren
 - Scheduler guarded_skill runs: `logs/control/scheduler_runs/<date>/...json`
 - Secure execution stream artifacts: `audit/streams/<stream_id>/<sequence>.audit.json`
 - Phase K budget ledger: `audit/budget_ledger/<epoch>.jsonl`
+- Email gateway audit: `logs/control/email_gateway_audit.jsonl`
+- Email gateway outbox artifacts: `runtime/channels/email_gateway/outbox/<agent>/...json`
+- Email gateway inbox artifacts: `runtime/channels/email_gateway/inbox/<agent>/...json`
+- Local worker queue artifacts: `workspace/<agent>/mail/{outbox,sent,failed}/*.json`
+
+### Email auto-loop (systemd user service)
+- Unit: `aios-email-auto.service`
+- Unit file: `~/.config/systemd/user/aios-email-auto.service`
+- Runtime env: `~/.config/aios/email_auto.env` (`0600`)
+- Entry script: `tools/email_auto_systemd_entry.sh`
+- Installer script: `tools/install_email_auto_systemd.sh`
+- Install/start:
+  - `tools/install_email_auto_systemd.sh install --smtp-user nova69.agent@gmail.com --smtp-from nova69.agent@gmail.com --agent codex`
+- Status:
+  - `tools/install_email_auto_systemd.sh status`
+- Live logs:
+  - `journalctl --user -u aios-email-auto.service -f`
+- Uninstall:
+  - `tools/install_email_auto_systemd.sh uninstall`
 
 ### Phase K ledger entry contract
 - JSONL, append-only, per epoch.
@@ -45,6 +68,7 @@ Define operator-facing configuration contracts and audit artifact formats curren
 - Invalid scheduler/job/state JSON rejects ticks.
 - Audit write failures return explicit error/deny outcomes.
 - Budget consumption writes only after validation; invalid state denies.
+- Email gateway denies on module/agent/capability/policy violations and writes deny audit events.
 
 ## Security Boundaries
 - Config files are treated as governance inputs; malformed files are denied.
