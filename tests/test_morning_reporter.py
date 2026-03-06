@@ -36,6 +36,8 @@ def test_generate_report_contains_required_sections_and_ideas(tmp_path: Path) ->
     assert report.count("Doel: ") >= 3
     assert report.count("Command: ") >= 3
     assert report.count("Check: ") >= 3
+    assert "Implementeer idee 1: [Skills] Skill-linter uitbreiden met link-depth checks" in report
+    assert "Implementeer idee 5: [Modules] Actie-items generator voor ochtendtest" in report
     assert "python3 tools/skill_linter.py --root" in report
     assert "pytest -q tests/test_morning_reporter.py tests/test_skill_linter.py" in report
     assert "python3 workspace/codex/night/tools/validate_morning_report.py" in report

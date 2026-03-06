@@ -106,6 +106,28 @@ Zie [guide](references/guide.md).
     assert any(issue.severity == "error" for issue in result_depth_2_strict.issues)
 
 
+def test_lint_skill_file_reports_link_escaping_skill_directory(tmp_path: Path) -> None:
+    skill_dir = tmp_path / "escape-skill"
+    shared_dir = tmp_path / "shared"
+    skill_dir.mkdir(parents=True)
+    shared_dir.mkdir(parents=True)
+    (shared_dir / "guide.md").write_text("# Shared guide\n", encoding="utf-8")
+    (skill_dir / "SKILL.md").write_text(
+        """---
+name: escape-skill
+description: Test
+---
+
+Zie [shared guide](../shared/guide.md).
+""",
+        encoding="utf-8",
+    )
+
+    result = lint_skill_file(skill_dir / "SKILL.md", link_depth=2)
+    codes = {issue.code for issue in result.issues}
+    assert "link_outside_skill" in codes
+
+
 def test_lint_skill_roots_discovers_nested_skills(tmp_path: Path) -> None:
     root = tmp_path / ".codex" / "skills" / ".system"
     skill_a = root / "alpha"

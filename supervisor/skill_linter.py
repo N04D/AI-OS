@@ -96,6 +96,7 @@ def _normalized_internal_targets(markdown: str) -> Iterable[str]:
 def _check_links_for_file(
     *,
     root_doc: Path,
+    skill_root: Path,
     current_doc: Path,
     current_text: str,
     current_depth: int,
@@ -114,6 +115,19 @@ def _check_links_for_file(
             issues.append(LintIssue("link_absolute_path", f"absolute link path is not allowed: {raw_target}"))
             continue
         resolved = (current_doc.parent / raw_target).resolve()
+        try:
+            resolved.relative_to(skill_root)
+        except ValueError:
+            issues.append(
+                LintIssue(
+                    "link_outside_skill",
+                    (
+                        "referenced path escapes skill directory at depth "
+                        f"{current_depth}: {raw_target}"
+                    ),
+                )
+            )
+            continue
         if not resolved.exists():
             if current_depth == 1:
                 issues.append(LintIssue("link_missing", f"referenced path does not exist: {raw_target}"))
@@ -146,6 +160,7 @@ def _check_links_for_file(
             continue
         _check_links_for_file(
             root_doc=root_doc,
+            skill_root=skill_root,
             current_doc=resolved,
             current_text=nested_text,
             current_depth=current_depth + 1,
@@ -199,6 +214,7 @@ def lint_skill_file(path: Path, *, link_depth: int = 1, strict_links: bool = Fal
     depth = max(1, link_depth)
     _check_links_for_file(
         root_doc=path,
+        skill_root=path.parent.resolve(),
         current_doc=path,
         current_text=body,
         current_depth=1,

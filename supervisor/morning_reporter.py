@@ -163,34 +163,49 @@ def _health_label(tasks_failed: int, violations: int) -> str:
     return "rood"
 
 
-def _generate_action_items(*, summary_path: Path, linter_root: Path | None) -> list[ActionItem]:
+def _command_for_idea(*, idea: Idea, summary_path: Path, linter_root: Path | None) -> str:
     lint_root = linter_root or (Path.home() / ".codex" / "skills")
     report_out = Path("workspace/codex/night/reports/morning_test_preview.md")
     validator = Path("workspace/codex/night/tools/validate_morning_report.py")
-    return [
-        ActionItem(
-            task="Run skill-linter met link-depth 2",
-            goal="Vroeg detecteren van ontbrekende tweede-lijns skill-references.",
-            command=f"python3 tools/skill_linter.py --root {lint_root} --link-depth 2 --strict-links",
-            check="Command exitcode is 0 en summary meldt `errors=0`.",
-        ),
+    if idea.idx == 1:
+        return f"python3 tools/skill_linter.py --root {lint_root} --link-depth 2 --strict-links"
+    if idea.idx == 5:
+        return (
+            "python3 -m supervisor.morning_reporter "
+            f"--summary-path {summary_path} --night-status ok --linter-root {lint_root} "
+            f"--output {report_out} && python3 {validator} {report_out}"
+        )
+    return "pytest -q tests/test_morning_reporter.py tests/test_skill_linter.py"
+
+
+def _generate_action_items(
+    *,
+    top3: list[Idea],
+    favorite: Idea,
+    summary_path: Path,
+    linter_root: Path | None,
+) -> list[ActionItem]:
+    selected = [idea for idea in top3 if idea.idx != favorite.idx][:2]
+    action_items: list[ActionItem] = []
+    for idea in selected:
+        action_items.append(
+            ActionItem(
+                task=f"Implementeer idee {idea.idx}: [{idea.category}] {idea.title}",
+                goal=idea.impact,
+                command=_command_for_idea(idea=idea, summary_path=summary_path, linter_root=linter_root),
+                check=idea.acceptance,
+            )
+        )
+
+    action_items.append(
         ActionItem(
             task="Draai gerichte regressietests voor report + linter",
             goal="Bevestigen dat ochtendrapport en link-depth linting stabiel blijven.",
             command="pytest -q tests/test_morning_reporter.py tests/test_skill_linter.py",
             check="Pytest toont alle geselecteerde tests als geslaagd.",
-        ),
-        ActionItem(
-            task="Genereer en valideer een lokale ochtendrapport-preview",
-            goal="Valideren dat report-opmaak en verplichte secties correct blijven.",
-            command=(
-                "python3 -m supervisor.morning_reporter "
-                f"--summary-path {summary_path} --night-status ok --linter-root {lint_root} "
-                f"--output {report_out} && python3 {validator} {report_out}"
-            ),
-            check="Validator retourneert `OK` voor de gegenereerde preview.",
-        ),
-    ]
+        )
+    )
+    return action_items
 
 
 def generate_report(
@@ -233,7 +248,12 @@ def generate_report(
     ideas = _build_ideas(tasks_executed, tasks_failed, violations)
     favorite = max(ideas, key=lambda idea: (idea.score, -idea.idx))
     top3 = sorted(ideas, key=lambda idea: (idea.score, -idea.idx), reverse=True)[:3]
-    action_items = _generate_action_items(summary_path=summary_path, linter_root=linter_root)
+    action_items = _generate_action_items(
+        top3=top3,
+        favorite=favorite,
+        summary_path=summary_path,
+        linter_root=linter_root,
+    )
 
     lines: list[str] = []
     lines.append("**Night-run Resultaat**")
