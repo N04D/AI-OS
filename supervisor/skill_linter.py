@@ -15,6 +15,7 @@ _MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 class LintIssue:
     code: str
     message: str
+    severity: str = "error"
 
 
 @dataclass(frozen=True)
@@ -24,7 +25,15 @@ class SkillLintResult:
 
     @property
     def ok(self) -> bool:
-        return not self.issues
+        return self.error_count == 0
+
+    @property
+    def error_count(self) -> int:
+        return sum(1 for issue in self.issues if issue.severity == "error")
+
+    @property
+    def warning_count(self) -> int:
+        return sum(1 for issue in self.issues if issue.severity == "warning")
 
 
 def _load_yaml(raw: str) -> object:
@@ -91,6 +100,7 @@ def _check_links_for_file(
     current_text: str,
     current_depth: int,
     max_depth: int,
+    strict_links: bool,
     issues: list[LintIssue],
     seen: set[tuple[Path, int]],
 ) -> None:
@@ -108,6 +118,7 @@ def _check_links_for_file(
             if current_depth == 1:
                 issues.append(LintIssue("link_missing", f"referenced path does not exist: {raw_target}"))
             else:
+                nested_severity = "error" if strict_links else "warning"
                 try:
                     rel_doc = current_doc.relative_to(root_doc.parent)
                 except ValueError:
@@ -119,6 +130,7 @@ def _check_links_for_file(
                             "referenced path does not exist at depth "
                             f"{current_depth}: {raw_target} (from {rel_doc})"
                         ),
+                        severity=nested_severity,
                     )
                 )
             continue
@@ -138,12 +150,13 @@ def _check_links_for_file(
             current_text=nested_text,
             current_depth=current_depth + 1,
             max_depth=max_depth,
+            strict_links=strict_links,
             issues=issues,
             seen=seen,
         )
 
 
-def lint_skill_file(path: Path, *, link_depth: int = 1) -> SkillLintResult:
+def lint_skill_file(path: Path, *, link_depth: int = 1, strict_links: bool = False) -> SkillLintResult:
     issues: list[LintIssue] = []
     text = path.read_text(encoding="utf-8")
     frontmatter, body, parse_issues = _parse_frontmatter(text)
@@ -190,6 +203,7 @@ def lint_skill_file(path: Path, *, link_depth: int = 1) -> SkillLintResult:
         current_text=body,
         current_depth=1,
         max_depth=depth,
+        strict_links=strict_links,
         issues=issues,
         seen=set(),
     )
@@ -208,8 +222,13 @@ def discover_skill_files(roots: list[Path]) -> list[Path]:
     return sorted(found)
 
 
-def lint_skill_roots(roots: list[Path], *, link_depth: int = 1) -> list[SkillLintResult]:
-    return [lint_skill_file(path, link_depth=link_depth) for path in discover_skill_files(roots)]
+def lint_skill_roots(
+    roots: list[Path],
+    *,
+    link_depth: int = 1,
+    strict_links: bool = False,
+) -> list[SkillLintResult]:
+    return [lint_skill_file(path, link_depth=link_depth, strict_links=strict_links) for path in discover_skill_files(roots)]
 
 
 def _default_roots() -> list[Path]:
@@ -230,6 +249,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=1,
         help="Depth for recursive markdown link validation (default: 1)",
     )
+    parser.add_argument(
+        "--strict-links",
+        action="store_true",
+        help="Treat missing recursive links beyond depth 1 as errors",
+    )
     return parser.parse_args(argv)
 
 
@@ -237,23 +261,33 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     roots = [Path(p).expanduser() for p in args.root] if args.root else _default_roots()
     link_depth = max(1, int(args.link_depth or 1))
-    results = lint_skill_roots(roots, link_depth=link_depth)
+    results = lint_skill_roots(roots, link_depth=link_depth, strict_links=bool(args.strict_links))
     if not results:
         print("No SKILL.md files found.")
         return 1
 
     issue_count = 0
+    error_count = 0
+    warning_count = 0
     for result in results:
-        if result.ok:
+        issue_count += len(result.issues)
+        error_count += result.error_count
+        warning_count += result.warning_count
+        if result.error_count == 0 and result.warning_count == 0:
             print(f"OK {result.path}")
             continue
-        print(f"FAIL {result.path}")
+        if result.error_count > 0:
+            print(f"FAIL {result.path}")
+        else:
+            print(f"WARN {result.path}")
         for issue in result.issues:
-            issue_count += 1
-            print(f"  - {issue.code}: {issue.message}")
+            print(f"  - {issue.severity}: {issue.code}: {issue.message}")
 
-    print(f"Summary: skills={len(results)} issues={issue_count}")
-    return 0 if issue_count == 0 else 1
+    print(
+        f"Summary: skills={len(results)} issues={issue_count} "
+        f"errors={error_count} warnings={warning_count}"
+    )
+    return 0 if error_count == 0 else 1
 
 
 if __name__ == "__main__":

@@ -25,6 +25,7 @@ class Idea:
 class ActionItem:
     task: str
     goal: str
+    command: str
     check: str
 
 
@@ -162,18 +163,34 @@ def _health_label(tasks_failed: int, violations: int) -> str:
     return "rood"
 
 
-def _generate_action_items(ideas: list[Idea]) -> list[ActionItem]:
-    top = sorted(ideas, key=lambda idea: (idea.score, -idea.idx), reverse=True)[:3]
-    items: list[ActionItem] = []
-    for idea in top:
-        items.append(
-            ActionItem(
-                task=f"Implementeer idee {idea.idx}: [{idea.category}] {idea.title}",
-                goal=idea.impact,
-                check=idea.acceptance,
-            )
-        )
-    return items
+def _generate_action_items(*, summary_path: Path, linter_root: Path | None) -> list[ActionItem]:
+    lint_root = linter_root or (Path.home() / ".codex" / "skills")
+    report_out = Path("workspace/codex/night/reports/morning_test_preview.md")
+    validator = Path("workspace/codex/night/tools/validate_morning_report.py")
+    return [
+        ActionItem(
+            task="Run skill-linter met link-depth 2",
+            goal="Vroeg detecteren van ontbrekende tweede-lijns skill-references.",
+            command=f"python3 tools/skill_linter.py --root {lint_root} --link-depth 2 --strict-links",
+            check="Command exitcode is 0 en summary meldt `errors=0`.",
+        ),
+        ActionItem(
+            task="Draai gerichte regressietests voor report + linter",
+            goal="Bevestigen dat ochtendrapport en link-depth linting stabiel blijven.",
+            command="pytest -q tests/test_morning_reporter.py tests/test_skill_linter.py",
+            check="Pytest toont alle geselecteerde tests als geslaagd.",
+        ),
+        ActionItem(
+            task="Genereer en valideer een lokale ochtendrapport-preview",
+            goal="Valideren dat report-opmaak en verplichte secties correct blijven.",
+            command=(
+                "python3 -m supervisor.morning_reporter "
+                f"--summary-path {summary_path} --night-status ok --linter-root {lint_root} "
+                f"--output {report_out} && python3 {validator} {report_out}"
+            ),
+            check="Validator retourneert `OK` voor de gegenereerde preview.",
+        ),
+    ]
 
 
 def generate_report(
@@ -182,6 +199,8 @@ def generate_report(
     summary_path: Path,
     night_status: str,
     linter_root: Path | None = None,
+    linter_link_depth: int = 2,
+    linter_strict_links: bool = False,
 ) -> str:
     epoch = str(summary.get("epoch", "onbekend"))
     tasks_executed = int(summary.get("tasks_executed", 0) or 0)
@@ -193,20 +212,28 @@ def generate_report(
 
     skill_lint_line = "- Skill-linter: niet uitgevoerd."
     if linter_root is not None:
-        lint_results = lint_skill_roots([linter_root])
+        lint_results = lint_skill_roots(
+            [linter_root],
+            link_depth=max(1, int(linter_link_depth)),
+            strict_links=bool(linter_strict_links),
+        )
         if lint_results:
             skills_total = len(lint_results)
             skills_with_issues = sum(0 if result.ok else 1 for result in lint_results)
-            issue_count = sum(len(result.issues) for result in lint_results)
+            error_count = sum(result.error_count for result in lint_results)
+            warning_count = sum(result.warning_count for result in lint_results)
+            issue_count = error_count + warning_count
             skill_lint_line = (
                 f"- Skill-linter: `skills={skills_total}`, `skills_with_issues={skills_with_issues}`, "
-                f"`issues={issue_count}` (root: `{linter_root}`)."
+                f"`issues={issue_count}`, `errors={error_count}`, `warnings={warning_count}`, "
+                f"`link_depth={max(1, int(linter_link_depth))}`, "
+                f"`strict_links={bool(linter_strict_links)}` (root: `{linter_root}`)."
             )
 
     ideas = _build_ideas(tasks_executed, tasks_failed, violations)
     favorite = max(ideas, key=lambda idea: (idea.score, -idea.idx))
     top3 = sorted(ideas, key=lambda idea: (idea.score, -idea.idx), reverse=True)[:3]
-    action_items = _generate_action_items(ideas)
+    action_items = _generate_action_items(summary_path=summary_path, linter_root=linter_root)
 
     lines: list[str] = []
     lines.append("**Night-run Resultaat**")
@@ -248,6 +275,7 @@ def generate_report(
     for idx, item in enumerate(action_items, start=1):
         lines.append(f"{idx}. Taak: {item.task}")
         lines.append(f"Doel: {item.goal}")
+        lines.append(f"Command: `{item.command}`")
         lines.append(f"Check: {item.check}")
         lines.append("")
 
@@ -272,6 +300,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--summary-path", required=True)
     parser.add_argument("--night-status", default="unknown")
     parser.add_argument("--linter-root", default="")
+    parser.add_argument("--linter-link-depth", type=int, default=2)
+    parser.add_argument("--linter-strict-links", action="store_true")
     parser.add_argument("--output", default="")
     return parser.parse_args(argv)
 
@@ -286,6 +316,8 @@ def main(argv: list[str] | None = None) -> int:
         summary_path=summary_path,
         night_status=str(args.night_status),
         linter_root=linter_root,
+        linter_link_depth=max(1, int(args.linter_link_depth or 2)),
+        linter_strict_links=bool(args.linter_strict_links),
     )
     if args.output.strip():
         out = Path(args.output)

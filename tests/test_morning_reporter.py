@@ -32,9 +32,13 @@ def test_generate_report_contains_required_sections_and_ideas(tmp_path: Path) ->
     for i in range(1, 11):
         assert f"{i}. **[" in report
 
-    assert report.count("Taak: Implementeer idee") >= 3
+    assert report.count("Taak: ") >= 3
     assert report.count("Doel: ") >= 3
+    assert report.count("Command: ") >= 3
     assert report.count("Check: ") >= 3
+    assert "python3 tools/skill_linter.py --root" in report
+    assert "pytest -q tests/test_morning_reporter.py tests/test_skill_linter.py" in report
+    assert "python3 workspace/codex/night/tools/validate_morning_report.py" in report
 
 
 def test_generate_report_includes_linter_summary(tmp_path: Path) -> None:
