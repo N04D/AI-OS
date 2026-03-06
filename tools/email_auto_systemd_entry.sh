@@ -18,6 +18,7 @@ IMAP_HOST="${AIOS_EMAIL_IMAP_HOST:-imap.gmail.com}"
 IMAP_PORT="${AIOS_EMAIL_IMAP_PORT:-993}"
 IMAP_USER="${AIOS_EMAIL_IMAP_USER:-}"
 SMTP_PASS_SECRET_KEY="${AIOS_EMAIL_SMTP_PASS_SECRET_KEY:-smtp.pass}"
+KICK_SCRIPT="${AIOS_EMAIL_KICK_SCRIPT:-}"
 
 if [[ -z "$SMTP_USER" ]]; then
   echo "AIOS_EMAIL_SMTP_USER is required" >&2
@@ -49,6 +50,9 @@ if [[ -n "$FROM_CONTAINS" ]]; then
 fi
 if [[ -n "$SUBJECT_CONTAINS" ]]; then
   args+=("--subject-contains" "$SUBJECT_CONTAINS")
+fi
+if [[ -n "$KICK_SCRIPT" ]]; then
+  args+=("--kick-script" "$KICK_SCRIPT")
 fi
 
 exec .venv/bin/python "${args[@]}"

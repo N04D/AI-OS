@@ -14,3 +14,33 @@ For compatibility across repositories, harness discovery supports `./scripts/tes
 
 If the working tree is dirty at preflight, Night Mode must hard stop.
 No task execution or commit operations are allowed until a clean dedicated workspace is ready.
+
+## Automated Night Schedule (systemd user timer)
+
+Install a nightly run at 02:30 local time:
+
+```bash
+tools/install_night_mode_systemd.sh --on-calendar "*-*-* 02:30:00" --source local
+```
+
+Useful commands:
+
+```bash
+systemctl --user list-timers aios-night-mode.timer
+systemctl --user start aios-night-mode.service
+journalctl --user -u aios-night-mode.service -n 200 --no-pager
+```
+
+Set the receiver for local issue text like `Send an email to <YOUR_EMAIL> ...` in:
+
+`~/.config/aios/night_mode.env`:
+
+`AIOS_NIGHT_OPERATOR_EMAIL=you@example.com`
+
+Night-kick (reactie na elke run) staat op:
+
+`AIOS_NIGHT_KICK_SCRIPT=/home/n04d/AI-OS/tools/codex_night_kick.sh`
+
+Morning report output (dagelijks) staat standaard op:
+
+`workspace/codex/night/reports/YYYY-MM-DD.md`

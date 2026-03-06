@@ -23,6 +23,10 @@ Options for install:
   --imap-port <port>                 Default: 993
   --imap-user <email>                Optional (defaults to smtp-user)
   --smtp-pass-secret-key <key>       Default: smtp.pass
+  --kick-script <path>               Optional script called for each new inbound mail artifact
+  --kick-webhook-url <url>           Optional webhook endpoint for kick outputs
+  --kick-webhook-token <token>       Optional Bearer token for webhook
+  --kick-auto-reply <true|false>     Default: true
 
 Examples:
   tools/install_email_auto_systemd.sh install --smtp-user nova69.agent@gmail.com --smtp-from nova69.agent@gmail.com
@@ -66,6 +70,10 @@ IMAP_HOST="imap.gmail.com"
 IMAP_PORT="993"
 IMAP_USER=""
 SMTP_PASS_SECRET_KEY="smtp.pass"
+KICK_SCRIPT=""
+KICK_WEBHOOK_URL=""
+KICK_WEBHOOK_TOKEN=""
+KICK_AUTO_REPLY="true"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -83,6 +91,10 @@ while [[ $# -gt 0 ]]; do
     --imap-port) IMAP_PORT="${2:-}"; shift 2 ;;
     --imap-user) IMAP_USER="${2:-}"; shift 2 ;;
     --smtp-pass-secret-key) SMTP_PASS_SECRET_KEY="${2:-}"; shift 2 ;;
+    --kick-script) KICK_SCRIPT="${2:-}"; shift 2 ;;
+    --kick-webhook-url) KICK_WEBHOOK_URL="${2:-}"; shift 2 ;;
+    --kick-webhook-token) KICK_WEBHOOK_TOKEN="${2:-}"; shift 2 ;;
+    --kick-auto-reply) KICK_AUTO_REPLY="${2:-}"; shift 2 ;;
     *)
       echo "error: unknown argument: $1" >&2
       usage
@@ -115,6 +127,10 @@ AIOS_EMAIL_IMAP_HOST=$IMAP_HOST
 AIOS_EMAIL_IMAP_PORT=$IMAP_PORT
 AIOS_EMAIL_IMAP_USER=$IMAP_USER
 AIOS_EMAIL_SMTP_PASS_SECRET_KEY=$SMTP_PASS_SECRET_KEY
+AIOS_EMAIL_KICK_SCRIPT=$KICK_SCRIPT
+AIOS_EMAIL_KICK_WEBHOOK_URL=$KICK_WEBHOOK_URL
+AIOS_EMAIL_KICK_WEBHOOK_TOKEN=$KICK_WEBHOOK_TOKEN
+AIOS_EMAIL_KICK_AUTO_REPLY=$KICK_AUTO_REPLY
 EOF
   chmod 600 "$ENV_FILE"
 

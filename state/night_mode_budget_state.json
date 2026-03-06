@@ -1,0 +1,18 @@
+{
+  "budgets": {
+    "low_risk_pr_merge": {
+      "limit": 20,
+      "used": 0,
+      "window": "daily",
+      "window_start_utc": null
+    },
+    "scheduler_guarded_skill_run": {
+      "limit": 20,
+      "used": 3,
+      "window": "daily",
+      "window_start_utc": "2026-03-05T00:00:00Z"
+    }
+  },
+  "timezone": "UTC",
+  "version": "v0.1"
+}

@@ -164,3 +164,64 @@ Notes:
 
 - SMTP password is read from secrets manager key `smtp.pass`.
 - Runtime config is stored in `~/.config/aios/email_auto.env` (mode `600`).
+
+## 10) Channel Bridge Kick (Mail -> Internal Event)
+
+The auto loop now emits a channel event for each newly written inbox artifact:
+
+- Event type: `channel.email.message`
+- Source artifact: `runtime/channels/email_gateway/inbox/<agent>/...json`
+- Event audit: `logs/control/kernel-events.jsonl`
+- Dedupe ledger: `runtime/channels/email_gateway/bridge_seen.json`
+
+This gives the same "kick" model as other channels: inbound mail triggers internal event dispatch.
+
+For responders (for example Clawbot plugins), ensure:
+
+- plugin manifest includes subscription `channel.email.message`
+- plugin is enabled in plugin config
+- plugin can handle `on_event` payload with fields:
+  - `channel`, `from`, `to`, `subject`, `body`, `uid`, `artifact_path`, `epoch`
+
+Optional local Codex CLI kick (no API/webhook):
+
+```bash
+chmod +x tools/codex_email_kick.sh
+tools/install_email_auto_systemd.sh install \
+  --smtp-user nova69.agent@gmail.com \
+  --smtp-from nova69.agent@gmail.com \
+  --agent codex \
+  --kick-script /home/n04d/AI-OS/tools/codex_email_kick.sh
+```
+
+With `--kick-script`, every new inbound mail artifact runs the script once.
+
+Optional webhook fan-out for visible reactions:
+
+```bash
+tools/install_email_auto_systemd.sh install \
+  --smtp-user nova69.agent@gmail.com \
+  --smtp-from nova69.agent@gmail.com \
+  --agent codex \
+  --kick-script /home/n04d/AI-OS/tools/codex_email_kick.sh \
+  --kick-webhook-url "https://<your-endpoint>/email-kick" \
+  --kick-webhook-token "<token>"
+```
+
+Webhook payload:
+- `type`: `email_kick`
+- `artifact_path`: path to inbox artifact
+- `response`: last Codex message text from the kick run
+
+Automatic email reply from kick output:
+
+- Enabled by default when kick script is configured.
+- Control with installer option:
+  - `--kick-auto-reply true|false`
+- Runtime env:
+  - `AIOS_EMAIL_KICK_AUTO_REPLY=true|false`
+
+When enabled:
+- New inbound mail artifact triggers Codex kick.
+- Kick output is queued as a reply mail to the original sender.
+- `mail_worker` sends it on the next loop cycle.

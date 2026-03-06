@@ -45,6 +45,16 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
+# Reuse an existing repository venv when available so harness tooling
+# (pytest/mypy/etc.) is consistent with daytime runs.
+if [ ! -e ".venv" ] && [ -d "$REPO_ROOT/.venv" ]; then
+  ln -s "$REPO_ROOT/.venv" .venv
+fi
+if [ -f ".venv/bin/activate" ]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
 if [ -f ./scripts/test-all.sh ]; then
   HARNESS="./scripts/test-all.sh"
 elif [ -f ./script/test-all.sh ]; then

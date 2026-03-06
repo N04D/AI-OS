@@ -11,6 +11,15 @@
       "PROPOSAL_REQUIRED->PROPOSAL_APPROVED": "2026-02-28T23:45:00Z"
     }
   },
+  "email_send": {
+    "activated_by": "Don",
+    "approved_by": "Don",
+    "proposal_issue": 60,
+    "state": "ACTIVE",
+    "timestamps": {
+      "ACTIVATION_PENDING->ACTIVE": "2026-03-05T00:00:00Z"
+    }
+  },
   "pr_create": {
     "activated_by": "system",
     "approved_by": "system",
@@ -27,6 +36,15 @@
     "state": "ACTIVE",
     "timestamps": {
       "ACTIVATION_PENDING->ACTIVE": "2026-02-27T00:00:00Z"
+    }
+  },
+  "scheduler_guarded_skill_run": {
+    "activated_by": "Don",
+    "approved_by": "Don",
+    "proposal_issue": null,
+    "state": "ACTIVE",
+    "timestamps": {
+      "ACTIVATION_PENDING->ACTIVE": "2026-03-05T00:00:00Z"
     }
   },
   "tests_run": {

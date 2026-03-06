@@ -34,6 +34,7 @@ from supervisor.determinism_evidence import verify_determinism_evidence
 from supervisor.state_integrity import StateIntegrityError
 from supervisor.state_integrity import update_state_integrity_reference
 from supervisor.state_integrity import verify_state_integrity
+from supervisor.night_summary_schema import validate_night_summary
 
 
 class NightModeError(RuntimeError):
@@ -816,6 +817,60 @@ class NightModeRunner:
         return issues
 
     @staticmethod
+    def _resolve_operator_email() -> str:
+        for key in ("NIGHT_OPERATOR_EMAIL", "OPERATOR_EMAIL", "SMTP_USER"):
+            value = str(os.environ.get(key, "")).strip()
+            if value:
+                return value
+        return ""
+
+    @staticmethod
+    def _parse_simple_email_issue(body: str) -> tuple[str, str] | None:
+        match = re.fullmatch(
+            r"Send an email to\s+(.+?)\s+saying:\s*(.+?)(?:\.)?",
+            body.strip(),
+            flags=re.IGNORECASE,
+        )
+        if not match:
+            return None
+        target = match.group(1).strip()
+        message = match.group(2).strip()
+        if target.upper() in {"<YOUR_EMAIL>", "YOUR_EMAIL"}:
+            target = NightModeRunner._resolve_operator_email()
+        return (target.strip(), message.strip())
+
+    def _execute_simple_email_issue(self, issue_id: str, body: str) -> bool:
+        parsed = self._parse_simple_email_issue(body)
+        if not parsed:
+            return False
+        to_addr, message = parsed
+        if not to_addr:
+            raise NightModeError("DENY_STATE_INVALID", f"email_target_missing:{issue_id}")
+        subject = f"Night mode update ({issue_id})"
+        proc = subprocess.run(
+            [
+                "./tools/email_safe_run.sh",
+                "send",
+                "--agent",
+                "codex",
+                "--to",
+                to_addr,
+                "--subject",
+                subject,
+                "--body",
+                message,
+            ],
+            cwd=self.repo_root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            detail = (proc.stderr.strip() or proc.stdout.strip() or "queue_send_failed")
+            raise NightModeError("DENY_STATE_INVALID", f"email_send_failed:{issue_id}:{detail}")
+        return True
+
+    @staticmethod
     def _risk_tier_from_labels(labels: set[str]) -> str:
         lowered = {label.lower() for label in labels}
         if "high" in lowered or "risk:high" in lowered:
@@ -1543,7 +1598,25 @@ class NightModeRunner:
                     self._enforce_local_required_capability(issue_id, required_capability)
                 if is_self_improvement and not risk_tier:
                     raise NightModeError("DENY_STATE_INVALID", f"self_improvement_risk_tier_missing:{issue_id}")
-                tasks = self._parse_spec(issue_id, str(spec["body"]))
+                simple_email_handled = False
+                if not is_gitea_issue:
+                    simple_email_handled = self._execute_simple_email_issue(issue_id, str(spec["body"]))
+                if simple_email_handled:
+                    pseudo_task = AtomicTask(
+                        issue_id=issue_id,
+                        task_hash=sha256(f"{issue_id}:{spec['body']}".encode("utf-8")).hexdigest()[:16],
+                        commit_message=f"night:{issue_id}:email",
+                        commit_note="simple_email_issue",
+                        changeset=tuple(),
+                        risk_profile="MEDIUM",
+                        skill="git_commit",
+                    )
+                    self._guarded_allow(pseudo_task)
+                    summary["tasks_executed"] += 1
+                    summary["budget_used"] += 1
+                    tasks = []
+                else:
+                    tasks = self._parse_spec(issue_id, str(spec["body"]))
 
                 for task in tasks:
                     try:
@@ -1657,6 +1730,10 @@ class NightModeRunner:
         summary_root = self.repo_root / self.summary_dir
         _ensure_output_dir_writable(summary_root)
         summary_path = summary_root / f"{self.epoch_id}.json"
+        try:
+            summary = validate_night_summary(summary)
+        except ValueError as exc:
+            raise NightModeError("DENY_STATE_INVALID", f"night_summary_invalid:{exc}") from exc
         _atomic_write_text(summary_path, json.dumps(summary, sort_keys=True, indent=2, ensure_ascii=True) + "\n")
         self._notify_summary(summary)
         status = (
