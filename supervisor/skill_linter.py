@@ -4,6 +4,7 @@ import argparse
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable
 
 
 _ALLOWED_FRONTMATTER_KEYS = {"name", "description", "metadata"}
@@ -74,7 +75,75 @@ def _is_external_link(target: str) -> bool:
     return normalized.startswith(("http://", "https://", "mailto:", "#"))
 
 
-def lint_skill_file(path: Path) -> SkillLintResult:
+def _normalized_internal_targets(markdown: str) -> Iterable[str]:
+    body_no_code = _strip_fenced_code(markdown)
+    for target in _MARKDOWN_LINK_RE.findall(body_no_code):
+        raw_target = target.strip().strip("<>").split("#", 1)[0].split("?", 1)[0]
+        if not raw_target or _is_external_link(raw_target):
+            continue
+        yield raw_target
+
+
+def _check_links_for_file(
+    *,
+    root_doc: Path,
+    current_doc: Path,
+    current_text: str,
+    current_depth: int,
+    max_depth: int,
+    issues: list[LintIssue],
+    seen: set[tuple[Path, int]],
+) -> None:
+    state = (current_doc.resolve(), current_depth)
+    if state in seen:
+        return
+    seen.add(state)
+
+    for raw_target in _normalized_internal_targets(current_text):
+        if raw_target.startswith("/"):
+            issues.append(LintIssue("link_absolute_path", f"absolute link path is not allowed: {raw_target}"))
+            continue
+        resolved = (current_doc.parent / raw_target).resolve()
+        if not resolved.exists():
+            if current_depth == 1:
+                issues.append(LintIssue("link_missing", f"referenced path does not exist: {raw_target}"))
+            else:
+                try:
+                    rel_doc = current_doc.relative_to(root_doc.parent)
+                except ValueError:
+                    rel_doc = current_doc
+                issues.append(
+                    LintIssue(
+                        "link_missing",
+                        (
+                            "referenced path does not exist at depth "
+                            f"{current_depth}: {raw_target} (from {rel_doc})"
+                        ),
+                    )
+                )
+            continue
+
+        # Only recurse into markdown documents.
+        if current_depth >= max_depth or not resolved.is_file():
+            continue
+        if resolved.suffix.lower() not in {".md", ".markdown"}:
+            continue
+        try:
+            nested_text = resolved.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        _check_links_for_file(
+            root_doc=root_doc,
+            current_doc=resolved,
+            current_text=nested_text,
+            current_depth=current_depth + 1,
+            max_depth=max_depth,
+            issues=issues,
+            seen=seen,
+        )
+
+
+def lint_skill_file(path: Path, *, link_depth: int = 1) -> SkillLintResult:
     issues: list[LintIssue] = []
     text = path.read_text(encoding="utf-8")
     frontmatter, body, parse_issues = _parse_frontmatter(text)
@@ -114,17 +183,16 @@ def lint_skill_file(path: Path) -> SkillLintResult:
     if not body.strip():
         issues.append(LintIssue("body_missing", "skill body must contain markdown instructions"))
 
-    body_no_code = _strip_fenced_code(body)
-    for target in _MARKDOWN_LINK_RE.findall(body_no_code):
-        raw_target = target.strip().strip("<>").split("#", 1)[0].split("?", 1)[0]
-        if not raw_target or _is_external_link(raw_target):
-            continue
-        if raw_target.startswith("/"):
-            issues.append(LintIssue("link_absolute_path", f"absolute link path is not allowed: {target.strip()}"))
-            continue
-        resolved = (path.parent / raw_target).resolve()
-        if not resolved.exists():
-            issues.append(LintIssue("link_missing", f"referenced path does not exist: {raw_target}"))
+    depth = max(1, link_depth)
+    _check_links_for_file(
+        root_doc=path,
+        current_doc=path,
+        current_text=body,
+        current_depth=1,
+        max_depth=depth,
+        issues=issues,
+        seen=set(),
+    )
 
     return SkillLintResult(path=path, issues=tuple(issues))
 
@@ -140,8 +208,8 @@ def discover_skill_files(roots: list[Path]) -> list[Path]:
     return sorted(found)
 
 
-def lint_skill_roots(roots: list[Path]) -> list[SkillLintResult]:
-    return [lint_skill_file(path) for path in discover_skill_files(roots)]
+def lint_skill_roots(roots: list[Path], *, link_depth: int = 1) -> list[SkillLintResult]:
+    return [lint_skill_file(path, link_depth=link_depth) for path in discover_skill_files(roots)]
 
 
 def _default_roots() -> list[Path]:
@@ -156,13 +224,20 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=[],
         help="Root directory to scan for SKILL.md files (repeatable)",
     )
+    parser.add_argument(
+        "--link-depth",
+        type=int,
+        default=1,
+        help="Depth for recursive markdown link validation (default: 1)",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     roots = [Path(p).expanduser() for p in args.root] if args.root else _default_roots()
-    results = lint_skill_roots(roots)
+    link_depth = max(1, int(args.link_depth or 1))
+    results = lint_skill_roots(roots, link_depth=link_depth)
     if not results:
         print("No SKILL.md files found.")
         return 1

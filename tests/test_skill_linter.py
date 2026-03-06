@@ -65,6 +65,36 @@ description: Test
     assert "link_missing" in codes
 
 
+def test_lint_skill_file_checks_second_level_links_with_depth_2(tmp_path: Path) -> None:
+    skill_dir = tmp_path / "depth-skill"
+    references = skill_dir / "references"
+    references.mkdir(parents=True)
+    (references / "guide.md").write_text(
+        """# Guide
+
+Zie [verdieping](./missing.md).
+""",
+        encoding="utf-8",
+    )
+    (skill_dir / "SKILL.md").write_text(
+        """---
+name: depth-skill
+description: Test
+---
+
+Zie [guide](references/guide.md).
+""",
+        encoding="utf-8",
+    )
+
+    result_depth_1 = lint_skill_file(skill_dir / "SKILL.md", link_depth=1)
+    assert result_depth_1.ok
+
+    result_depth_2 = lint_skill_file(skill_dir / "SKILL.md", link_depth=2)
+    messages = [issue.message for issue in result_depth_2.issues if issue.code == "link_missing"]
+    assert any("depth 2" in message for message in messages)
+
+
 def test_lint_skill_roots_discovers_nested_skills(tmp_path: Path) -> None:
     root = tmp_path / ".codex" / "skills" / ".system"
     skill_a = root / "alpha"
